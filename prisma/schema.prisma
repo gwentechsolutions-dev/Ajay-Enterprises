@@ -327,6 +327,8 @@ model MaterialVariant {
   rentalBatches            RentalBatch[]
   rentalStatementItems     RentalStatementItem[]
   damageAssessments        DamageLossAssessment[]
+  invoiceItems             InvoiceItem[]
+  purchaseBillItems        PurchaseBillItem[]
 
   @@index([materialCode])
   @@index([materialTypeId])
@@ -394,6 +396,10 @@ model Customer {
   damageAssessments    DamageLossAssessment[]
   depositTransactions  RentalDepositTransaction[]
   siteSettlements      SiteClosureSettlement[]
+  invoices             Invoice[]
+  creditDebitNotes     CreditDebitNote[]
+  paymentReceipts      PaymentReceipt[]
+  journalLines         JournalEntryLine[]
 
   @@index([customerCode])
   @@index([primaryMobile])
@@ -444,6 +450,8 @@ model CustomerSite {
   damageAssessments    DamageLossAssessment[]
   depositTransactions  RentalDepositTransaction[]
   siteSettlements      SiteClosureSettlement[]
+  invoices             Invoice[]
+  journalLines         JournalEntryLine[]
 
   @@index([siteCode])
   @@index([customerId])
@@ -539,6 +547,9 @@ model Supplier {
   purchaseReturns      PurchaseReturn[]
   hiringDeliveryNotes  HiringDeliveryNote[]
   hiringReturnNotes    HiringReturnNote[]
+  purchaseBills        PurchaseBill[]
+  supplierPayments     SupplierPayment[]
+  journalLines         JournalEntryLine[]
 
   @@index([supplierCode])
   @@index([primaryMobile])
@@ -799,6 +810,7 @@ model PurchaseOrder {
   deliveryWarehouse    Warehouse           @relation("DeliveryWarehouse", fields: [deliveryWarehouseId], references: [id], onDelete: Restrict)
   items                PurchaseOrderItem[]
   grns                 GoodsReceiptNote[]
+  purchaseBills        PurchaseBill[]
 
   @@index([poNumber])
   @@index([supplierId])
@@ -849,6 +861,7 @@ model GoodsReceiptNote {
   receivingWarehouse    Warehouse              @relation(fields: [receivingWarehouseId], references: [id], onDelete: Restrict)
   items                 GoodsReceiptNoteItem[]
   purchaseReturns       PurchaseReturn[]
+  purchaseBills         PurchaseBill[]
 
   @@index([grnNumber])
   @@index([purchaseOrderId])
@@ -1437,6 +1450,7 @@ model RentalStatement {
   items                        RentalStatementItem[]
   siteSummaries                RentalStatementSiteSummary[]
   damageAssessments            DamageLossAssessment[]
+  invoices                     Invoice[]
 
   @@index([statementNumber])
   @@index([customerId])
@@ -1624,4 +1638,543 @@ model SiteClosureSettlement {
   @@index([customerId])
   @@index([customerSiteId])
   @@index([status])
+}
+
+
+// ==============================================================================
+// PHASE 5: INVOICING, GST & DOUBLE-ENTRY ACCOUNTING ERP
+// ==============================================================================
+
+// ------------------------------------------------------------------------------
+// 24. Double-Entry Chart of Accounts
+// ------------------------------------------------------------------------------
+
+model ChartOfAccount {
+  id                   String           @id @default(uuid()) @db.Uuid
+  accountCode          String           @unique // e.g. "1000", "1110", "2000", "3000", "4000", "5000"
+  accountName          String           // e.g. "Rental Income", "Accounts Receivable", "HDFC Current A/c"
+  accountCategory      String           // ASSET, LIABILITY, EQUITY, INCOME, EXPENSE
+  accountSubcategory   String           // CASH_IN_HAND, BANK_ACCOUNT, UPI_CLEARING, ACCOUNTS_RECEIVABLE, ACCOUNTS_PAYABLE, CUSTOMER_ADVANCES, SUPPLIER_ADVANCES, SECURITY_DEPOSIT_LIABILITY, RENTAL_INCOME, SALES_INCOME, HIRING_INCOME, SERVICE_INCOME, PURCHASE_EXPENSE, MATERIAL_REPAIR, LABOUR_EXPENSE, VEHICLE_EXPENSE, OFFICE_EXPENSE, GST_INPUT_TAX_CREDIT, GST_OUTPUT_LIABILITY, TDS_PAYABLE, TDS_RECEIVABLE, DEPRECIATION, BAD_DEBTS, OTHER_INCOME, OTHER_EXPENSE
+  parentAccountId      String?          @db.Uuid
+  currency             String           @default("INR")
+  openingBalance       Decimal          @default(0) @db.Decimal(15, 2)
+  openingBalanceType   String           @default("DEBIT") // DEBIT, CREDIT
+  currentBalance       Decimal          @default(0) @db.Decimal(15, 2)
+  isControlAccount     Boolean          @default(false)
+  isSystemProtected    Boolean          @default(false) // cannot be deleted
+  isActive             Boolean          @default(true)
+  bankAccountId        String?          @db.Uuid
+  notes                String?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  parentAccount        ChartOfAccount?  @relation("AccountHierarchy", fields: [parentAccountId], references: [id], onDelete: Restrict)
+  childAccounts        ChartOfAccount[] @relation("AccountHierarchy")
+  journalLines         JournalEntryLine[]
+  receipts             PaymentReceipt[]
+  payments             SupplierPayment[]
+  bankTransactions     BankTransaction[]
+
+  @@index([accountCode])
+  @@index([accountCategory])
+  @@index([accountSubcategory])
+  @@index([parentAccountId])
+}
+
+// ------------------------------------------------------------------------------
+// 25. Accounting Periods & FY Locking
+// ------------------------------------------------------------------------------
+
+model AccountingPeriod {
+  id              String         @id @default(uuid()) @db.Uuid
+  fiscalYear      String         // e.g. "2026-27"
+  periodName      String         // e.g. "May 2026"
+  startDate       DateTime
+  endDate         DateTime
+  isLocked        Boolean        @default(false)
+  lockedById      String?        @db.Uuid
+  lockedAt        DateTime?
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  journalEntries  JournalEntry[]
+
+  @@unique([fiscalYear, periodName])
+  @@index([fiscalYear])
+  @@index([startDate, endDate])
+  @@index([isLocked])
+}
+
+// ------------------------------------------------------------------------------
+// 26. General Ledger Journal Entries
+// ------------------------------------------------------------------------------
+
+model JournalEntry {
+  id                    String             @id @default(uuid()) @db.Uuid
+  journalNumber         String             @unique // e.g. "AE/JRN/2026-27/0001"
+  journalType           String             @default("GENERAL") // GENERAL, SALES, PURCHASE, RECEIPT, PAYMENT, CONTRA, ADJUSTMENT, REVERSAL, YEAR_END_CLOSING
+  postingDate           DateTime           @default(now())
+  accountingPeriodId    String?            @db.Uuid
+  fiscalYear            String             // e.g. "2026-27"
+  narration             String
+  referenceDocumentType String?            // INVOICE, PURCHASE_BILL, PAYMENT_RECEIPT, SUPPLIER_PAYMENT, RENTAL_STATEMENT, SITE_CLOSURE
+  referenceDocumentId   String?
+  referenceNumber       String?
+  totalDebit            Decimal            @db.Decimal(15, 2)
+  totalCredit           Decimal            @db.Decimal(15, 2)
+  isBalanced            Boolean            @default(true)
+  status                String             @default("POSTED") // DRAFT, POSTED, REVERSED
+  postedById            String?            @db.Uuid
+  postedAt              DateTime?          @default(now())
+  reversedById          String?            @db.Uuid
+  reversedAt            DateTime?
+  reversalJournalId     String?            @db.Uuid
+  reversalReason        String?
+  supportingDocUrl      String?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  accountingPeriod      AccountingPeriod?  @relation(fields: [accountingPeriodId], references: [id], onDelete: SetNull)
+  lines                 JournalEntryLine[]
+  invoices              Invoice[]
+  creditDebitNotes      CreditDebitNote[]
+  purchaseBills         PurchaseBill[]
+  receipts              PaymentReceipt[]
+  payments              SupplierPayment[]
+
+  @@index([journalNumber])
+  @@index([journalType])
+  @@index([postingDate])
+  @@index([fiscalYear])
+  @@index([status])
+  @@index([referenceDocumentType, referenceDocumentId])
+}
+
+model JournalEntryLine {
+  id              String          @id @default(uuid()) @db.Uuid
+  journalEntryId  String          @db.Uuid
+  accountId       String          @db.Uuid
+  lineOrder       Int             @default(1)
+  description     String?
+  debitAmount     Decimal         @default(0) @db.Decimal(15, 2)
+  creditAmount    Decimal         @default(0) @db.Decimal(15, 2)
+  customerId      String?         @db.Uuid
+  customerSiteId  String?         @db.Uuid
+  supplierId      String?         @db.Uuid
+  createdAt       DateTime        @default(now())
+
+  journalEntry    JournalEntry    @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account         ChartOfAccount  @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  customer        Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerSite    CustomerSite?   @relation(fields: [customerSiteId], references: [id], onDelete: SetNull)
+  supplier        Supplier?       @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
+  @@index([journalEntryId])
+  @@index([accountId])
+  @@index([customerId])
+  @@index([customerSiteId])
+  @@index([supplierId])
+}
+
+// ------------------------------------------------------------------------------
+// 27. Sales & Rental Invoicing
+// ------------------------------------------------------------------------------
+
+model Invoice {
+  id                   String              @id @default(uuid()) @db.Uuid
+  invoiceNumber        String              @unique // e.g. "AE/INV/2026-27/0001"
+  invoiceType          String              // RENTAL, SALES, SERVICE, HIRING_OUT
+  customerId           String              @db.Uuid
+  customerSiteId       String?             @db.Uuid // Nullable for consolidated invoices
+  rentalStatementId    String?             @db.Uuid // Linked to Phase 4 statement
+  invoiceDate          DateTime            @default(now())
+  dueDate              DateTime
+  fiscalYear           String              // "2026-27"
+  placeOfSupply        String              @default("33") // State Code (33 for Tamil Nadu)
+  isInterState         Boolean             @default(false)
+  customerGstin        String?
+  customerPan          String?
+  billingAddress       Json?
+  shippingAddress      Json?
+  subtotal             Decimal             @default(0) @db.Decimal(15, 2)
+  taxableAmount        Decimal             @default(0) @db.Decimal(15, 2)
+  cgstAmount           Decimal             @default(0) @db.Decimal(15, 2)
+  sgstAmount           Decimal             @default(0) @db.Decimal(15, 2)
+  igstAmount           Decimal             @default(0) @db.Decimal(15, 2)
+  totalTaxAmount       Decimal             @default(0) @db.Decimal(15, 2)
+  roundOff             Decimal             @default(0) @db.Decimal(15, 2)
+  grandTotal           Decimal             @default(0) @db.Decimal(15, 2)
+  paidAmount           Decimal             @default(0) @db.Decimal(15, 2)
+  outstandingAmount    Decimal             @default(0) @db.Decimal(15, 2)
+  paymentStatus        String              @default("UNPAID") // UNPAID, PARTIAL, PAID, OVERDUE
+  status               String              @default("DRAFT") // DRAFT, ISSUED, POSTED, CANCELLED
+  journalEntryId       String?             @db.Uuid
+  irn                  String?             // E-Invoice IRN
+  signedQrCode         String?             // E-Invoice Signed QR
+  ackNumber            String?
+  ackDate              DateTime?
+  eInvoiceStatus       String              @default("NOT_APPLICABLE") // NOT_APPLICABLE, PENDING, GENERATED, FAILED, CANCELLED
+  snapshotPayload      Json?               // Immutability: frozen payload on post
+  notes                String?
+  termsAndConditions   String?
+  createdById          String?             @db.Uuid
+  postedById           String?             @db.Uuid
+  postedAt             DateTime?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  customer             Customer            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  customerSite         CustomerSite?       @relation(fields: [customerSiteId], references: [id], onDelete: SetNull)
+  rentalStatement      RentalStatement?    @relation(fields: [rentalStatementId], references: [id], onDelete: SetNull)
+  journalEntry         JournalEntry?       @relation(fields: [journalEntryId], references: [id], onDelete: SetNull)
+  items                InvoiceItem[]
+  creditDebitNotes     CreditDebitNote[]
+  paymentAllocations   PaymentAllocation[]
+
+  @@index([invoiceNumber])
+  @@index([customerId])
+  @@index([customerSiteId])
+  @@index([rentalStatementId])
+  @@index([invoiceDate])
+  @@index([fiscalYear])
+  @@index([status])
+  @@index([paymentStatus])
+}
+
+model InvoiceItem {
+  id                 String           @id @default(uuid()) @db.Uuid
+  invoiceId          String           @db.Uuid
+  materialVariantId  String?          @db.Uuid
+  itemType           String           @default("RENTAL") // RENTAL, SALES, SERVICE, DAMAGE_CHARGE, MISSING_CHARGE, TRANSPORT, OTHER
+  itemDescription    String
+  hsnSacCode         String           @default("9973") // 9973 rental, 7308 goods
+  quantity           Decimal          @default(1) @db.Decimal(12, 3)
+  uom                String           @default("Nos.")
+  unitRate           Decimal          @default(0) @db.Decimal(15, 2)
+  discountAmount     Decimal          @default(0) @db.Decimal(15, 2)
+  taxableValue       Decimal          @default(0) @db.Decimal(15, 2)
+  gstRatePercent     Decimal          @default(18) @db.Decimal(5, 2)
+  cgstRatePercent    Decimal          @default(9) @db.Decimal(5, 2)
+  cgstAmount         Decimal          @default(0) @db.Decimal(15, 2)
+  sgstRatePercent    Decimal          @default(9) @db.Decimal(5, 2)
+  sgstAmount         Decimal          @default(0) @db.Decimal(15, 2)
+  igstRatePercent    Decimal          @default(0) @db.Decimal(5, 2)
+  igstAmount         Decimal          @default(0) @db.Decimal(15, 2)
+  totalAmount        Decimal          @default(0) @db.Decimal(15, 2)
+  createdAt          DateTime         @default(now())
+
+  invoice            Invoice          @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  materialVariant    MaterialVariant? @relation(fields: [materialVariantId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+  @@index([materialVariantId])
+  @@index([hsnSacCode])
+}
+
+// ------------------------------------------------------------------------------
+// 28. Credit & Debit Notes
+// ------------------------------------------------------------------------------
+
+model CreditDebitNote {
+  id                 String                 @id @default(uuid()) @db.Uuid
+  noteNumber         String                 @unique // e.g. "AE/CN/2026-27/0001" or "AE/DN-ADJ/2026-27/0001"
+  noteType           String                 // CREDIT_NOTE, DEBIT_NOTE
+  invoiceId          String                 @db.Uuid
+  customerId         String                 @db.Uuid
+  noteDate           DateTime               @default(now())
+  fiscalYear         String
+  reason             String                 // RATE_DIFFERENCE, DISCOUNT, QUANTITY_ADJUSTMENT, DAMAGE_WAIVER, RETURN, OTHER
+  taxableAmount      Decimal                @default(0) @db.Decimal(15, 2)
+  cgstAmount         Decimal                @default(0) @db.Decimal(15, 2)
+  sgstAmount         Decimal                @default(0) @db.Decimal(15, 2)
+  igstAmount         Decimal                @default(0) @db.Decimal(15, 2)
+  totalAmount        Decimal                @default(0) @db.Decimal(15, 2)
+  status             String                 @default("POSTED") // DRAFT, ISSUED, POSTED, CANCELLED
+  journalEntryId     String?                @db.Uuid
+  snapshotPayload    Json?
+  remarks            String?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  invoice            Invoice                @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  customer           Customer               @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  journalEntry       JournalEntry?          @relation(fields: [journalEntryId], references: [id], onDelete: SetNull)
+  items              CreditDebitNoteItem[]
+
+  @@index([noteNumber])
+  @@index([noteType])
+  @@index([invoiceId])
+  @@index([customerId])
+  @@index([status])
+}
+
+model CreditDebitNoteItem {
+  id                 String           @id @default(uuid()) @db.Uuid
+  creditDebitNoteId  String           @db.Uuid
+  description        String
+  hsnSacCode         String           @default("9973")
+  taxableValue       Decimal          @default(0) @db.Decimal(15, 2)
+  gstRatePercent     Decimal          @default(18) @db.Decimal(5, 2)
+  cgstAmount         Decimal          @default(0) @db.Decimal(15, 2)
+  sgstAmount         Decimal          @default(0) @db.Decimal(15, 2)
+  igstAmount         Decimal          @default(0) @db.Decimal(15, 2)
+  totalAmount        Decimal          @default(0) @db.Decimal(15, 2)
+
+  creditDebitNote    CreditDebitNote  @relation(fields: [creditDebitNoteId], references: [id], onDelete: Cascade)
+
+  @@index([creditDebitNoteId])
+}
+
+// ------------------------------------------------------------------------------
+// 29. Purchase Bills & Supplier Invoicing
+// ------------------------------------------------------------------------------
+
+model PurchaseBill {
+  id                    String                     @id @default(uuid()) @db.Uuid
+  billNumber            String                     @unique // e.g. "AE/PUR/2026-27/0001"
+  billType              String                     @default("MATERIAL_PURCHASE") // MATERIAL_PURCHASE, EXPENSE, FREIGHT, MAINTENANCE
+  supplierId            String                     @db.Uuid
+  purchaseOrderId       String?                    @db.Uuid
+  goodsReceiptNoteId    String?                    @db.Uuid
+  supplierInvoiceNumber String
+  supplierInvoiceDate   DateTime
+  billDate              DateTime                   @default(now())
+  dueDate               DateTime
+  fiscalYear            String
+  supplierGstin         String?
+  placeOfSupply         String                     @default("33")
+  isInterState          Boolean                    @default(false)
+  itcEligibility        String                     @default("INPUT_GOODS") // INPUT_GOODS, INPUT_SERVICES, CAPITAL_GOODS, INELIGIBLE_SEC_17_5
+  taxableAmount         Decimal                    @default(0) @db.Decimal(15, 2)
+  cgstAmount            Decimal                    @default(0) @db.Decimal(15, 2)
+  sgstAmount            Decimal                    @default(0) @db.Decimal(15, 2)
+  igstAmount            Decimal                    @default(0) @db.Decimal(15, 2)
+  totalTaxAmount        Decimal                    @default(0) @db.Decimal(15, 2)
+  tdsPercent            Decimal                    @default(0) @db.Decimal(5, 2)
+  tdsAmount             Decimal                    @default(0) @db.Decimal(15, 2)
+  grandTotal            Decimal                    @default(0) @db.Decimal(15, 2)
+  paidAmount            Decimal                    @default(0) @db.Decimal(15, 2)
+  outstandingAmount     Decimal                    @default(0) @db.Decimal(15, 2)
+  paymentStatus         String                     @default("UNPAID") // UNPAID, PARTIAL, PAID
+  status                String                     @default("POSTED") // DRAFT, APPROVED, POSTED, CANCELLED
+  journalEntryId        String?                    @db.Uuid
+  supportingDocUrl      String?
+  remarks               String?
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+
+  supplier              Supplier                   @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  purchaseOrder         PurchaseOrder?             @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  goodsReceiptNote      GoodsReceiptNote?          @relation(fields: [goodsReceiptNoteId], references: [id], onDelete: SetNull)
+  journalEntry          JournalEntry?              @relation(fields: [journalEntryId], references: [id], onDelete: SetNull)
+  items                 PurchaseBillItem[]
+  paymentAllocations    SupplierPaymentAllocation[]
+
+  @@unique([supplierId, supplierInvoiceNumber])
+  @@index([billNumber])
+  @@index([supplierId])
+  @@index([purchaseOrderId])
+  @@index([goodsReceiptNoteId])
+  @@index([status])
+  @@index([paymentStatus])
+}
+
+model PurchaseBillItem {
+  id                 String           @id @default(uuid()) @db.Uuid
+  purchaseBillId     String           @db.Uuid
+  materialVariantId  String?          @db.Uuid
+  description        String
+  hsnSacCode         String           @default("7308")
+  quantity           Decimal          @default(1) @db.Decimal(12, 3)
+  uom                String           @default("Nos.")
+  unitRate           Decimal          @default(0) @db.Decimal(15, 2)
+  taxableValue       Decimal          @default(0) @db.Decimal(15, 2)
+  gstRatePercent     Decimal          @default(18) @db.Decimal(5, 2)
+  cgstAmount         Decimal          @default(0) @db.Decimal(15, 2)
+  sgstAmount         Decimal          @default(0) @db.Decimal(15, 2)
+  igstAmount         Decimal          @default(0) @db.Decimal(15, 2)
+  totalAmount        Decimal          @default(0) @db.Decimal(15, 2)
+  createdAt          DateTime         @default(now())
+
+  purchaseBill       PurchaseBill     @relation(fields: [purchaseBillId], references: [id], onDelete: Cascade)
+  materialVariant    MaterialVariant? @relation(fields: [materialVariantId], references: [id], onDelete: SetNull)
+
+  @@index([purchaseBillId])
+  @@index([materialVariantId])
+}
+
+// ------------------------------------------------------------------------------
+// 30. Customer Receipts & Payment Allocations
+// ------------------------------------------------------------------------------
+
+model PaymentReceipt {
+  id                   String              @id @default(uuid()) @db.Uuid
+  receiptNumber        String              @unique // e.g. "AE/REC/2026-27/0001"
+  customerId           String              @db.Uuid
+  paymentDate          DateTime            @default(now())
+  fiscalYear           String              // "2026-27"
+  paymentMethod        String              // CASH, BANK_TRANSFER, NEFT_RTGS, UPI, CHEQUE
+  depositAccountId     String              @db.Uuid // Bank or Cash ChartOfAccount
+  amountReceived       Decimal             @db.Decimal(15, 2)
+  allocatedAmount      Decimal             @default(0) @db.Decimal(15, 2)
+  unallocatedAmount    Decimal             @default(0) @db.Decimal(15, 2) // Advance
+  transactionReference String?             // UTR, Cheque No, UPI Ref
+  bankName             String?
+  chequeDate           DateTime?
+  chequeStatus         String?             // PENDING_CLEARING, CLEARED, BOUNCED
+  status               String              @default("POSTED") // DRAFT, POSTED, REVERSED
+  journalEntryId       String?             @db.Uuid
+  supportingDocUrl     String?
+  notes                String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  customer             Customer            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  depositAccount       ChartOfAccount      @relation(fields: [depositAccountId], references: [id], onDelete: Restrict)
+  journalEntry         JournalEntry?       @relation(fields: [journalEntryId], references: [id], onDelete: SetNull)
+  allocations          PaymentAllocation[]
+
+  @@index([receiptNumber])
+  @@index([customerId])
+  @@index([paymentDate])
+  @@index([status])
+}
+
+model PaymentAllocation {
+  id               String         @id @default(uuid()) @db.Uuid
+  receiptId        String         @db.Uuid
+  invoiceId        String         @db.Uuid
+  allocatedAmount  Decimal        @db.Decimal(15, 2)
+  allocationDate   DateTime       @default(now())
+
+  receipt          PaymentReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  invoice          Invoice        @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+
+  @@index([receiptId])
+  @@index([invoiceId])
+}
+
+// ------------------------------------------------------------------------------
+// 31. Supplier Payments & Bill Settlements
+// ------------------------------------------------------------------------------
+
+model SupplierPayment {
+  id                   String                      @id @default(uuid()) @db.Uuid
+  paymentNumber        String                      @unique // e.g. "AE/PAY/2026-27/0001"
+  supplierId           String                      @db.Uuid
+  paymentDate          DateTime                    @default(now())
+  fiscalYear           String
+  paymentMethod        String                      // BANK_TRANSFER, NEFT_RTGS, UPI, CASH, CHEQUE
+  disbursingAccountId  String                      @db.Uuid
+  amountPaid           Decimal                     @db.Decimal(15, 2)
+  allocatedAmount      Decimal                     @default(0) @db.Decimal(15, 2)
+  unallocatedAmount    Decimal                     @default(0) @db.Decimal(15, 2) // Supplier Advance
+  transactionReference String?
+  status               String                      @default("POSTED") // DRAFT, POSTED, REVERSED
+  journalEntryId       String?                     @db.Uuid
+  notes                String?
+  createdAt            DateTime                    @default(now())
+  updatedAt            DateTime                    @updatedAt
+
+  supplier             Supplier                    @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  disbursingAccount    ChartOfAccount              @relation(fields: [disbursingAccountId], references: [id], onDelete: Restrict)
+  journalEntry         JournalEntry?               @relation(fields: [journalEntryId], references: [id], onDelete: SetNull)
+  allocations          SupplierPaymentAllocation[]
+
+  @@index([paymentNumber])
+  @@index([supplierId])
+  @@index([paymentDate])
+  @@index([status])
+}
+
+model SupplierPaymentAllocation {
+  id                String          @id @default(uuid()) @db.Uuid
+  supplierPaymentId String          @db.Uuid
+  purchaseBillId    String          @db.Uuid
+  allocatedAmount   Decimal         @db.Decimal(15, 2)
+  allocationDate    DateTime        @default(now())
+
+  supplierPayment   SupplierPayment @relation(fields: [supplierPaymentId], references: [id], onDelete: Cascade)
+  purchaseBill      PurchaseBill    @relation(fields: [purchaseBillId], references: [id], onDelete: Restrict)
+
+  @@index([supplierPaymentId])
+  @@index([purchaseBillId])
+}
+
+// ------------------------------------------------------------------------------
+// 32. Bank & Cash Transactions / Contra Vouchers
+// ------------------------------------------------------------------------------
+
+model BankTransaction {
+  id                    String         @id @default(uuid()) @db.Uuid
+  transactionNumber     String         @unique // e.g. "TXN-2026-0001"
+  transactionType       String         // DEPOSIT, WITHDRAWAL, CONTRA_TRANSFER, BANK_CHARGE, INTEREST
+  accountId             String         @db.Uuid
+  counterpartyAccountId String?        @db.Uuid // Destination or Source for CONTRA transfers
+  transactionDate       DateTime       @default(now())
+  amount                Decimal        @db.Decimal(15, 2)
+  referenceNumber       String?
+  description           String
+  isReconciled          Boolean        @default(false)
+  reconciledDate        DateTime?
+  statementReference    String?
+  createdAt             DateTime       @default(now())
+
+  account               ChartOfAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([accountId])
+  @@index([transactionType])
+  @@index([transactionDate])
+  @@index([isReconciled])
+}
+
+// ------------------------------------------------------------------------------
+// 33. Financial Year Closing & Period Locks
+// ------------------------------------------------------------------------------
+
+model FinancialYearClosing {
+  id                          String    @id @default(uuid()) @db.Uuid
+  fiscalYear                  String    @unique // e.g. "2025-26"
+  startDate                   DateTime
+  endDate                     DateTime
+  isClosed                    Boolean   @default(false)
+  closedAt                    DateTime?
+  closedById                  String?   @db.Uuid
+  retainedEarningsTransferred Decimal   @default(0) @db.Decimal(15, 2)
+  closingJournalId            String?   @db.Uuid
+  remarks                     String?
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
+}
+
+// ------------------------------------------------------------------------------
+// 34. GST & HSN/SAC Master Data
+// ------------------------------------------------------------------------------
+
+model TaxRateMaster {
+  id            String    @id @default(uuid()) @db.Uuid
+  taxName       String    @unique // GST 18%, GST 12%, GST 5%, GST 28%, GST 0%
+  ratePercent   Decimal   @db.Decimal(5, 2)
+  cgstPercent   Decimal   @db.Decimal(5, 2)
+  sgstPercent   Decimal   @db.Decimal(5, 2)
+  igstPercent   Decimal   @db.Decimal(5, 2)
+  isDefault     Boolean   @default(false)
+  effectiveFrom DateTime  @default(now())
+  effectiveTo   DateTime?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model HsnSacMaster {
+  id             String   @id @default(uuid()) @db.Uuid
+  code           String   @unique // "9973", "7308", "9954"
+  type           String   // HSN, SAC
+  description    String
+  defaultGstRate Decimal  @default(18) @db.Decimal(5, 2)
+  category       String   // RENTAL, SCAFFOLDING_SUPPLY, TRANSPORT, LABOUR
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }

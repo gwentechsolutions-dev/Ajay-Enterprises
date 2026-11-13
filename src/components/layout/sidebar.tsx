@@ -34,6 +34,11 @@ import {
   Calculator,
   AlertTriangle,
   CheckCircle2,
+  DollarSign,
+  Landmark,
+  Scale,
+  FileSpreadsheet,
+  Calendar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -99,6 +104,21 @@ const NAVIGATION: NavGroup[] = [
     ],
   },
   {
+    group: "Invoicing & Financial ERP",
+    items: [
+      { title: "Tax Invoices", href: "/invoices", icon: FileText },
+      { title: "Purchase Bills", href: "/purchases/bills", icon: ShoppingBag },
+      { title: "Accounting Hub", href: "/accounting", icon: BookOpen },
+      { title: "Chart of Accounts", href: "/accounting/accounts", icon: Layers },
+      { title: "General Ledger", href: "/accounting/journals", icon: FileSpreadsheet },
+      { title: "Receipts & Payments", href: "/accounting/payments", icon: DollarSign },
+      { title: "Banking & Contra", href: "/accounting/banking", icon: Landmark },
+      { title: "GST & Statutory Tax", href: "/accounting/gst", icon: Receipt },
+      { title: "Financial Reports", href: "/accounting/reports", icon: Scale },
+      { title: "Fiscal Years & Locks", href: "/accounting/periods", icon: Calendar },
+    ],
+  },
+  {
     group: "Administration",
     items: [
       { title: "Company Profile", href: "/company", icon: Building2 },
@@ -109,10 +129,9 @@ const NAVIGATION: NavGroup[] = [
     ],
   },
   {
-    group: "Upcoming (Phase 4+)",
+    group: "Upcoming (Phase 6+)",
     items: [
-      { title: "Rental Billing", href: "/billing", icon: Receipt, disabled: true, badge: "Phase 4" },
-      { title: "General Ledger", href: "/accounting", icon: BookOpen, disabled: true, badge: "Phase 4" },
+      { title: "Company Fleet Ops", href: "/fleet", icon: Truck, disabled: true, badge: "Phase 6" },
       { title: "Labour Attendance", href: "/labour", icon: HardHat, disabled: true, badge: "Phase 6" },
     ],
   },
