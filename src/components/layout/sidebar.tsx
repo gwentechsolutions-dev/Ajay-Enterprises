@@ -22,6 +22,9 @@ import {
   ChevronRight,
   HardHat,
   Lock,
+  Layers,
+  ClipboardCheck,
+  Factory,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +46,17 @@ const NAVIGATION: NavGroup[] = [
     group: "Overview",
     items: [
       { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { title: "Inventory Hub", href: "/inventory", icon: Boxes },
+    ],
+  },
+  {
+    group: "Materials & Operations",
+    items: [
+      { title: "Material Catalogue", href: "/materials", icon: Layers },
+      { title: "Movement Ledger", href: "/movements", icon: Truck },
+      { title: "Stock Verification", href: "/inventory/audits", icon: ClipboardCheck },
+      { title: "Customers & Sites", href: "/customers", icon: Users2 },
+      { title: "Suppliers", href: "/suppliers", icon: Factory },
     ],
   },
   {
@@ -63,11 +77,8 @@ const NAVIGATION: NavGroup[] = [
     ],
   },
   {
-    group: "Operations (Phase 2+)",
+    group: "Upcoming (Phase 3+)",
     items: [
-      { title: "Customers & Sites", href: "/customers", icon: Users2, disabled: true, badge: "Phase 2" },
-      { title: "Material Inventory", href: "/inventory", icon: Boxes, disabled: true, badge: "Phase 2" },
-      { title: "Dispatches (DN/MRN)", href: "/movements", icon: Truck, disabled: true, badge: "Phase 2" },
       { title: "Rental Billing", href: "/billing", icon: Receipt, disabled: true, badge: "Phase 3" },
       { title: "General Ledger", href: "/accounting", icon: BookOpen, disabled: true, badge: "Phase 4" },
       { title: "Labour Attendance", href: "/labour", icon: HardHat, disabled: true, badge: "Phase 6" },

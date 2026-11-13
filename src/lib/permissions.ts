@@ -3,14 +3,16 @@ import { SessionUser } from "./auth";
 
 export const ROLES = [
   { id: "OWNER", label: "Owner / Super Admin", description: "Full business control, executive overview, financial and audit authority" },
-  { id: "ADMIN", label: "Administrator", description: "Operational and administrative system management" },
+  { id: "ADMINISTRATOR", label: "Administrator", description: "Operational and administrative system management" },
+  { id: "ADMIN", label: "Administrator (Legacy Alias)", description: "Operational and administrative system management" },
   { id: "ACCOUNTANT", label: "Accountant", description: "Invoicing, monthly billing, ledgers, vouchers, tax & GST compliance" },
   { id: "WAREHOUSE_MANAGER", label: "Warehouse Manager", description: "Stock oversight, receipts, dispatch staging, and inventory counts" },
   { id: "WAREHOUSE_STAFF", label: "Warehouse Staff", description: "Physical picking, loading confirmation, and return inspection" },
   { id: "DELIVERY_MANAGER", label: "Delivery Manager", description: "Fleet dispatch scheduling, vehicle assignments, and route tracking" },
   { id: "DELIVERY_PERSONNEL", label: "Delivery Personnel", description: "Mobile delivery execution, GPS site photo capture, and receiver sign-off" },
   { id: "LABOUR_SUPERVISOR", label: "Labour Supervisor", description: "Worker attendance, site allocation, and overtime management" },
-  { id: "READ_ONLY", label: "Read-Only / Auditor", description: "Read-only reporting, ledger inspection, and audit exports" },
+  { id: "AUDITOR", label: "Auditor / Read-Only", description: "Read-only reporting, ledger inspection, and audit exports" },
+  { id: "READ_ONLY", label: "Read-Only (Legacy Alias)", description: "Read-only reporting, ledger inspection, and audit exports" },
 ] as const;
 
 export type RoleType = (typeof ROLES)[number]["id"];
@@ -25,8 +27,10 @@ export const MODULES = [
   { id: "document_settings", label: "Document Series & Numbering" },
   { id: "audit_logs", label: "Audit Logs & History" },
   { id: "customers", label: "Customers & Sites" },
+  { id: "suppliers", label: "Suppliers Master" },
   { id: "inventory", label: "Inventory Master" },
   { id: "movement", label: "Material Movements (DN/MRN/STN)" },
+  { id: "stock_audit", label: "Stock Verification & Audit" },
   { id: "billing", label: "Rental Billing Engine" },
   { id: "accounting", label: "General Ledger & Accounting" },
   { id: "fleet", label: "Company Fleet" },
@@ -60,12 +64,33 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     document_settings: ["view", "create", "edit"],
     audit_logs: ["view", "export"],
     customers: ["view", "create", "edit", "approve", "export"],
+    suppliers: ["view", "create", "edit", "approve", "export"],
     inventory: ["view", "create", "edit", "approve", "export"],
     movement: ["view", "create", "edit", "approve", "post", "cancel", "export"],
+    stock_audit: ["view", "create", "edit", "approve", "post", "cancel", "export"],
     billing: ["view", "create", "edit", "approve", "post", "cancel", "export"],
     accounting: ["view", "create", "edit", "approve", "post", "cancel", "export"],
     fleet: ["view", "create", "edit", "export"],
     labour: ["view", "create", "edit", "approve", "export"],
+  },
+  ADMINISTRATOR: {
+    dashboard: ["view", "export"],
+    company: ["view", "edit"],
+    branches: ["view", "create", "edit", "export"],
+    warehouses: ["view", "create", "edit", "export"],
+    users: ["view", "create", "edit", "export"],
+    roles: ["view"],
+    document_settings: ["view", "create", "edit"],
+    audit_logs: ["view", "export"],
+    customers: ["view", "create", "edit", "export"],
+    suppliers: ["view", "create", "edit", "export"],
+    inventory: ["view", "create", "edit", "export"],
+    movement: ["view", "create", "edit", "cancel", "export"],
+    stock_audit: ["view", "create", "edit", "export"],
+    billing: ["view", "create", "export"],
+    accounting: ["view", "export"],
+    fleet: ["view", "create", "edit", "export"],
+    labour: ["view", "create", "edit", "export"],
   },
   ADMIN: {
     dashboard: ["view", "export"],
@@ -77,8 +102,10 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     document_settings: ["view", "create", "edit"],
     audit_logs: ["view", "export"],
     customers: ["view", "create", "edit", "export"],
+    suppliers: ["view", "create", "edit", "export"],
     inventory: ["view", "create", "edit", "export"],
     movement: ["view", "create", "edit", "cancel", "export"],
+    stock_audit: ["view", "create", "edit", "export"],
     billing: ["view", "create", "export"],
     accounting: ["view", "export"],
     fleet: ["view", "create", "edit", "export"],
@@ -94,8 +121,10 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     document_settings: ["view"],
     audit_logs: ["view"],
     customers: ["view", "create", "edit", "export"],
+    suppliers: ["view", "create", "edit", "export"],
     inventory: ["view", "export"],
     movement: ["view", "export"],
+    stock_audit: ["view", "export"],
     billing: ["view", "create", "edit", "approve", "post", "cancel", "export"],
     accounting: ["view", "create", "edit", "approve", "post", "cancel", "export"],
     fleet: ["view"],
@@ -111,8 +140,10 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     document_settings: ["view"],
     audit_logs: [],
     customers: ["view"],
+    suppliers: ["view"],
     inventory: ["view", "create", "edit", "approve", "export"],
     movement: ["view", "create", "edit", "approve", "post", "export"],
+    stock_audit: ["view", "create", "edit", "approve", "post", "export"],
     billing: [],
     accounting: [],
     fleet: ["view"],
@@ -128,8 +159,10 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     document_settings: [],
     audit_logs: [],
     customers: ["view"],
+    suppliers: ["view"],
     inventory: ["view"],
     movement: ["view", "create", "edit"],
+    stock_audit: ["view", "create", "edit"],
     billing: [],
     accounting: [],
     fleet: [],
@@ -145,8 +178,10 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     document_settings: [],
     audit_logs: [],
     customers: ["view"],
+    suppliers: ["view"],
     inventory: ["view"],
     movement: ["view", "create", "edit", "approve"],
+    stock_audit: [],
     billing: [],
     accounting: [],
     fleet: ["view", "create", "edit"],
@@ -162,8 +197,10 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     document_settings: [],
     audit_logs: [],
     customers: ["view"],
+    suppliers: [],
     inventory: [],
     movement: ["view", "edit"],
+    stock_audit: [],
     billing: [],
     accounting: [],
     fleet: ["view"],
@@ -179,12 +216,33 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     document_settings: [],
     audit_logs: [],
     customers: ["view"],
+    suppliers: [],
     inventory: [],
     movement: [],
+    stock_audit: [],
     billing: [],
     accounting: [],
     fleet: [],
     labour: ["view", "create", "edit", "approve"],
+  },
+  AUDITOR: {
+    dashboard: ["view"],
+    company: ["view"],
+    branches: ["view"],
+    warehouses: ["view"],
+    users: [],
+    roles: [],
+    document_settings: ["view"],
+    audit_logs: ["view"],
+    customers: ["view", "export"],
+    suppliers: ["view", "export"],
+    inventory: ["view", "export"],
+    movement: ["view", "export"],
+    stock_audit: ["view", "export"],
+    billing: ["view", "export"],
+    accounting: ["view", "export"],
+    fleet: ["view"],
+    labour: ["view"],
   },
   READ_ONLY: {
     dashboard: ["view"],
@@ -196,8 +254,10 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     document_settings: ["view"],
     audit_logs: ["view"],
     customers: ["view", "export"],
+    suppliers: ["view", "export"],
     inventory: ["view", "export"],
     movement: ["view", "export"],
+    stock_audit: ["view", "export"],
     billing: ["view", "export"],
     accounting: ["view", "export"],
     fleet: ["view"],
@@ -262,7 +322,37 @@ export async function checkPermission(
     },
   });
 
-  return !!perm?.isAllowed;
+  if (perm) return !!perm.isAllowed;
+
+  // Check alias if role is configured under alternative identifier
+  const aliasMap: Record<string, string> = {
+    ADMINISTRATOR: "ADMIN",
+    ADMIN: "ADMINISTRATOR",
+    AUDITOR: "READ_ONLY",
+    READ_ONLY: "AUDITOR",
+  };
+
+  const alias = aliasMap[role];
+  if (alias) {
+    const aliasPerm = await db.rolePermission.findUnique({
+      where: {
+        role_module_action: {
+          role: alias,
+          module,
+          action,
+        },
+      },
+    });
+    if (aliasPerm) return !!aliasPerm.isAllowed;
+  }
+
+  // Fallback to static defaults if not yet initialized in DB
+  const defaultRoleMap = DEFAULT_ROLE_PERMISSIONS[role] || (alias ? DEFAULT_ROLE_PERMISSIONS[alias] : undefined);
+  if (defaultRoleMap && defaultRoleMap[module]) {
+    return defaultRoleMap[module].includes(action);
+  }
+
+  return false;
 }
 
 export async function requirePermission(

@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
         mobile: data.mobile,
         gpsLatitude: data.gpsLatitude || null,
         gpsLongitude: data.gpsLongitude || null,
+        storageCapacitySqFt: data.storageCapacitySqFt || null,
         isActive: data.isActive,
       },
       include: {

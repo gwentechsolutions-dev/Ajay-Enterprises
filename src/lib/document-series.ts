@@ -19,6 +19,12 @@ export const DOCUMENT_TYPES = [
   { id: "RECEIPT", label: "Customer Payment Receipt", defaultPrefix: "AE/REC/" },
   { id: "PAYMENT_VOUCHER", label: "Supplier / Expense Payment Voucher", defaultPrefix: "AE/PAY/" },
   { id: "JOURNAL", label: "General Ledger Journal", defaultPrefix: "AE/JRN/" },
+  { id: "MAT", label: "Material Variant Code", defaultPrefix: "MAT-" },
+  { id: "CUST", label: "Customer ID", defaultPrefix: "CUST-" },
+  { id: "SITE", label: "Customer Construction Site ID", defaultPrefix: "SITE-" },
+  { id: "SUP", label: "Supplier ID", defaultPrefix: "SUP-" },
+  { id: "MV", label: "Inventory Movement Reference", defaultPrefix: "MV-" },
+  { id: "AUD", label: "Physical Stock Audit Reference", defaultPrefix: "AUD-" },
 ] as const;
 
 export type DocumentTypeId = (typeof DOCUMENT_TYPES)[number]["id"];

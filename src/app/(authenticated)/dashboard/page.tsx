@@ -21,6 +21,10 @@ import {
   HardHat,
   Lock,
   Sparkles,
+  Users2,
+  Layers,
+  ClipboardCheck,
+  Factory,
 } from "lucide-react";
 
 export default async function DashboardPage() {
@@ -32,6 +36,9 @@ export default async function DashboardPage() {
     warehouseCount,
     seriesCount,
     auditCount,
+    customerCount,
+    variantCount,
+    movementCount,
     company,
   ] = await Promise.all([
     db.user.count(),
@@ -39,6 +46,9 @@ export default async function DashboardPage() {
     db.warehouse.count(),
     db.documentSeries.count({ where: { isActive: true } }),
     db.auditEvent.count(),
+    db.customer.count(),
+    db.materialVariant.count(),
+    db.inventoryMovement.count(),
     db.companyProfile.findFirst(),
   ]);
 
@@ -53,8 +63,8 @@ export default async function DashboardPage() {
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">
               Executive Overview
             </h1>
-            <Badge variant="outline" className="text-xs bg-primary-50 text-primary-900 border-primary-200 font-semibold">
-              Phase 1 Platform
+            <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-900 border-emerald-200 font-semibold">
+              Phase 2 Active
             </Badge>
           </div>
           <p className="text-sm text-slate-500">
@@ -63,14 +73,14 @@ export default async function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Link href="/company">
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-              <Building2 className="h-3.5 w-3.5" /> Company Profile
+          <Link href="/inventory">
+            <Button size="sm" className="gap-1.5 text-xs bg-[#0B1E36] hover:bg-[#071424] text-white">
+              <Boxes className="h-3.5 w-3.5" /> Inventory Intelligence
             </Button>
           </Link>
-          <Link href="/users">
-            <Button size="sm" className="gap-1.5 text-xs bg-primary-900 hover:bg-primary-800">
-              <Users className="h-3.5 w-3.5" /> Manage Users
+          <Link href="/movements">
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+              <Truck className="h-3.5 w-3.5" /> Movements Ledger
             </Button>
           </Link>
         </div>
@@ -96,221 +106,190 @@ export default async function DashboardPage() {
         </Alert>
       )}
 
-      {/* Core Platform Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {/* Active Users */}
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Users & Roles
-            </CardTitle>
-            <div className="h-8 w-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center">
-              <Users className="h-4 w-4" />
+      {/* Core Platform & Operational Metric Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <Link href="/customers" className="block">
+          <Card className="p-4 hover:border-slate-300 transition-colors bg-white">
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span className="text-xs font-semibold uppercase tracking-wider">Customers</span>
+              <Users2 className="h-4 w-4 text-blue-600" />
             </div>
-          </CardHeader>
-          <CardContent className="p-4 pt-1">
-            <div className="text-2xl font-bold text-slate-900">{userCount}</div>
-            <p className="text-[11px] text-slate-500 mt-1">Configured accounts</p>
-          </CardContent>
-        </Card>
+            <div className="text-2xl font-bold font-mono text-slate-900">{customerCount}</div>
+            <div className="text-[11px] text-slate-400 mt-1">Multi-site accounts</div>
+          </Card>
+        </Link>
 
-        {/* Branches */}
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Branches
-            </CardTitle>
-            <div className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
-              <GitBranch className="h-4 w-4" />
+        <Link href="/materials" className="block">
+          <Card className="p-4 hover:border-slate-300 transition-colors bg-white">
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span className="text-xs font-semibold uppercase tracking-wider">Materials</span>
+              <Layers className="h-4 w-4 text-[#F26522]" />
             </div>
-          </CardHeader>
-          <CardContent className="p-4 pt-1">
-            <div className="text-2xl font-bold text-slate-900">{branchCount}</div>
-            <p className="text-[11px] text-slate-500 mt-1">Active business branches</p>
-          </CardContent>
-        </Card>
+            <div className="text-2xl font-bold font-mono text-slate-900">{variantCount}</div>
+            <div className="text-[11px] text-slate-400 mt-1">Active variants</div>
+          </Card>
+        </Link>
 
-        {/* Warehouses / Yards */}
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Yards & Storage
-            </CardTitle>
-            <div className="h-8 w-8 rounded-lg bg-orange-50 text-accent-600 flex items-center justify-center">
-              <Warehouse className="h-4 w-4" />
+        <Link href="/movements" className="block">
+          <Card className="p-4 hover:border-slate-300 transition-colors bg-white">
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span className="text-xs font-semibold uppercase tracking-wider">Movements</span>
+              <Truck className="h-4 w-4 text-emerald-600" />
             </div>
-          </CardHeader>
-          <CardContent className="p-4 pt-1">
-            <div className="text-2xl font-bold text-slate-900">{warehouseCount}</div>
-            <p className="text-[11px] text-slate-500 mt-1">Material storage yards</p>
-          </CardContent>
-        </Card>
+            <div className="text-2xl font-bold font-mono text-slate-900">{movementCount}</div>
+            <div className="text-[11px] text-slate-400 mt-1">Immutable ledger entries</div>
+          </Card>
+        </Link>
 
-        {/* Document Series */}
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Doc Series
-            </CardTitle>
-            <div className="h-8 w-8 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center">
-              <FileDigit className="h-4 w-4" />
+        <Link href="/warehouses" className="block">
+          <Card className="p-4 hover:border-slate-300 transition-colors bg-white">
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span className="text-xs font-semibold uppercase tracking-wider">Yards</span>
+              <Warehouse className="h-4 w-4 text-purple-600" />
             </div>
-          </CardHeader>
-          <CardContent className="p-4 pt-1">
-            <div className="text-2xl font-bold text-slate-900">{seriesCount}</div>
-            <p className="text-[11px] text-slate-500 mt-1">Sequential counters</p>
-          </CardContent>
-        </Card>
+            <div className="text-2xl font-bold font-mono text-slate-900">{warehouseCount}</div>
+            <div className="text-[11px] text-slate-400 mt-1">Storage warehouses</div>
+          </Card>
+        </Link>
 
-        {/* Audit Log Events */}
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Audit Events
-            </CardTitle>
-            <div className="h-8 w-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center">
-              <History className="h-4 w-4" />
+        <Link href="/users" className="block">
+          <Card className="p-4 hover:border-slate-300 transition-colors bg-white">
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span className="text-xs font-semibold uppercase tracking-wider">Users</span>
+              <Users className="h-4 w-4 text-indigo-600" />
             </div>
-          </CardHeader>
-          <CardContent className="p-4 pt-1">
-            <div className="text-2xl font-bold text-slate-900">{auditCount}</div>
-            <p className="text-[11px] text-slate-500 mt-1">Append-only log entries</p>
-          </CardContent>
-        </Card>
+            <div className="text-2xl font-bold font-mono text-slate-900">{userCount}</div>
+            <div className="text-[11px] text-slate-400 mt-1">RBAC profiles</div>
+          </Card>
+        </Link>
+
+        <Link href="/audit-logs" className="block">
+          <Card className="p-4 hover:border-slate-300 transition-colors bg-white">
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span className="text-xs font-semibold uppercase tracking-wider">Audit Logs</span>
+              <History className="h-4 w-4 text-amber-600" />
+            </div>
+            <div className="text-2xl font-bold font-mono text-slate-900">{auditCount}</div>
+            <div className="text-[11px] text-slate-400 mt-1">Security audit trail</div>
+          </Card>
+        </Link>
       </div>
 
-      {/* Main Administrative Control Hub */}
+      {/* Main Content Grid: Modules & Roadmap */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Cols: Platform Modules */}
-        <div className="lg:col-span-2 space-y-4">
-          <h2 className="text-base font-bold text-slate-900">Platform Foundation Services</h2>
+        {/* Left 2 Cols: Phase 2 Operations & Core Platform */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Phase 2 Operations */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <span>Phase 2: Master Data & Inventory Management</span>
+                <Badge className="bg-emerald-600 text-[10px]">Live</Badge>
+              </h2>
+            </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Company Profile Link */}
-            <Card className="p-5 flex flex-col justify-between hover:border-slate-300 transition-colors">
-              <div>
-                <div className="flex items-center gap-2.5 mb-2">
-                  <div className="p-2 rounded-lg bg-primary-50 text-primary-900">
-                    <Building2 className="h-5 w-5" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Card className="p-5 flex flex-col justify-between hover:border-slate-300 transition-colors">
+                <div>
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <div className="p-2 rounded-lg bg-orange-50 text-[#F26522]">
+                      <Layers className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">Material Master Catalogue</h3>
+                      <p className="text-xs text-slate-500">Centering Hierarchy & Rates</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900">AJAY ENTERPRISES Profile</h3>
-                    <p className="text-xs text-slate-500">Legal, Tax & Bank Setup</p>
-                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                    Manage categories, material types (Props, Sheets, Column Boxes), sizes, variants, UOMs, and rental rate versioning history.
+                  </p>
                 </div>
-                <p className="text-xs text-slate-600 leading-relaxed mb-4">
-                  Manage GST registrations, registered offices, multiple bank accounts, UPI IDs, authorized signatories, and stamp images.
-                </p>
-              </div>
-              <Link href="/company">
-                <Button variant="outline" size="sm" className="w-full text-xs">
-                  Configure Company <ArrowRight className="h-3 w-3 ml-1.5" />
-                </Button>
-              </Link>
-            </Card>
+                <Link href="/materials">
+                  <Button variant="outline" size="sm" className="w-full text-xs">
+                    Open Catalogue <ArrowRight className="h-3 w-3 ml-1.5" />
+                  </Button>
+                </Link>
+              </Card>
 
-            {/* Branches & Yards */}
-            <Card className="p-5 flex flex-col justify-between hover:border-slate-300 transition-colors">
-              <div>
-                <div className="flex items-center gap-2.5 mb-2">
-                  <div className="p-2 rounded-lg bg-emerald-50 text-emerald-800">
-                    <GitBranch className="h-5 w-5" />
+              <Card className="p-5 flex flex-col justify-between hover:border-slate-300 transition-colors">
+                <div>
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <div className="p-2 rounded-lg bg-emerald-50 text-emerald-800">
+                      <Truck className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">Movement Ledger</h3>
+                      <p className="text-xs text-slate-500">Immutable Stock History</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900">Branches & Yards</h3>
-                    <p className="text-xs text-slate-500">Operating Locations</p>
-                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                    Record receipts, customer dispatches, returns, transfers, damage, and opening stock with mathematical derivation.
+                  </p>
                 </div>
-                <p className="text-xs text-slate-600 leading-relaxed mb-4">
-                  Define central business branches and warehouse yards with contact persons, mobile numbers, and GPS coordinates for dispatch points.
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Link href="/branches" className="flex-1">
+                <Link href="/movements">
                   <Button variant="outline" size="sm" className="w-full text-xs">
-                    Branches
+                    View Movement Ledger <ArrowRight className="h-3 w-3 ml-1.5" />
                   </Button>
                 </Link>
-                <Link href="/warehouses" className="flex-1">
-                  <Button variant="outline" size="sm" className="w-full text-xs">
-                    Warehouses
-                  </Button>
-                </Link>
-              </div>
-            </Card>
+              </Card>
 
-            {/* Users & RBAC */}
-            <Card className="p-5 flex flex-col justify-between hover:border-slate-300 transition-colors">
-              <div>
-                <div className="flex items-center gap-2.5 mb-2">
-                  <div className="p-2 rounded-lg bg-blue-50 text-blue-800">
-                    <Users className="h-5 w-5" />
+              <Card className="p-5 flex flex-col justify-between hover:border-slate-300 transition-colors">
+                <div>
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <div className="p-2 rounded-lg bg-blue-50 text-blue-800">
+                      <Users2 className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">Customers & Construction Sites</h3>
+                      <p className="text-xs text-slate-500">Multi-Site Architecture</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900">Users & RBAC</h3>
-                    <p className="text-xs text-slate-500">Granular Access Control</p>
-                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                    Manage unlimited construction sites per customer, site contacts, delivery permissions, and live on-site material custody.
+                  </p>
                 </div>
-                <p className="text-xs text-slate-600 leading-relaxed mb-4">
-                  Manage internal users across 9 roles (Owner, Accountant, Warehouse Staff, Drivers) with record-level scope boundaries.
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Link href="/users" className="flex-1">
+                <Link href="/customers">
                   <Button variant="outline" size="sm" className="w-full text-xs">
-                    Users
+                    Manage Customers <ArrowRight className="h-3 w-3 ml-1.5" />
                   </Button>
                 </Link>
-                <Link href="/roles" className="flex-1">
-                  <Button variant="outline" size="sm" className="w-full text-xs">
-                    Permission Matrix
-                  </Button>
-                </Link>
-              </div>
-            </Card>
+              </Card>
 
-            {/* Document Series & Audits */}
-            <Card className="p-5 flex flex-col justify-between hover:border-slate-300 transition-colors">
-              <div>
-                <div className="flex items-center gap-2.5 mb-2">
-                  <div className="p-2 rounded-lg bg-purple-50 text-purple-800">
-                    <FileDigit className="h-5 w-5" />
+              <Card className="p-5 flex flex-col justify-between hover:border-slate-300 transition-colors">
+                <div>
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <div className="p-2 rounded-lg bg-purple-50 text-purple-800">
+                      <ClipboardCheck className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">Stock Verification & Audits</h3>
+                      <p className="text-xs text-slate-500">Physical Reconciliation</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900">Document Series</h3>
-                    <p className="text-xs text-slate-500">Atomic Numbering & Logs</p>
-                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                    Conduct warehouse counts, verify expected vs physical quantities, calculate variance, and post automated reconciliation entries.
+                  </p>
                 </div>
-                <p className="text-xs text-slate-600 leading-relaxed mb-4">
-                  Configure sequential numbering prefixes (DN, MRN, Invoices, Vouchers) and inspect tamper-evident system audit events.
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Link href="/document-settings" className="flex-1">
+                <Link href="/inventory/audits">
                   <Button variant="outline" size="sm" className="w-full text-xs">
-                    Doc Settings
+                    Stock Verification <ArrowRight className="h-3 w-3 ml-1.5" />
                   </Button>
                 </Link>
-                <Link href="/audit-logs" className="flex-1">
-                  <Button variant="outline" size="sm" className="w-full text-xs">
-                    Audit Logs
-                  </Button>
-                </Link>
-              </div>
-            </Card>
+              </Card>
+            </div>
           </div>
         </div>
 
-        {/* Right 1 Col: Development Roadmap & Upcoming Phases */}
+        {/* Right 1 Col: Development Roadmap */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-slate-900">Development Roadmap</h2>
+            <h2 className="text-base font-bold text-slate-900">Roadmap Status</h2>
             <Badge variant="secondary" className="text-[10px] text-slate-500">
-              Dependency Order
+              Phased Execution
             </Badge>
           </div>
 
-          <Card className="p-5 space-y-4">
+          <Card className="p-5 space-y-4 bg-white">
             <div className="space-y-3">
               <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
                 <div className="h-7 w-7 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 font-bold text-xs">
@@ -323,25 +302,25 @@ export default async function DashboardPage() {
               </div>
 
               <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
-                <div className="h-7 w-7 rounded-full bg-primary-900 text-white flex items-center justify-center shrink-0 font-bold text-xs">
-                  1
+                <div className="h-7 w-7 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 font-bold text-xs">
+                  ✓
                 </div>
                 <div className="text-xs">
-                  <div className="flex items-center gap-1.5">
-                    <p className="font-semibold text-primary-950">Phase 1: Core Platform</p>
-                    <Badge variant="default" className="text-[9px] bg-primary-900 py-0">Active</Badge>
-                  </div>
-                  <p className="text-slate-500">Auth, RBAC, Company Profile, Document Series, Auditing</p>
+                  <p className="font-semibold text-slate-900">Phase 1 & 1.5: Platform & Supabase</p>
+                  <p className="text-slate-500">Auth SSR, Session Pooler, RLS, Storage Bucket</p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 pb-3 border-b border-slate-100 opacity-60">
-                <div className="h-7 w-7 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0 text-xs">
-                  <Lock className="h-3 w-3" />
+              <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
+                <div className="h-7 w-7 rounded-full bg-[#0B1E36] text-white flex items-center justify-center shrink-0 font-bold text-xs">
+                  2
                 </div>
                 <div className="text-xs">
-                  <p className="font-semibold text-slate-700">Phase 2: Master Data & Stock Ledger</p>
-                  <p className="text-slate-500">Customer Multi-Sites, DN/MRN Movements, Mobile PWA</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-semibold text-slate-900">Phase 2: Master Data & Stock Ledger</p>
+                    <Badge variant="default" className="text-[9px] bg-emerald-600 py-0">Completed</Badge>
+                  </div>
+                  <p className="text-slate-500">Catalogue, Customers, Multi-Sites, Ledger, Audits</p>
                 </div>
               </div>
 
@@ -381,4 +360,3 @@ export default async function DashboardPage() {
     </div>
   );
 }
-

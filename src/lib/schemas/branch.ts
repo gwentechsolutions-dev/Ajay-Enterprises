@@ -40,6 +40,7 @@ export const warehouseSchema = z.object({
   mobile: IndianMobileSchema,
   gpsLatitude: z.number().min(-90).max(90).optional().nullable(),
   gpsLongitude: z.number().min(-180).max(180).optional().nullable(),
+  storageCapacitySqFt: z.coerce.number().min(0).optional().nullable(),
   isActive: z.boolean().default(true),
 });
 
