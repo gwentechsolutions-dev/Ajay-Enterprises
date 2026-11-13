@@ -48,8 +48,15 @@ export async function POST(req: NextRequest) {
       message: "If an account with that email exists, password reset instructions have been dispatched.",
     });
   } catch (error: any) {
+    console.error("Forgot password API error:", error);
     return NextResponse.json(
-      { success: false, error: { code: "SERVER_ERROR", message: error.message } },
+      {
+        success: false,
+        error: {
+          code: "SERVER_ERROR",
+          message: "Unable to process password recovery at this moment. Please check your connection and try again.",
+        },
+      },
       { status: 500 }
     );
   }

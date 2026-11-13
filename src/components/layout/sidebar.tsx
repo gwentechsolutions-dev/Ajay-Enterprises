@@ -25,6 +25,11 @@ import {
   Layers,
   ClipboardCheck,
   Factory,
+  ShoppingBag,
+  RotateCcw,
+  ArrowLeftRight,
+  Repeat,
+  Compass,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -50,26 +55,38 @@ const NAVIGATION: NavGroup[] = [
     ],
   },
   {
-    group: "Materials & Operations",
+    group: "Operations & Movement",
     items: [
-      { title: "Material Catalogue", href: "/materials", icon: Layers },
-      { title: "Movement Ledger", href: "/movements", icon: Truck },
+      { title: "Delivery Notes (DN)", href: "/delivery-notes", icon: Truck },
+      { title: "Material Returns (MRN)", href: "/return-notes", icon: RotateCcw },
+      { title: "Stock Transfers (STN)", href: "/stock-transfers", icon: ArrowLeftRight },
+      { title: "Purchases & GRN", href: "/purchases", icon: ShoppingBag },
+      { title: "Hiring Notes (HDN/HRN)", href: "/hiring-notes", icon: Repeat },
+      { title: "Movement Ledger", href: "/movements", icon: History },
       { title: "Stock Verification", href: "/inventory/audits", icon: ClipboardCheck },
-      { title: "Customers & Sites", href: "/customers", icon: Users2 },
-      { title: "Suppliers", href: "/suppliers", icon: Factory },
     ],
   },
   {
-    group: "Business Master",
+    group: "Portals (PWA & Yard)",
     items: [
-      { title: "Company Profile", href: "/company", icon: Building2 },
-      { title: "Branches", href: "/branches", icon: GitBranch },
+      { title: "Warehouse Yard Portal", href: "/warehouse-portal", icon: WarehouseIcon },
+      { title: "Delivery Driver App", href: "/delivery-portal", icon: Compass },
+    ],
+  },
+  {
+    group: "Catalogue & Masters",
+    items: [
+      { title: "Material Catalogue", href: "/materials", icon: Layers },
+      { title: "Customers & Sites", href: "/customers", icon: Users2 },
+      { title: "Suppliers", href: "/suppliers", icon: Factory },
       { title: "Warehouses & Yards", href: "/warehouses", icon: WarehouseIcon },
+      { title: "Branches", href: "/branches", icon: GitBranch },
     ],
   },
   {
     group: "Administration",
     items: [
+      { title: "Company Profile", href: "/company", icon: Building2 },
       { title: "Users", href: "/users", icon: Users },
       { title: "Roles & Permissions", href: "/roles", icon: ShieldCheck },
       { title: "Document Settings", href: "/document-settings", icon: FileDigit },
@@ -77,9 +94,9 @@ const NAVIGATION: NavGroup[] = [
     ],
   },
   {
-    group: "Upcoming (Phase 3+)",
+    group: "Upcoming (Phase 4+)",
     items: [
-      { title: "Rental Billing", href: "/billing", icon: Receipt, disabled: true, badge: "Phase 3" },
+      { title: "Rental Billing", href: "/billing", icon: Receipt, disabled: true, badge: "Phase 4" },
       { title: "General Ledger", href: "/accounting", icon: BookOpen, disabled: true, badge: "Phase 4" },
       { title: "Labour Attendance", href: "/labour", icon: HardHat, disabled: true, badge: "Phase 6" },
     ],

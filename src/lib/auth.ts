@@ -8,6 +8,7 @@ export interface SessionUser {
   userCode: string;
   name: string;
   email: string;
+  mobile?: string | null;
   role: string;
   scope: string;
   branchId?: string | null;
@@ -35,6 +36,7 @@ export async function getSession(): Promise<SessionUser | null> {
           userCode: true,
           name: true,
           email: true,
+          mobile: true,
           role: true,
           scope: true,
           branchId: true,
@@ -51,6 +53,7 @@ export async function getSession(): Promise<SessionUser | null> {
         userCode: user.userCode,
         name: user.name,
         email: user.email,
+        mobile: user.mobile,
         role: user.role,
         scope: user.scope,
         branchId: user.branchId,
@@ -86,6 +89,7 @@ export async function getSession(): Promise<SessionUser | null> {
         userCode: true,
         name: true,
         email: true,
+        mobile: true,
         role: true,
         scope: true,
         branchId: true,
@@ -112,6 +116,7 @@ export async function getSession(): Promise<SessionUser | null> {
       userCode: user.userCode,
       name: user.name,
       email: user.email,
+      mobile: user.mobile,
       role: user.role,
       scope: user.scope,
       branchId: user.branchId,

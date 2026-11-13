@@ -211,6 +211,7 @@ model Branch {
 
   warehouses    Warehouse[]
   users         User[]
+  purchaseOrders PurchaseOrder[]
 
   @@index([branchCode])
 }
@@ -241,6 +242,15 @@ model Warehouse {
   destinationMovements InventoryMovement[] @relation("DestinationMovements")
   stockBalances        StockBalance[]
   stockAudits          StockAudit[]
+  deliveryWarehousePOs PurchaseOrder[]     @relation("DeliveryWarehouse")
+  receivingGRNs        GoodsReceiptNote[]
+  returnWarehouses     PurchaseReturn[]
+  sourceDeliveryNotes  DeliveryNote[]      @relation("SourceWarehouseDN")
+  receivingReturnNotes MaterialReturnNote[] @relation("ReceivingWarehouseMRN")
+  sourceTransferNotes  StockTransferNote[] @relation("SourceWarehouseSTN")
+  destinationTransferNotes StockTransferNote[] @relation("DestinationWarehouseSTN")
+  hiringDeliveryWarehouses HiringDeliveryNote[]
+  hiringReturnWarehouses   HiringReturnNote[]
 
   @@index([warehouseCode])
   @@index([branchId])
@@ -305,6 +315,14 @@ model MaterialVariant {
   movements                InventoryMovement[]
   stockBalances            StockBalance[]
   auditItems               StockAuditItem[]
+  poItems                  PurchaseOrderItem[]
+  grnItems                 GoodsReceiptNoteItem[]
+  purchaseReturnItems      PurchaseReturnItem[]
+  deliveryNoteItems        DeliveryNoteItem[]
+  returnNoteItems          MaterialReturnNoteItem[]
+  transferNoteItems        StockTransferNoteItem[]
+  hiringDeliveryItems      HiringDeliveryNoteItem[]
+  hiringReturnItems        HiringReturnNoteItem[]
 
   @@index([materialCode])
   @@index([materialTypeId])
@@ -364,6 +382,8 @@ model Customer {
   contacts             ContactPerson[]
   documents            CustomerDocument[]
   movements            InventoryMovement[]
+  deliveryNotes        DeliveryNote[]
+  returnNotes          MaterialReturnNote[]
 
   @@index([customerCode])
   @@index([primaryMobile])
@@ -404,6 +424,8 @@ model CustomerSite {
   sourceMovements      InventoryMovement[] @relation("SiteSourceMovements")
   destinationMovements InventoryMovement[] @relation("SiteDestinationMovements")
   stockBalances        StockBalance[]
+  deliveryNotes        DeliveryNote[]
+  returnNotes          MaterialReturnNote[]
 
   @@index([siteCode])
   @@index([customerId])
@@ -433,6 +455,7 @@ model ContactPerson {
 
   customer                   Customer?     @relation(fields: [customerId], references: [id], onDelete: Cascade)
   site                       CustomerSite? @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  deliveryNotes              DeliveryNote[]
 
   @@index([customerId])
   @@index([siteId])
@@ -490,9 +513,14 @@ model Supplier {
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
 
-  documents        SupplierDocument[]
-  materialVariants MaterialVariant[]
-  movements        InventoryMovement[]
+  documents            SupplierDocument[]
+  materialVariants     MaterialVariant[]
+  movements            InventoryMovement[]
+  purchaseOrders       PurchaseOrder[]
+  grns                 GoodsReceiptNote[]
+  purchaseReturns      PurchaseReturn[]
+  hiringDeliveryNotes  HiringDeliveryNote[]
+  hiringReturnNotes    HiringReturnNote[]
 
   @@index([supplierCode])
   @@index([primaryMobile])
@@ -718,4 +746,508 @@ model AuditEvent {
   @@index([action])
   @@index([entityType, entityId])
   @@index([createdAt])
+}
+
+// ------------------------------------------------------------------------------
+// 11. Purchase Management (PO, GRN, Purchase Return)
+// ------------------------------------------------------------------------------
+
+model PurchaseOrder {
+  id                   String              @id @default(uuid()) @db.Uuid
+  poNumber             String              @unique // e.g. "PO-2026-0001"
+  supplierId           String              @db.Uuid
+  branchId             String              @db.Uuid
+  deliveryWarehouseId  String              @db.Uuid
+  orderDate            DateTime            @default(now())
+  expectedDeliveryDate DateTime?
+  status               String              @default("DRAFT") // DRAFT, SUBMITTED, APPROVED, PARTIALLY_RECEIVED, COMPLETED, CANCELLED
+  subtotal             Decimal             @default(0) @db.Decimal(15, 2)
+  taxAmount            Decimal             @default(0) @db.Decimal(15, 2)
+  discountAmount       Decimal             @default(0) @db.Decimal(15, 2)
+  grandTotal           Decimal             @default(0) @db.Decimal(15, 2)
+  notes                String?
+  termsAndConditions   String?
+  createdById          String?             @db.Uuid
+  approvedById         String?             @db.Uuid
+  approvedAt           DateTime?
+  cancelledById        String?             @db.Uuid
+  cancelledAt          DateTime?
+  cancellationReason   String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  supplier             Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  branch               Branch              @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  deliveryWarehouse    Warehouse           @relation("DeliveryWarehouse", fields: [deliveryWarehouseId], references: [id], onDelete: Restrict)
+  items                PurchaseOrderItem[]
+  grns                 GoodsReceiptNote[]
+
+  @@index([poNumber])
+  @@index([supplierId])
+  @@index([branchId])
+  @@index([deliveryWarehouseId])
+  @@index([status])
+  @@index([orderDate])
+}
+
+model PurchaseOrderItem {
+  id                String          @id @default(uuid()) @db.Uuid
+  purchaseOrderId   String          @db.Uuid
+  materialVariantId String          @db.Uuid
+  quantity          Decimal         @db.Decimal(12, 3)
+  unitRate          Decimal         @db.Decimal(15, 2)
+  discountPercent   Decimal         @default(0) @db.Decimal(5, 2)
+  discountAmount    Decimal         @default(0) @db.Decimal(15, 2)
+  taxPercent        Decimal         @default(18) @db.Decimal(5, 2)
+  taxAmount         Decimal         @default(0) @db.Decimal(15, 2)
+  totalAmount       Decimal         @db.Decimal(15, 2)
+  receivedQty       Decimal         @default(0) @db.Decimal(12, 3)
+
+  purchaseOrder     PurchaseOrder   @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  materialVariant   MaterialVariant @relation(fields: [materialVariantId], references: [id], onDelete: Restrict)
+
+  @@index([purchaseOrderId])
+  @@index([materialVariantId])
+}
+
+model GoodsReceiptNote {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  grnNumber             String                 @unique // e.g. "GRN-2026-0001"
+  purchaseOrderId       String?                @db.Uuid
+  supplierId            String                 @db.Uuid
+  receivingWarehouseId  String                 @db.Uuid
+  receiptDate           DateTime               @default(now())
+  supplierInvoiceNumber String?
+  supplierInvoiceDate   DateTime?
+  status                String                 @default("DRAFT") // DRAFT, POSTED, CANCELLED
+  remarks               String?
+  postedById            String?                @db.Uuid
+  postedAt              DateTime?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  purchaseOrder         PurchaseOrder?         @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  supplier              Supplier               @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  receivingWarehouse    Warehouse              @relation(fields: [receivingWarehouseId], references: [id], onDelete: Restrict)
+  items                 GoodsReceiptNoteItem[]
+  purchaseReturns       PurchaseReturn[]
+
+  @@index([grnNumber])
+  @@index([purchaseOrderId])
+  @@index([supplierId])
+  @@index([receivingWarehouseId])
+  @@index([status])
+  @@index([receiptDate])
+}
+
+model GoodsReceiptNoteItem {
+  id                String          @id @default(uuid()) @db.Uuid
+  grnId             String          @db.Uuid
+  materialVariantId String          @db.Uuid
+  poItemId          String?         @db.Uuid
+  orderedQty        Decimal         @default(0) @db.Decimal(12, 3)
+  receivedQty       Decimal         @db.Decimal(12, 3)
+  acceptedQty       Decimal         @db.Decimal(12, 3)
+  rejectedQty       Decimal         @default(0) @db.Decimal(12, 3)
+  damagedQty        Decimal         @default(0) @db.Decimal(12, 3)
+  unitCost          Decimal?        @db.Decimal(15, 2)
+  condition         String          @default("GOOD")
+  remarks           String?
+
+  grn               GoodsReceiptNote @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  materialVariant   MaterialVariant  @relation(fields: [materialVariantId], references: [id], onDelete: Restrict)
+
+  @@index([grnId])
+  @@index([materialVariantId])
+}
+
+model PurchaseReturn {
+  id           String               @id @default(uuid()) @db.Uuid
+  prNumber     String               @unique // e.g. "PR-2026-0001"
+  supplierId   String               @db.Uuid
+  warehouseId  String               @db.Uuid
+  grnId        String?              @db.Uuid
+  returnDate   DateTime             @default(now())
+  reason       String
+  status       String               @default("DRAFT") // DRAFT, POSTED, CANCELLED
+  postedById   String?              @db.Uuid
+  postedAt     DateTime?
+  remarks      String?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  supplier     Supplier             @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  warehouse    Warehouse            @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  grn          GoodsReceiptNote?    @relation(fields: [grnId], references: [id], onDelete: SetNull)
+  items        PurchaseReturnItem[]
+
+  @@index([prNumber])
+  @@index([supplierId])
+  @@index([warehouseId])
+  @@index([status])
+}
+
+model PurchaseReturnItem {
+  id                String          @id @default(uuid()) @db.Uuid
+  purchaseReturnId  String          @db.Uuid
+  materialVariantId String          @db.Uuid
+  quantity          Decimal         @db.Decimal(12, 3)
+  unitCost          Decimal?        @db.Decimal(15, 2)
+  reason            String?
+
+  purchaseReturn    PurchaseReturn  @relation(fields: [purchaseReturnId], references: [id], onDelete: Cascade)
+  materialVariant   MaterialVariant @relation(fields: [materialVariantId], references: [id], onDelete: Restrict)
+
+  @@index([purchaseReturnId])
+  @@index([materialVariantId])
+}
+
+// ------------------------------------------------------------------------------
+// 12. Material Delivery Note (DN)
+// ------------------------------------------------------------------------------
+
+model DeliveryNote {
+  id                    String             @id @default(uuid()) @db.Uuid
+  dnNumber              String             @unique // e.g. "DN-2026-0001"
+  customerId            String             @db.Uuid
+  customerSiteId        String             @db.Uuid
+  sourceWarehouseId     String             @db.Uuid
+  deliveryDate          DateTime           @default(now())
+  status                String             @default("DRAFT") // DRAFT, APPROVED, DISPATCHED, DELIVERED, CANCELLED
+  driverName            String?
+  driverPhone           String?
+  vehicleNumber         String?
+  transportMode         String?            @default("COMPANY_VEHICLE")
+  eWayBillNumber        String?
+  contactPersonId       String?            @db.Uuid
+  receiverName          String?
+  receiverPhone         String?
+  receiverDesignation   String?
+  receiverSignatureUrl  String?
+  gpsLatitude           Decimal?           @db.Decimal(10, 7)
+  gpsLongitude          Decimal?           @db.Decimal(10, 7)
+  gpsAccuracy           Decimal?           @db.Decimal(8, 2)
+  photoUrl              String?
+  missingEvidenceReason String?
+  approvedById          String?            @db.Uuid
+  approvedAt            DateTime?
+  dispatchedById        String?            @db.Uuid
+  dispatchedAt          DateTime?
+  deliveredById         String?            @db.Uuid
+  deliveredAt           DateTime?
+  notes                 String?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  customer              Customer           @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  customerSite          CustomerSite       @relation(fields: [customerSiteId], references: [id], onDelete: Restrict)
+  sourceWarehouse       Warehouse          @relation("SourceWarehouseDN", fields: [sourceWarehouseId], references: [id], onDelete: Restrict)
+  contactPerson         ContactPerson?     @relation(fields: [contactPersonId], references: [id], onDelete: SetNull)
+  items                 DeliveryNoteItem[]
+  evidences             MovementEvidence[]
+  eWayBills             EWayBill[]
+  returnNotes           MaterialReturnNote[]
+
+  @@index([dnNumber])
+  @@index([customerId])
+  @@index([customerSiteId])
+  @@index([sourceWarehouseId])
+  @@index([status])
+  @@index([deliveryDate])
+}
+
+model DeliveryNoteItem {
+  id                String          @id @default(uuid()) @db.Uuid
+  deliveryNoteId    String          @db.Uuid
+  materialVariantId String          @db.Uuid
+  quantity          Decimal         @db.Decimal(12, 3)
+  ownershipType     String          @default("OWNED") // OWNED, HIRED_IN
+  dailyRate         Decimal?        @db.Decimal(15, 2)
+  condition         String          @default("GOOD")
+  remarks           String?
+
+  deliveryNote      DeliveryNote    @relation(fields: [deliveryNoteId], references: [id], onDelete: Cascade)
+  materialVariant   MaterialVariant @relation(fields: [materialVariantId], references: [id], onDelete: Restrict)
+
+  @@index([deliveryNoteId])
+  @@index([materialVariantId])
+  @@index([ownershipType])
+}
+
+// ------------------------------------------------------------------------------
+// 13. Material Return Note (MRN)
+// ------------------------------------------------------------------------------
+
+model MaterialReturnNote {
+  id                      String                   @id @default(uuid()) @db.Uuid
+  mrnNumber               String                   @unique // e.g. "MRN-2026-0001"
+  customerId              String                   @db.Uuid
+  customerSiteId          String                   @db.Uuid
+  receivingWarehouseId    String                   @db.Uuid
+  referenceDeliveryNoteId String?                  @db.Uuid
+  returnDate              DateTime                 @default(now())
+  status                  String                   @default("DRAFT") // DRAFT, POSTED, CANCELLED
+  driverName              String?
+  driverPhone             String?
+  vehicleNumber           String?
+  receiverName            String?
+  receiverPhone           String?
+  receiverSignatureUrl    String?
+  gpsLatitude             Decimal?                 @db.Decimal(10, 7)
+  gpsLongitude            Decimal?                 @db.Decimal(10, 7)
+  photoUrl                String?
+  missingEvidenceReason   String?
+  postedById              String?                  @db.Uuid
+  postedAt                DateTime?
+  remarks                 String?
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+
+  customer                Customer                 @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  customerSite            CustomerSite             @relation(fields: [customerSiteId], references: [id], onDelete: Restrict)
+  receivingWarehouse      Warehouse                @relation("ReceivingWarehouseMRN", fields: [receivingWarehouseId], references: [id], onDelete: Restrict)
+  referenceDeliveryNote   DeliveryNote?            @relation(fields: [referenceDeliveryNoteId], references: [id], onDelete: SetNull)
+  items                   MaterialReturnNoteItem[]
+  evidences               MovementEvidence[]
+
+  @@index([mrnNumber])
+  @@index([customerId])
+  @@index([customerSiteId])
+  @@index([receivingWarehouseId])
+  @@index([status])
+  @@index([returnDate])
+}
+
+model MaterialReturnNoteItem {
+  id                   String             @id @default(uuid()) @db.Uuid
+  mrnId                String             @db.Uuid
+  materialVariantId    String             @db.Uuid
+  ownershipType        String             @default("OWNED") // OWNED, HIRED_IN
+  returnedQty          Decimal            @db.Decimal(12, 3)
+  acceptedQty          Decimal            @db.Decimal(12, 3)
+  damagedQty           Decimal            @default(0) @db.Decimal(12, 3)
+  missingQty           Decimal            @default(0) @db.Decimal(12, 3)
+  condition            String             @default("GOOD")
+  remarks              String?
+
+  materialReturnNote   MaterialReturnNote @relation(fields: [mrnId], references: [id], onDelete: Cascade)
+  materialVariant      MaterialVariant    @relation(fields: [materialVariantId], references: [id], onDelete: Restrict)
+
+  @@index([mrnId])
+  @@index([materialVariantId])
+  @@index([ownershipType])
+}
+
+// ------------------------------------------------------------------------------
+// 14. Stock Transfer Note (STN)
+// ------------------------------------------------------------------------------
+
+model StockTransferNote {
+  id                     String                  @id @default(uuid()) @db.Uuid
+  stnNumber              String                  @unique // e.g. "STN-2026-0001"
+  sourceWarehouseId      String                  @db.Uuid
+  destinationWarehouseId String                  @db.Uuid
+  transferDate           DateTime                @default(now())
+  status                 String                  @default("DRAFT") // DRAFT, APPROVED, DISPATCHED, IN_TRANSIT, RECEIVED, CANCELLED
+  vehicleNumber          String?
+  driverName             String?
+  driverPhone            String?
+  eWayBillNumber         String?
+  dispatchedById         String?                 @db.Uuid
+  dispatchedAt           DateTime?
+  receivedById           String?                 @db.Uuid
+  receivedAt             DateTime?
+  notes                  String?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+
+  sourceWarehouse        Warehouse               @relation("SourceWarehouseSTN", fields: [sourceWarehouseId], references: [id], onDelete: Restrict)
+  destinationWarehouse   Warehouse               @relation("DestinationWarehouseSTN", fields: [destinationWarehouseId], references: [id], onDelete: Restrict)
+  items                  StockTransferNoteItem[]
+  evidences              MovementEvidence[]
+  eWayBills              EWayBill[]
+
+  @@index([stnNumber])
+  @@index([sourceWarehouseId])
+  @@index([destinationWarehouseId])
+  @@index([status])
+  @@index([transferDate])
+}
+
+model StockTransferNoteItem {
+  id                  String            @id @default(uuid()) @db.Uuid
+  stnId               String            @db.Uuid
+  materialVariantId   String            @db.Uuid
+  ownershipType       String            @default("OWNED") // OWNED, HIRED_IN
+  dispatchedQty       Decimal           @db.Decimal(12, 3)
+  receivedQty         Decimal           @default(0) @db.Decimal(12, 3)
+  shortageQty         Decimal           @default(0) @db.Decimal(12, 3)
+  damagedQty          Decimal           @default(0) @db.Decimal(12, 3)
+  condition           String            @default("GOOD")
+  remarks             String?
+
+  stockTransferNote   StockTransferNote @relation(fields: [stnId], references: [id], onDelete: Cascade)
+  materialVariant     MaterialVariant   @relation(fields: [materialVariantId], references: [id], onDelete: Restrict)
+
+  @@index([stnId])
+  @@index([materialVariantId])
+  @@index([ownershipType])
+}
+
+// ------------------------------------------------------------------------------
+// 15. Hired-In Material Operations (HDN / HRN)
+// ------------------------------------------------------------------------------
+
+model HiringDeliveryNote {
+  id                    String                   @id @default(uuid()) @db.Uuid
+  hdnNumber             String                   @unique // e.g. "HDN-2026-0001"
+  supplierId            String                   @db.Uuid
+  receivingWarehouseId  String                   @db.Uuid
+  receiptDate           DateTime                 @default(now())
+  supplierReference     String?
+  effectiveDate         DateTime                 @default(now())
+  status                String                   @default("DRAFT") // DRAFT, POSTED, CANCELLED
+  postedById            String?                  @db.Uuid
+  postedAt              DateTime?
+  notes                 String?
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+
+  supplier              Supplier                 @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  receivingWarehouse    Warehouse                @relation(fields: [receivingWarehouseId], references: [id], onDelete: Restrict)
+  items                 HiringDeliveryNoteItem[]
+  returnNotes           HiringReturnNote[]
+
+  @@index([hdnNumber])
+  @@index([supplierId])
+  @@index([receivingWarehouseId])
+  @@index([status])
+}
+
+model HiringDeliveryNoteItem {
+  id                 String             @id @default(uuid()) @db.Uuid
+  hdnId              String             @db.Uuid
+  materialVariantId  String             @db.Uuid
+  quantity           Decimal            @db.Decimal(12, 3)
+  dailyHiringRate    Decimal            @db.Decimal(15, 2)
+  condition          String             @default("GOOD")
+  remarks            String?
+
+  hiringDeliveryNote HiringDeliveryNote @relation(fields: [hdnId], references: [id], onDelete: Cascade)
+  materialVariant    MaterialVariant    @relation(fields: [materialVariantId], references: [id], onDelete: Restrict)
+
+  @@index([hdnId])
+  @@index([materialVariantId])
+}
+
+model HiringReturnNote {
+  id                 String                 @id @default(uuid()) @db.Uuid
+  hrnNumber          String                 @unique // e.g. "HRN-2026-0001"
+  supplierId         String                 @db.Uuid
+  sourceWarehouseId  String                 @db.Uuid
+  referenceHdnId     String?                @db.Uuid
+  returnDate         DateTime               @default(now())
+  status             String                 @default("DRAFT") // DRAFT, POSTED, CANCELLED
+  postedById         String?                @db.Uuid
+  postedAt           DateTime?
+  notes              String?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  supplier           Supplier               @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  sourceWarehouse    Warehouse              @relation(fields: [sourceWarehouseId], references: [id], onDelete: Restrict)
+  referenceHdn       HiringDeliveryNote?    @relation(fields: [referenceHdnId], references: [id], onDelete: SetNull)
+  items              HiringReturnNoteItem[]
+
+  @@index([hrnNumber])
+  @@index([supplierId])
+  @@index([sourceWarehouseId])
+  @@index([status])
+}
+
+model HiringReturnNoteItem {
+  id                String           @id @default(uuid()) @db.Uuid
+  hrnId             String           @db.Uuid
+  materialVariantId String           @db.Uuid
+  quantity          Decimal          @db.Decimal(12, 3)
+  condition         String           @default("GOOD")
+  remarks           String?
+
+  hiringReturnNote  HiringReturnNote @relation(fields: [hrnId], references: [id], onDelete: Cascade)
+  materialVariant   MaterialVariant  @relation(fields: [materialVariantId], references: [id], onDelete: Restrict)
+
+  @@index([hrnId])
+  @@index([materialVariantId])
+}
+
+// ------------------------------------------------------------------------------
+// 16. Evidence & Acknowledgement
+// ------------------------------------------------------------------------------
+
+model MovementEvidence {
+  id                    String              @id @default(uuid()) @db.Uuid
+  documentType          String              // DELIVERY_NOTE, RETURN_NOTE, TRANSFER_NOTE, GRN
+  documentId            String              @db.Uuid
+  deliveryNoteId        String?             @db.Uuid
+  returnNoteId          String?             @db.Uuid
+  transferNoteId        String?             @db.Uuid
+  photoUrl              String
+  storagePath           String?
+  fileChecksum          String?
+  gpsLatitude           Decimal?            @db.Decimal(10, 7)
+  gpsLongitude          Decimal?            @db.Decimal(10, 7)
+  gpsAccuracy           Decimal?            @db.Decimal(8, 2)
+  capturedAt            DateTime            @default(now())
+  capturedById          String?             @db.Uuid
+  receiverName          String?
+  receiverPhone         String?
+  receiverDesignation   String?
+  receiverSignatureUrl  String?
+  missingEvidenceReason String?
+  createdAt             DateTime            @default(now())
+
+  deliveryNote          DeliveryNote?       @relation(fields: [deliveryNoteId], references: [id], onDelete: Cascade)
+  returnNote            MaterialReturnNote? @relation(fields: [returnNoteId], references: [id], onDelete: Cascade)
+  transferNote          StockTransferNote?  @relation(fields: [transferNoteId], references: [id], onDelete: Cascade)
+
+  @@index([documentType, documentId])
+  @@index([deliveryNoteId])
+  @@index([returnNoteId])
+  @@index([transferNoteId])
+}
+
+// ------------------------------------------------------------------------------
+// 17. E-Way Bill Integration (FYN Gateway)
+// ------------------------------------------------------------------------------
+
+model EWayBill {
+  id              String             @id @default(uuid()) @db.Uuid
+  ewbNumber       String             @unique // Official 12-digit E-Way Bill number
+  documentType    String             // DELIVERY_NOTE, TRANSFER_NOTE
+  documentId      String             @db.Uuid
+  deliveryNoteId  String?            @db.Uuid
+  transferNoteId  String?            @db.Uuid
+  generatedAt     DateTime           @default(now())
+  validUntil      DateTime?
+  vehicleNumber   String?
+  fromPincode     String?
+  toPincode       String?
+  distanceKm      Int?
+  status          String             @default("ACTIVE") // ACTIVE, CANCELLED, EXPIRED
+  fynReferenceId  String?
+  cancelReason    String?
+  cancelledAt     DateTime?
+  requestPayload  Json?
+  responsePayload Json?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  deliveryNote    DeliveryNote?      @relation(fields: [deliveryNoteId], references: [id], onDelete: Cascade)
+  transferNote    StockTransferNote? @relation(fields: [transferNoteId], references: [id], onDelete: Cascade)
+
+  @@index([ewbNumber])
+  @@index([documentType, documentId])
+  @@index([deliveryNoteId])
+  @@index([transferNoteId])
+  @@index([status])
 }

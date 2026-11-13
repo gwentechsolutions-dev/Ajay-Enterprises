@@ -51,7 +51,7 @@ export const createMovementSchema = z.object({
   referenceDocumentType: z.string().optional().nullable(),
   referenceDocumentId: z.string().optional().nullable(),
   batchOrLotNumber: z.string().optional().nullable(),
-  condition: z.enum(["GOOD", "FAIR", "DAMAGED", "REPAIRABLE", "SCRAP"]).default("GOOD"),
+  condition: z.enum(["GOOD", "FAIR", "DAMAGED", "REPAIRABLE", "SCRAP"]).optional().default("GOOD"),
   unitCost: z.coerce.number().min(0).optional().nullable(),
   replacementValue: z.coerce.number().min(0).optional().nullable(),
   notes: z.string().optional().nullable(),
