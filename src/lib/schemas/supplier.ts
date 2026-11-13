@@ -33,3 +33,4 @@ export const supplierSchema = z.object({
 });
 
 export type SupplierInput = z.infer<typeof supplierSchema>;
+

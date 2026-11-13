@@ -44,3 +44,4 @@ export const updateRateSchema = z.object({
 });
 
 export type UpdateRateInput = z.infer<typeof updateRateSchema>;
+

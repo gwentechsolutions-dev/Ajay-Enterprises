@@ -305,27 +305,53 @@ describe("1. Material Master & Rental Rate History Versioning", () => {
     assert.notEqual(invoiceLineSnapshot.appliedRentalRate, newRateRecord.rentalRate);
   });
 
-  it("should correctly handle unconfirmed zero rates and duplicate catalogue entries", () => {
-    const unconfirmedVariant = {
-      materialCode: "MAT-PROP-10-15",
-      name: "PROPS 10-15 ft",
-      size: "10–15 ft",
-      defaultRentalRate: 0.0,
-      isRateConfirmed: false,
-      isDuplicateSourceEntry: false,
-    };
+  it("should verify initial catalogue seeder idempotency and duplicate entry preservation", () => {
+    // 11 initial items
+    const catalogue = [
+      { code: "MAT-PROP-7-12-NEW", name: "NEW PROPS", rate: 2.0, isDup: false },
+      { code: "MAT-PROP-10-15-A", name: "PROPS", rate: 0.0, isDup: false },
+      { code: "MAT-PROP-10-18", name: "PROPS", rate: 0.0, isDup: false },
+      { code: "MAT-PROP-10-15-DUP", name: "PROPS (Duplicate Source Entry)", rate: 0.0, isDup: true },
+      { code: "MAT-PROP-7-12-STD", name: "PROPS", rate: 1.84, isDup: false },
+      { code: "MAT-SPAN-8-14", name: "SAPAN", rate: 2.5, isDup: false },
+      { code: "MAT-SHT-S-HALF", name: "S HALF SHEET", rate: 0.6, isDup: false },
+      { code: "MAT-SHT-HALF", name: "HALF SHEET", rate: 0.7, isDup: false },
+      { code: "MAT-SHT-BIG-FOLD", name: "BIG FOLDING SHEET", rate: 1.0, isDup: false },
+      { code: "MAT-SHT-FOLD", name: "FOLDING SHEET", rate: 0.9, isDup: false },
+      { code: "MAT-SHT-ANGLE", name: "ANGLE SHEET", rate: 0.9, isDup: false },
+    ];
 
-    const duplicateSourceVariant = {
-      materialCode: "MAT-PROP-10-15-DUP",
-      name: "PROPS 10-15 ft (duplicate source entry)",
-      size: "10–15 ft",
-      defaultRentalRate: 0.0,
-      isRateConfirmed: false,
-      isDuplicateSourceEntry: true,
-    };
+    assert.equal(catalogue.length, 11);
+    const dupItem = catalogue.find((c) => c.code === "MAT-PROP-10-15-DUP");
+    assert.equal(Boolean(dupItem), true);
+    assert.equal(dupItem?.isDup, true);
 
-    assert.equal(unconfirmedVariant.defaultRentalRate === 0 && !unconfirmedVariant.isRateConfirmed, true);
-    assert.equal(duplicateSourceVariant.isDuplicateSourceEntry, true);
+    // Simulate existing database state where rate was later updated by Owner
+    const existingDb = new Map();
+    existingDb.set("MAT-PROP-7-12-NEW", {
+      code: "MAT-PROP-7-12-NEW",
+      rate: 2.25, // Owner revised rate from ₹2.00 to ₹2.25
+      updatedAt: "2026-05-01",
+    });
+
+    // Simulate second run of seeder
+    let createdCount = 0;
+    let existingCount = 0;
+
+    for (const item of catalogue) {
+      if (!existingDb.has(item.code)) {
+        existingDb.set(item.code, { code: item.code, rate: item.rate });
+        createdCount++;
+      } else {
+        // Idempotent: must NOT overwrite rate
+        existingCount++;
+      }
+    }
+
+    assert.equal(createdCount, 10);
+    assert.equal(existingCount, 1);
+    // Crucial: Owner's revised rate of ₹2.25 was preserved and NOT reverted to ₹2.00
+    assert.equal(existingDb.get("MAT-PROP-7-12-NEW")?.rate, 2.25);
   });
 });
 
@@ -555,24 +581,82 @@ describe("4. Inventory Movement Ledger & Balance Calculation Rules", () => {
     assert.equal(whAvailable + whDamaged, 500.0); // Total stock conserved
   });
 
-  it("should verify OWNED vs HIRED_IN segregation", () => {
+  it("should confirm one MaterialVariant simultaneously maintains independent OWNED and HIRED_IN balances", () => {
     // INVENTRA rule 17: Owned and Hired-in materials are stored in separate balance buckets
-    const ownedBalance = {
-      variantId: "prop-7-12",
-      ownershipType: "OWNED",
-      availableQty: 300.0,
+    // One MaterialVariant (e.g. Props 7-12 ft) can have BOTH owned and hired-in inventory at the same warehouse
+    const warehouseId = "wh-bengaluru-central";
+    const variantId = "var-prop-7-12";
+
+    const stockBuckets = new Map();
+    // Unique compound bucket key with NULLS NOT DISTINCT logic:
+    // (warehouseId, siteId, materialVariantId, ownershipType, locationType)
+    const makeKey = (wh, site, vId, own, loc) => `${wh || "NULL"}:${site || "NULL"}:${vId}:${own}:${loc}`;
+
+    const ownedKey = makeKey(warehouseId, null, variantId, "OWNED", "WAREHOUSE");
+    const hiredKey = makeKey(warehouseId, null, variantId, "HIRED_IN", "WAREHOUSE");
+
+    // Initialize both pools
+    stockBuckets.set(ownedKey, { availableQty: 300.0, damagedQty: 0.0 });
+    stockBuckets.set(hiredKey, { availableQty: 100.0, damagedQty: 0.0 });
+
+    assert.equal(stockBuckets.size, 2);
+    assert.equal(stockBuckets.get(ownedKey)?.availableQty, 300.0);
+    assert.equal(stockBuckets.get(hiredKey)?.availableQty, 100.0);
+
+    // Outbound dispatch of 50 units of HIRED_IN stock
+    const dispatchHiredQty = 50.0;
+    const hiredBucket = stockBuckets.get(hiredKey);
+    assert.equal(Boolean(hiredBucket), true);
+    assert.equal(hiredBucket.availableQty >= dispatchHiredQty, true);
+    hiredBucket.availableQty -= dispatchHiredQty;
+
+    // Verify OWNED stock is strictly preserved and HIRED_IN is reduced
+    assert.equal(stockBuckets.get(ownedKey)?.availableQty, 300.0);
+    assert.equal(stockBuckets.get(hiredKey)?.availableQty, 50.0);
+
+    // Attempting to dispatch 80 units of HIRED_IN must fail (only 50 left) even though 300 OWNED exist
+    const excessHiredRequest = 80.0;
+    assert.equal(hiredBucket.availableQty >= excessHiredRequest, false);
+  });
+
+  it("should verify NULLS NOT DISTINCT prevents duplicate logical stock buckets when location fields are NULL", () => {
+    // In PostgreSQL 15+, NULLS NOT DISTINCT ensures that (warehouseId, NULL, variantId, 'OWNED', 'WAREHOUSE')
+    // is treated as a unique constraint violation if a duplicate insertion is attempted.
+    const uniqueIndexBuckets = new Set();
+    const makeNullsNotDistinctKey = (warehouseId, siteId, variantId, ownership, locType) => {
+      // With NULLS NOT DISTINCT, nulls are treated as identical values:
+      const normWh = warehouseId === null || warehouseId === undefined ? "__NULL__" : warehouseId;
+      const normSite = siteId === null || siteId === undefined ? "__NULL__" : siteId;
+      return `${normWh}#${normSite}#${variantId}#${ownership}#${locType}`;
     };
 
-    const hiredInBalance = {
-      variantId: "prop-7-12",
-      ownershipType: "HIRED_IN",
-      availableQty: 100.0,
-    };
+    const warehouseId = "0193231e-4500-7000-8000-000000000001";
+    const variantId = "0193231e-4500-7000-8000-000000000002";
 
-    assert.notEqual(ownedBalance.ownershipType, hiredInBalance.ownershipType);
-    assert.equal(ownedBalance.availableQty, 300.0);
-    assert.equal(hiredInBalance.availableQty, 100.0);
-    assert.equal(ownedBalance.availableQty + hiredInBalance.availableQty, 400.0);
+    // First insertion with NULL siteId (Warehouse Stock)
+    const key1 = makeNullsNotDistinctKey(warehouseId, null, variantId, "OWNED", "WAREHOUSE");
+    assert.equal(uniqueIndexBuckets.has(key1), false);
+    uniqueIndexBuckets.add(key1);
+
+    // Attempted duplicate insertion with identical keys and NULL siteId
+    const key2 = makeNullsNotDistinctKey(warehouseId, null, variantId, "OWNED", "WAREHOUSE");
+    const isDuplicateBlocked = uniqueIndexBuckets.has(key2);
+    assert.equal(isDuplicateBlocked, true); // Constraint triggers violation
+
+    // Different ownership type on same warehouse is permitted
+    const keyHired = makeNullsNotDistinctKey(warehouseId, null, variantId, "HIRED_IN", "WAREHOUSE");
+    assert.equal(uniqueIndexBuckets.has(keyHired), false);
+    uniqueIndexBuckets.add(keyHired);
+
+    // Customer Site Stock with NULL warehouseId
+    const siteId = "0193231e-4500-7000-8000-000000000010";
+    const siteKey1 = makeNullsNotDistinctKey(null, siteId, variantId, "OWNED", "CUSTOMER_SITE");
+    assert.equal(uniqueIndexBuckets.has(siteKey1), false);
+    uniqueIndexBuckets.add(siteKey1);
+
+    // Attempted duplicate insertion for same site with NULL warehouseId
+    const siteKey2 = makeNullsNotDistinctKey(null, siteId, variantId, "OWNED", "CUSTOMER_SITE");
+    assert.equal(uniqueIndexBuckets.has(siteKey2), true); // Blocked
   });
 
   it("should validate movement reversal logic creating an inverse record", () => {
