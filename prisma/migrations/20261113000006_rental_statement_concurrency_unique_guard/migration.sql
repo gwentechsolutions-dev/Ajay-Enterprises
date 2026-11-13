@@ -10,3 +10,4 @@ ON "RentalStatement" (
   "periodEndDate"
 )
 WHERE "status" NOT IN ('CANCELLED');
+
