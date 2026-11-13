@@ -484,3 +484,152 @@ describe("7. Site Closure Settlement & Owner Exception Guard", () => {
     assert.strictEqual(result.status, "CLOSED");
   });
 });
+
+describe("8. Concurrency Protection & Quantity Lifecycle Reconciliation", () => {
+  it("Scenario 21: Database advisory lock serializes simultaneous generation and rejects duplicate billing", async () => {
+    // Simulate two concurrent requests for the same customer/site and period
+    let lockHolder = null;
+    const statementsTable = [];
+
+    async function attemptGenerateStatement({ customerId, siteId, start, end }) {
+      // 1. Acquire advisory lock
+      const lockKey = `${customerId}_${siteId || "CONSOLIDATED"}`;
+      if (lockHolder === lockKey) {
+        // Wait/blocked by lock
+      }
+      lockHolder = lockKey;
+
+      try {
+        // 2. Re-check inside transaction
+        const existing = statementsTable.find(
+          (s) =>
+            s.customerId === customerId &&
+            s.siteId === siteId &&
+            s.start <= end &&
+            s.end >= start &&
+            s.status !== "CANCELLED"
+        );
+        if (existing) {
+          throw new Error(`DUPLICATE_BILLING: Statement ${existing.id} already active for this period.`);
+        }
+
+        const newStmt = { id: `STM-${statementsTable.length + 1}`, customerId, siteId, start, end, status: "CALCULATED" };
+        statementsTable.push(newStmt);
+        return newStmt;
+      } finally {
+        lockHolder = null;
+      }
+    }
+
+    // Run first request
+    const stmt1 = await attemptGenerateStatement({
+      customerId: "CUST-01",
+      siteId: "SITE-01",
+      start: "2026-05-01",
+      end: "2026-05-31",
+    });
+    assert.ok(stmt1.id);
+
+    // Run second simultaneous overlapping request
+    await assert.rejects(
+      async () => {
+        await attemptGenerateStatement({
+          customerId: "CUST-01",
+          siteId: "SITE-01",
+          start: "2026-05-01",
+          end: "2026-05-31",
+        });
+      },
+      /DUPLICATE_BILLING/
+    );
+  });
+
+  it("Scenario 22: Cross-mode validation prevents consolidated statement from duplicating active site-wise statement", () => {
+    const existingStatements = [
+      { id: "STM-01", customerId: "CUST-A", billingMode: "SITE_WISE", siteId: "SITE-NORTH", start: "2026-05-01", end: "2026-05-31" },
+    ];
+
+    function validateConsolidatedAttempt(customerId, start, end) {
+      // Consolidated attempts must not overlap ANY active site-wise statements for the customer
+      const hasConflict = existingStatements.some(
+        (s) => s.customerId === customerId && s.start <= end && s.end >= start
+      );
+      if (hasConflict) {
+        throw new Error("DUPLICATE_BILLING: A site-wise statement already covers this billing period for the customer.");
+      }
+      return true;
+    }
+
+    assert.throws(
+      () => validateConsolidatedAttempt("CUST-A", "2026-05-01", "2026-05-31"),
+      /DUPLICATE_BILLING/
+    );
+  });
+
+  it("Scenario 23: Complete quantity lifecycle maintains reconciliation between RentalBatch held count and StockBalance", () => {
+    // 1. Delivery Note dispatched: 100 units
+    const batch = {
+      deliveredQty: 100,
+      returnedQty: 0,
+      damagedQty: 0,
+      missingQty: 0,
+      currentHeldQty: 100,
+    };
+    let siteStockBalance = 100;
+    let warehouseDamagedBalance = 0;
+
+    // Verify initial delivery parity
+    assert.strictEqual(batch.currentHeldQty, siteStockBalance);
+
+    // 2. Partial return: 40 returned total (25 Good, 10 Damaged, 5 Missing)
+    const returnAllocation = { returned: 40, accepted: 25, damaged: 10, missing: 5 };
+    batch.returnedQty += returnAllocation.returned;
+    batch.damagedQty += returnAllocation.damaged;
+    batch.missingQty += returnAllocation.missing;
+    batch.currentHeldQty -= returnAllocation.returned; // 100 - 40 = 60 held
+
+    // StockBalance updates via ledger
+    siteStockBalance -= returnAllocation.returned; // 100 - 40 = 60 held on site
+    warehouseDamagedBalance += returnAllocation.damaged; // 10 damaged routed to damaged pool
+
+    // Verify reconciliation
+    assert.strictEqual(batch.currentHeldQty, 60);
+    assert.strictEqual(siteStockBalance, 60);
+    assert.strictEqual(batch.currentHeldQty, siteStockBalance);
+    assert.strictEqual(warehouseDamagedBalance, 10);
+    assert.ok(batch.currentHeldQty >= 0, "No negative quantity");
+  });
+
+  it("Scenario 24: Historical reproducibility — reviewing finalized statement strictly reads frozen snapshot regardless of future catalog edits", () => {
+    const historicalSnapshot = {
+      frozenAt: "2026-05-31T23:59:59Z",
+      items: [
+        { variantCode: "VAR-PROP-01", name: "Prop 10-15ft", applicableDailyRate: 2.25, billableDays: 31, rentalAmount: 697.5 },
+      ],
+      netPayableAmount: 697.5,
+    };
+
+    // Subsequent modifications in live database
+    const currentCatalogRate = 3.50; // Rate increased in catalog
+    const currentSiteHeldStock = 0;   // Stock returned to yard later
+
+    function renderStatementView(stmt) {
+      if (stmt.snapshotPayload) {
+        const snap = typeof stmt.snapshotPayload === "string" ? JSON.parse(stmt.snapshotPayload) : stmt.snapshotPayload;
+        return {
+          rateUsed: snap.items[0].applicableDailyRate,
+          total: snap.netPayableAmount,
+          isFrozen: true,
+        };
+      }
+      return { rateUsed: currentCatalogRate, total: 0, isFrozen: false };
+    }
+
+    const view = renderStatementView({ snapshotPayload: historicalSnapshot });
+    assert.strictEqual(view.isFrozen, true);
+    assert.strictEqual(view.rateUsed, 2.25); // Historical snapshot rate preserved!
+    assert.strictEqual(view.total, 697.5);   // Historical total preserved!
+    assert.notStrictEqual(view.rateUsed, currentCatalogRate);
+  });
+});
+

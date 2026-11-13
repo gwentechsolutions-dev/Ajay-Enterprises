@@ -39,7 +39,11 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ success: true, data: statements });
   } catch (error: any) {
-    const status = error.message.startsWith("UNAUTHORIZED") ? 401 : error.message.startsWith("FORBIDDEN") ? 403 : 500;
+    const status = error.message?.startsWith("UNAUTHORIZED")
+      ? 401
+      : error.message?.startsWith("FORBIDDEN")
+      ? 403
+      : 500;
     return NextResponse.json({ success: false, error: { message: error.message } }, { status });
   }
 }
@@ -76,17 +80,30 @@ export async function POST(req: NextRequest) {
     const startDate = new Date(input.periodStartDate);
     const endDate = new Date(input.periodEndDate);
 
-    // Duplicate billing prevention: check existing finalized/approved statements for exact overlap
+    // Concurrency & Duplicate Billing Protection:
+    // Build overlap condition preserving site-wise vs consolidated mutual exclusivity
+    const overlapWhere =
+      input.billingMode === "SITE_WISE" && input.customerSiteId
+        ? {
+            customerId: input.customerId,
+            status: { in: ["APPROVED", "FINALIZED"] },
+            periodStartDate: { lte: endDate },
+            periodEndDate: { gte: startDate },
+            OR: [
+              { customerSiteId: input.customerSiteId },
+              { customerSiteId: null, billingMode: "CONSOLIDATED" },
+            ],
+          }
+        : {
+            customerId: input.customerId,
+            status: { in: ["APPROVED", "FINALIZED"] },
+            periodStartDate: { lte: endDate },
+            periodEndDate: { gte: startDate },
+          };
+
+    // Pre-check outside transaction for fast feedback
     const existingApproved = await db.rentalStatement.findFirst({
-      where: {
-        customerId: input.customerId,
-        ...(input.billingMode === "SITE_WISE" && input.customerSiteId
-          ? { customerSiteId: input.customerSiteId }
-          : {}),
-        status: { in: ["APPROVED", "FINALIZED"] },
-        periodStartDate: { lte: endDate },
-        periodEndDate: { gte: startDate },
-      },
+      where: overlapWhere,
     });
 
     if (existingApproved) {
@@ -95,7 +112,7 @@ export async function POST(req: NextRequest) {
           success: false,
           error: {
             code: "DUPLICATE_BILLING",
-            message: `A finalized/approved statement (${existingApproved.statementNumber}) already covers the selected date range. Duplicate billing is prevented.`,
+            message: `A statement (${existingApproved.statementNumber}) already covers the selected date range. Duplicate billing is prevented.`,
           },
         },
         { status: 409 }
@@ -120,6 +137,21 @@ export async function POST(req: NextRequest) {
     const statementNumber = input.statementNumber || (await generateNextDocumentNumber("STM"));
 
     const created = await db.$transaction(async (tx) => {
+      // 0. Database Transaction Advisory Lock: Serialize concurrent statement generation
+      const lockKey = `rental_stmt_${input.customerId}_${input.billingMode === "SITE_WISE" ? input.customerSiteId : "CONSOLIDATED"}`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+
+      // 0b. Atomic Re-Check inside transaction lock to guarantee concurrency safety
+      const inTxExisting = await tx.rentalStatement.findFirst({
+        where: overlapWhere,
+      });
+
+      if (inTxExisting) {
+        throw new Error(
+          `DUPLICATE_BILLING: An active statement (${inTxExisting.statementNumber}) already exists for this period. Concurrent duplicate prevented.`
+        );
+      }
+
       // 1. Create Statement Header
       const stmt = await tx.rentalStatement.create({
         data: {
@@ -222,7 +254,29 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
   } catch (error: any) {
-    const status = error.message.startsWith("UNAUTHORIZED") ? 401 : error.message.startsWith("FORBIDDEN") ? 403 : 500;
+    if (
+      error.message?.includes("DUPLICATE_BILLING") ||
+      error.code === "P2002" ||
+      error.message?.includes("RentalStatement_unique_active_period")
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "DUPLICATE_BILLING",
+            message:
+              error.message ||
+              "A rental statement already exists for this site and period. Duplicate billing is prevented.",
+          },
+        },
+        { status: 409 }
+      );
+    }
+    const status = error.message?.startsWith("UNAUTHORIZED")
+      ? 401
+      : error.message?.startsWith("FORBIDDEN")
+      ? 403
+      : 500;
     return NextResponse.json({ success: false, error: { message: error.message } }, { status });
   }
 }
