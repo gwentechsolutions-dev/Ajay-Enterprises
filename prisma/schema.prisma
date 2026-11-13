@@ -1,0 +1,301 @@
+// ==============================================================================
+// INVENTRA - Prisma Database Schema
+// Operating Business: AJAY ENTERPRISES | Product: INVENTRA
+// Managed Backend: Supabase PostgreSQL (with PostGIS Extension)
+// ==============================================================================
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [postgis]
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+// ------------------------------------------------------------------------------
+// 1. Identity & Access Management (IAM)
+// Integrated with Supabase Auth (auth.users)
+// ------------------------------------------------------------------------------
+
+model User {
+  id          String        @id @default(uuid()) @db.Uuid
+  supabaseId  String?       @unique @db.Uuid // UUID linking to Supabase auth.users(id)
+  userCode    String        @unique // e.g. "USR-0001"
+  name        String
+  email       String        @unique
+  username    String?       @unique
+  mobile      String
+  role        String        @default("READ_ONLY") // OWNER, ADMIN, ACCOUNTANT, WAREHOUSE_MANAGER, WAREHOUSE_STAFF, DELIVERY_MANAGER, DELIVERY_PERSONNEL, LABOUR_SUPERVISOR, READ_ONLY
+  scope       String        @default("ALL_BUSINESS") // ALL_BUSINESS, ASSIGNED_WAREHOUSE, ASSIGNED_SITE, ASSIGNED_DELIVERY
+  branchId    String?       @db.Uuid
+  warehouseId String?       @db.Uuid
+  isActive    Boolean       @default(true)
+  lastLogin   DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  branch      Branch?       @relation(fields: [branchId], references: [id])
+  warehouse   Warehouse?    @relation(fields: [warehouseId], references: [id])
+  auditEvents AuditEvent[]
+
+  @@index([role])
+  @@index([email])
+  @@index([userCode])
+  @@index([supabaseId])
+}
+
+model RolePermission {
+  id        String   @id @default(uuid()) @db.Uuid
+  role      String   // OWNER, ADMIN, ACCOUNTANT, WAREHOUSE_MANAGER, WAREHOUSE_STAFF, DELIVERY_MANAGER, DELIVERY_PERSONNEL, LABOUR_SUPERVISOR, READ_ONLY
+  module    String   // company, branches, warehouses, users, roles, document_settings, audit_logs, customers, inventory, movement, billing, accounting, fleet, labour
+  action    String   // view, create, edit, approve, post, cancel, export, delete
+  isAllowed Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([role, module, action])
+  @@index([role])
+}
+
+// ------------------------------------------------------------------------------
+// 2. Company Profile & Settings (AJAY ENTERPRISES)
+// ------------------------------------------------------------------------------
+
+model CompanyProfile {
+  id                   String            @id @default(uuid()) @db.Uuid
+  legalName            String            @default("AJAY ENTERPRISES")
+  tradeName            String            @default("AJAY ENTERPRISES")
+  entityType           String            @default("PROPRIETORSHIP") // PROPRIETORSHIP, PARTNERSHIP, PVT_LTD, LTD, LLP
+  establishmentDate    DateTime?
+  businessCategory     String?           @default("Construction Centering Material Rental & Formwork Equipment")
+  description          String?
+  website              String?
+  primaryMobile        String            @default("")
+  alternateMobile      String?
+  whatsappNumber       String            @default("")
+  officialEmail        String            @default("")
+  alternateEmail       String?
+  contactPerson        String            @default("")
+  telephone            String?
+  pan                  String?
+  gstin                String?
+  gstLegalName         String?
+  gstTradeName         String?
+  gstType              String?           @default("REGULAR") // REGULAR, COMPOSITION, UNREGISTERED
+  gstState             String?
+  gstStateCode         String?
+  gstRegistrationDate  DateTime?
+  logoAssetUrl         String?
+  isOnboardingComplete Boolean           @default(false)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  addresses            CompanyAddress[]
+  bankAccounts         BankAccount[]
+  documents            CompanyDocument[]
+  signatories          SignatoryAsset[]
+}
+
+model CompanyAddress {
+  id                      String         @id @default(uuid()) @db.Uuid
+  companyId               String         @db.Uuid
+  addressType             String         // REGISTERED, HEAD_OFFICE, BILLING, CORRESPONDENCE, YARD
+  addressLine1            String
+  addressLine2            String?
+  areaLocality            String?
+  city                    String
+  district                String
+  state                   String
+  stateCode               String
+  pinCode                 String
+  country                 String         @default("India")
+  isDefaultBilling        Boolean        @default(false)
+  isDefaultCorrespondence Boolean        @default(false)
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+
+  company                 CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+model BankAccount {
+  id                String         @id @default(uuid()) @db.Uuid
+  companyId         String         @db.Uuid
+  bankName          String
+  accountHolderName String
+  accountNumber     String
+  ifscCode          String
+  branchName        String?
+  accountType       String         @default("CURRENT") // CURRENT, SAVINGS, OVERDRAFT
+  upiId             String?
+  qrAssetUrl        String?
+  isPrimary         Boolean        @default(false)
+  isActive          Boolean        @default(true)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  company           CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+model CompanyDocument {
+  id           String         @id @default(uuid()) @db.Uuid
+  companyId    String         @db.Uuid
+  documentType String         // GST_CERTIFICATE, PAN_CARD, BUSINESS_REGISTRATION, MSME, OTHER
+  title        String
+  fileName     String
+  fileMime     String
+  fileSize     Int
+  storagePath  String
+  expiryDate   DateTime?
+  uploadedBy   String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  company      CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+model SignatoryAsset {
+  id                 String         @id @default(uuid()) @db.Uuid
+  companyId          String         @db.Uuid
+  name               String
+  designation        String
+  signatureAssetUrl  String
+  stampAssetUrl      String?
+  authorizationLimit Decimal?       @db.Decimal(15, 2)
+  isDefault          Boolean        @default(false)
+  isActive           Boolean        @default(true)
+  validFrom          DateTime       @default(now())
+  validUntil         DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  company            CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+// ------------------------------------------------------------------------------
+// 3. Branches & Warehouses
+// ------------------------------------------------------------------------------
+
+model Branch {
+  id            String      @id @default(uuid()) @db.Uuid
+  branchCode    String      @unique // e.g. "BR-01"
+  name          String
+  branchType    String      @default("MAIN_OFFICE") // MAIN_OFFICE, REGIONAL_OFFICE, YARD_BRANCH
+  addressLine1  String
+  addressLine2  String?
+  city          String
+  state         String
+  pinCode       String
+  contactPerson String
+  mobile        String
+  email         String?
+  isActive      Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  warehouses    Warehouse[]
+  users         User[]
+
+  @@index([branchCode])
+}
+
+model Warehouse {
+  id            String      @id @default(uuid()) @db.Uuid
+  warehouseCode String      @unique // e.g. "WH-01"
+  name          String
+  branchId      String      @db.Uuid
+  warehouseType String      @default("MAIN_YARD") // MAIN_YARD, SECONDARY_YARD, SATELLITE_YARD
+  addressLine1  String
+  addressLine2  String?
+  city          String
+  state         String
+  pinCode       String
+  contactPerson String
+  mobile        String
+  gpsLatitude   Decimal?    @db.Decimal(10, 7) // High-precision coordinate
+  gpsLongitude  Decimal?    @db.Decimal(10, 7) // High-precision coordinate
+  isActive      Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  branch        Branch      @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  users         User[]
+
+  @@index([warehouseCode])
+  @@index([branchId])
+}
+
+// ------------------------------------------------------------------------------
+// 4. Document Series & Numbering Sequences
+// ------------------------------------------------------------------------------
+
+model DocumentSeries {
+  id             String   @id @default(uuid()) @db.Uuid
+  documentType   String   // QUOTATION, PROFORMA, PO, PURCHASE_INV, SALES_INV, HIRING_INV, SERVICE_INV, DN, MRN, STN, HDN, HRN, CREDIT_NOTE, DEBIT_NOTE, RECEIPT, PAYMENT_VOUCHER, JOURNAL
+  prefix         String   // e.g. "AE/DN/", "AE/INV/"
+  fiscalYear     String   // e.g. "2026-27"
+  currentCounter Int      @default(0)
+  padding        Int      @default(4) // 0001
+  suffix         String?  @default("")
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([documentType, fiscalYear])
+  @@index([documentType])
+  @@index([fiscalYear])
+}
+
+model FinancialYear {
+  id        String   @id @default(uuid()) @db.Uuid
+  yearCode  String   @unique // e.g. "2026-27"
+  startDate DateTime
+  endDate   DateTime
+  isCurrent Boolean  @default(false)
+  isClosed  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([yearCode])
+}
+
+// ------------------------------------------------------------------------------
+// 5. Append-Only Audit Logging Foundation
+// ------------------------------------------------------------------------------
+
+model AuditEvent {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String?  @db.Uuid
+  userName      String?
+  userRole      String?
+  ipAddress     String?
+  userAgent     String?
+  action        String   // LOGIN, LOGOUT, FAILED_LOGIN, CREATE, UPDATE, DELETE, DEACTIVATE, PASSWORD_CHANGE, EXPORT, UPLOAD
+  module        String   // AUTH, USERS, ROLES, COMPANY, BRANCHES, WAREHOUSES, SERIES, AUDIT
+  entityType    String   // User, CompanyProfile, BankAccount, Branch, Warehouse, DocumentSeries
+  entityId      String?
+  beforeState   String?  // JSON stringified state
+  afterState    String?  // JSON stringified state
+  correlationId String?
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([module])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}

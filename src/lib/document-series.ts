@@ -1,0 +1,107 @@
+import { db } from "./db";
+
+export const DOCUMENT_TYPES = [
+  { id: "DN", label: "Delivery Note (DN)", defaultPrefix: "AE/DN/" },
+  { id: "MRN", label: "Material Return Note (MRN)", defaultPrefix: "AE/MRN/" },
+  { id: "STN", label: "Stock Transfer Note (STN)", defaultPrefix: "AE/STN/" },
+  { id: "HDN", label: "Hiring Delivery Note (HDN)", defaultPrefix: "AE/HDN/" },
+  { id: "HRN", label: "Hiring Return Note (HRN)", defaultPrefix: "AE/HRN/" },
+  { id: "INV_RENTAL", label: "Monthly Rental Invoice", defaultPrefix: "AE/INV/" },
+  { id: "SALES_INV", label: "Material Sales Invoice", defaultPrefix: "AE/INV-S/" },
+  { id: "HIRING_INV", label: "Hiring Out Invoice", defaultPrefix: "AE/INV-H/" },
+  { id: "SERVICE_INV", label: "Service / Repair Invoice", defaultPrefix: "AE/INV-SRV/" },
+  { id: "QUOTATION", label: "Quotation / Estimate", defaultPrefix: "AE/QT/" },
+  { id: "PROFORMA", label: "Proforma Invoice", defaultPrefix: "AE/PI/" },
+  { id: "PO", label: "Purchase Order", defaultPrefix: "AE/PO/" },
+  { id: "PURCHASE_INV", label: "Purchase Invoice", defaultPrefix: "AE/PUR/" },
+  { id: "CREDIT_NOTE", label: "Credit Note (CN)", defaultPrefix: "AE/CN/" },
+  { id: "DEBIT_NOTE", label: "Debit Note (DN-ADJ)", defaultPrefix: "AE/DN-ADJ/" },
+  { id: "RECEIPT", label: "Customer Payment Receipt", defaultPrefix: "AE/REC/" },
+  { id: "PAYMENT_VOUCHER", label: "Supplier / Expense Payment Voucher", defaultPrefix: "AE/PAY/" },
+  { id: "JOURNAL", label: "General Ledger Journal", defaultPrefix: "AE/JRN/" },
+] as const;
+
+export type DocumentTypeId = (typeof DOCUMENT_TYPES)[number]["id"];
+
+/**
+ * Returns Indian Financial Year string for a given date (default 1 April to 31 March)
+ * e.g. Nov 2026 -> "2026-27", Jan 2027 -> "2026-27", Apr 2027 -> "2027-28"
+ */
+export function getCurrentFiscalYear(date: Date = new Date()): string {
+  const month = date.getMonth(); // 0-11 (Jan=0, Apr=3)
+  const fullYear = date.getFullYear();
+
+  if (month >= 3) {
+    // April (3) to December (11)
+    const nextYearShort = (fullYear + 1).toString().slice(-2);
+    return `${fullYear}-${nextYearShort}`;
+  } else {
+    // January (0) to March (2)
+    const currentYearShort = fullYear.toString().slice(-2);
+    return `${fullYear - 1}-${currentYearShort}`;
+  }
+}
+
+/**
+ * Formats a document number from series metadata
+ */
+export function formatDocumentNumber(
+  prefix: string,
+  counter: number,
+  padding: number = 4,
+  suffix: string = ""
+): string {
+  const padded = counter.toString().padStart(padding, "0");
+  return `${prefix}${padded}${suffix}`;
+}
+
+/**
+ * Atomic concurrency-safe generator for sequential document numbers
+ */
+export async function generateNextDocumentNumber(
+  documentType: DocumentTypeId | string,
+  fiscalYear: string = getCurrentFiscalYear()
+): Promise<string> {
+  return await db.$transaction(async (tx) => {
+    let series = await tx.documentSeries.findUnique({
+      where: {
+        documentType_fiscalYear: {
+          documentType,
+          fiscalYear,
+        },
+      },
+    });
+
+    if (!series) {
+      // Find default prefix
+      const def = DOCUMENT_TYPES.find((d) => d.id === documentType);
+      const prefix = def ? `${def.defaultPrefix}${fiscalYear}/` : `AE/${documentType}/${fiscalYear}/`;
+
+      series = await tx.documentSeries.create({
+        data: {
+          documentType,
+          fiscalYear,
+          prefix,
+          currentCounter: 0,
+          padding: 4,
+          suffix: "",
+          isActive: true,
+        },
+      });
+    }
+
+    if (!series.isActive) {
+      throw new Error(`Document series for '${documentType}' (${fiscalYear}) is inactive.`);
+    }
+
+    const nextCounter = series.currentCounter + 1;
+
+    await tx.documentSeries.update({
+      where: { id: series.id },
+      data: { currentCounter: nextCounter },
+    });
+
+    return formatDocumentNumber(series.prefix, nextCounter, series.padding, series.suffix || "");
+  });
+}
+
