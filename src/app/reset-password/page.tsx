@@ -11,17 +11,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Lock, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
+import { Lock, ArrowRight, CheckCircle2, AlertCircle, Loader2, KeyRound } from "lucide-react";
 import { Toaster, toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
 
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") || "";
+  const code = searchParams.get("code") || "";
 
   const [serverError, setServerError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [isVerifying, setIsVerifying] = React.useState(true);
+  const [isAuthorized, setIsAuthorized] = React.useState(false);
+
+  const supabase = React.useMemo(() => createClient(), []);
 
   const {
     register,
@@ -38,14 +44,88 @@ function ResetPasswordForm() {
   });
 
   React.useEffect(() => {
-    if (token) setValue("token", token);
-  }, [token, setValue]);
+    let isMounted = true;
+
+    async function checkAuthSession() {
+      try {
+        // If there is an authorization code from Supabase PKCE flow, exchange it
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (!error && isMounted) {
+            setIsAuthorized(true);
+            setIsVerifying(false);
+            return;
+          }
+        }
+
+        // Check if token param was passed
+        if (token) {
+          setValue("token", token);
+          if (isMounted) {
+            setIsAuthorized(true);
+            setIsVerifying(false);
+            return;
+          }
+        }
+
+        // Check if an existing session or hash fragment exists
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData?.session && isMounted) {
+          setIsAuthorized(true);
+          setIsVerifying(false);
+          return;
+        }
+
+        // Check for hash parameters in URL (Supabase Implicit flow)
+        if (typeof window !== "undefined" && window.location.hash.includes("access_token")) {
+          if (isMounted) {
+            setIsAuthorized(true);
+            setIsVerifying(false);
+            return;
+          }
+        }
+
+        if (isMounted) {
+          setIsVerifying(false);
+        }
+      } catch {
+        if (isMounted) {
+          setIsVerifying(false);
+        }
+      }
+    }
+
+    // Subscribe to Supabase auth state change for PASSWORD_RECOVERY event
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
+        if (isMounted) {
+          setIsAuthorized(true);
+          setIsVerifying(false);
+        }
+      }
+    });
+
+    checkAuthSession();
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [code, token, setValue, supabase]);
 
   const onSubmit = async (values: ResetPasswordInput) => {
     setIsLoading(true);
     setServerError(null);
 
     try {
+      // 1. Try updating via Supabase client directly if session exists
+      const { error: clientError } = await supabase.auth.updateUser({
+        password: values.newPassword,
+      });
+
+      // 2. Also inform server API to update/audit log
       const res = await fetch("/api/v1/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -53,14 +133,15 @@ function ResetPasswordForm() {
       });
 
       const data = await res.json();
-      if (!res.ok) {
-        setServerError(data.error?.message || "Failed to reset password");
+
+      if (clientError && !res.ok) {
+        setServerError(clientError.message || data.error?.message || "Failed to reset password");
         return;
       }
 
       setSuccess(true);
       toast.success("Password reset successfully!");
-      setTimeout(() => router.push("/login"), 2000);
+      setTimeout(() => router.push("/login"), 2500);
     } catch {
       setServerError("Network error. Please try again.");
     } finally {
@@ -68,14 +149,42 @@ function ResetPasswordForm() {
     }
   };
 
-  if (!token) {
+  if (isVerifying) {
     return (
-      <Alert variant="destructive">
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          Missing password reset token. Please request a new recovery link.
-        </AlertDescription>
-      </Alert>
+      <div className="bg-white py-12 px-6 shadow-sm border border-slate-200 rounded-2xl flex flex-col items-center justify-center space-y-3">
+        <Loader2 className="h-8 w-8 animate-spin text-[#0B1E36]" />
+        <p className="text-sm font-medium text-slate-600">Verifying security token...</p>
+      </div>
+    );
+  }
+
+  if (!isAuthorized) {
+    return (
+      <div className="bg-white py-8 px-6 shadow-sm border border-slate-200 rounded-2xl space-y-5">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            The password reset link is invalid, expired, or has already been used. Please request a new recovery link.
+          </AlertDescription>
+        </Alert>
+        <div className="pt-2 text-center">
+          <Link
+            href="/forgot-password"
+            className="inline-flex items-center justify-center gap-2 w-full bg-[#0B1E36] hover:bg-[#071424] text-white font-semibold h-10 rounded-lg text-sm transition-colors"
+          >
+            <KeyRound className="h-4 w-4" />
+            Request New Recovery Link
+          </Link>
+          <div className="mt-4">
+            <Link
+              href="/login"
+              className="text-xs font-medium text-slate-500 hover:text-slate-800"
+            >
+              Back to Sign In
+            </Link>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -85,9 +194,9 @@ function ResetPasswordForm() {
         <Alert variant="success">
           <CheckCircle2 className="h-4 w-4" />
           <div className="ml-2">
-            <p className="font-semibold text-emerald-950">Password Updated</p>
+            <p className="font-semibold text-emerald-950">Password Updated Successfully</p>
             <AlertDescription className="text-emerald-800 mt-1">
-              Your password has been securely reset. Redirecting to sign in...
+              Your password has been securely updated. Redirecting to sign in...
             </AlertDescription>
             <Link
               href="/login"
@@ -119,6 +228,7 @@ function ResetPasswordForm() {
                 type="password"
                 placeholder="••••••••••••"
                 className="pl-9"
+                disabled={isLoading}
                 error={!!errors.newPassword}
                 {...register("newPassword")}
               />
@@ -139,6 +249,7 @@ function ResetPasswordForm() {
                 type="password"
                 placeholder="••••••••••••"
                 className="pl-9"
+                disabled={isLoading}
                 error={!!errors.confirmPassword}
                 {...register("confirmPassword")}
               />
@@ -150,10 +261,17 @@ function ResetPasswordForm() {
 
           <Button
             type="submit"
-            isLoading={isLoading}
-            className="w-full bg-primary-900 hover:bg-primary-800 text-white font-semibold h-11"
+            disabled={isLoading}
+            className="w-full bg-[#0B1E36] hover:bg-[#071424] text-white font-semibold h-11 flex items-center justify-center gap-2 transition-all shadow-sm"
           >
-            Update Password & Sign In
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin text-white" />
+                <span>Updating Password...</span>
+              </>
+            ) : (
+              <span>Update Password & Sign In</span>
+            )}
           </Button>
         </form>
       )}
@@ -167,17 +285,18 @@ export default function ResetPasswordPage() {
       <Toaster position="top-right" richColors />
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center mb-4">
-          <div className="h-12 w-12 rounded-xl bg-[#0B1E36] p-1.5 flex items-center justify-center">
+          <div className="h-14 w-14 rounded-2xl bg-[#0B1E36] p-2 flex items-center justify-center shadow-md">
             <Image
               src="/assets/inventra-logo.png"
               alt="INVENTRA Logo"
-              width={40}
-              height={40}
+              width={44}
+              height={44}
               className="object-contain"
+              priority
             />
           </div>
         </div>
-        <h2 className="text-center text-2xl font-bold text-slate-900 tracking-tight">
+        <h2 className="text-center text-2xl font-extrabold text-slate-900 tracking-tight">
           Set New Password
         </h2>
         <p className="mt-1 text-center text-sm text-slate-500">
@@ -193,4 +312,3 @@ export default function ResetPasswordPage() {
     </div>
   );
 }
-
