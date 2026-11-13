@@ -8,6 +8,7 @@ import { logAuditEvent } from "@/lib/audit";
 import { postInventoryMovement } from "@/lib/inventory/ledger";
 import { createMaterialReturnNoteSchema } from "@/lib/schemas/material-return";
 import { sendWhatsAppNotification } from "@/lib/notifications/whatsapp";
+import { allocateReturnToBatches } from "@/lib/rentals/tracking";
 
 export async function GET(req: NextRequest) {
   try {
@@ -232,7 +233,10 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // 7. Audit log
+      // 7. Allocate returns to active rental batches (FIFO)
+      await allocateReturnToBatches(mrn.id, tx);
+
+      // 8. Audit log
       await logAuditEvent({
         userId: actor.id,
         userName: actor.name,

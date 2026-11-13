@@ -30,6 +30,10 @@ import {
   ArrowLeftRight,
   Repeat,
   Compass,
+  FileText,
+  Calculator,
+  AlertTriangle,
+  CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -64,6 +68,17 @@ const NAVIGATION: NavGroup[] = [
       { title: "Hiring Notes (HDN/HRN)", href: "/hiring-notes", icon: Repeat },
       { title: "Movement Ledger", href: "/movements", icon: History },
       { title: "Stock Verification", href: "/inventory/audits", icon: ClipboardCheck },
+    ],
+  },
+  {
+    group: "Rental & Billing Engine",
+    items: [
+      { title: "Rental Operations", href: "/rentals", icon: Receipt },
+      { title: "Rental Agreements", href: "/rentals/agreements", icon: FileText },
+      { title: "Field Held Equipment", href: "/rentals/held-stock", icon: Boxes },
+      { title: "Monthly Statements", href: "/rentals/statements", icon: Calculator },
+      { title: "Damage & Loss Claims", href: "/rentals/damage-loss", icon: AlertTriangle },
+      { title: "Site Closure & Settlement", href: "/rentals/closures", icon: CheckCircle2 },
     ],
   },
   {

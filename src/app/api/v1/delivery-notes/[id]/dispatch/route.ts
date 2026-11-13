@@ -6,6 +6,7 @@ import { requirePermission } from "@/lib/permissions";
 import { logAuditEvent } from "@/lib/audit";
 import { postInventoryMovement } from "@/lib/inventory/ledger";
 import { sendWhatsAppNotification } from "@/lib/notifications/whatsapp";
+import { syncRentalBatchesFromDelivery } from "@/lib/rentals/tracking";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -76,7 +77,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         },
       });
 
-      // 3. Audit Logging
+      // 3. Sync Rental Batches for tracking & daily billing accrual
+      await syncRentalBatchesFromDelivery(dn.id, tx);
+
+      // 4. Audit Logging
       await logAuditEvent({
         userId: actor.id,
         userName: actor.name,
