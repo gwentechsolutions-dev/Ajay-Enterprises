@@ -20,6 +20,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TableSkeleton } from "@/components/ui/loading-states";
 
 export default function MaterialMaintenancePage() {
   const [jobs, setJobs] = React.useState<any[]>([]);
@@ -256,10 +257,11 @@ export default function MaterialMaintenancePage() {
             variant="outline"
             size="sm"
             onClick={loadData}
-            disabled={isLoading}
+            isLoading={isLoading}
+            loadingText="Refreshing..."
             className="border-slate-300 hover:bg-slate-50"
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+            <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
           <Button
@@ -384,7 +386,16 @@ export default function MaterialMaintenancePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredJobs.map((j) => {
+              {isLoading ? (
+                <TableSkeleton columns={11} rows={6} />
+              ) : filteredJobs.length === 0 ? (
+                <tr>
+                  <td colSpan={11} className="p-8 text-center text-slate-400">
+                    No material maintenance jobs found. Click Create Repair Job to record damaged centering material.
+                  </td>
+                </tr>
+              ) : (
+                filteredJobs.map((j) => {
                 const total = Number(j.totalQuantity);
                 const repaired = Number(j.repairedQuantity || 0);
                 const scrapped = Number(j.scrappedQuantity || 0);
@@ -486,14 +497,7 @@ export default function MaterialMaintenancePage() {
                     </td>
                   </tr>
                 );
-              })}
-              {filteredJobs.length === 0 && !isLoading && (
-                <tr>
-                  <td colSpan={11} className="p-8 text-center text-slate-400">
-                    No material maintenance jobs found. Click Create Repair Job to record damaged centering material.
-                  </td>
-                </tr>
-              )}
+              }))}
             </tbody>
           </table>
         </div>
@@ -668,10 +672,11 @@ export default function MaterialMaintenancePage() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={isSubmitting}
+                  isLoading={isSubmitting}
+                  loadingText="Logging Job..."
                   className="bg-[#0B1E36] hover:bg-[#1E293B] text-white"
                 >
-                  {isSubmitting ? "Creating Job..." : "Log Repair Job"}
+                  Log Repair Job
                 </Button>
               </div>
             </form>
@@ -790,10 +795,11 @@ export default function MaterialMaintenancePage() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={isSubmitting}
+                  isLoading={isSubmitting}
+                  loadingText="Releasing..."
                   className="bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
-                  {isSubmitting ? "Releasing Stock..." : "Release to Stock"}
+                  Release to Stock
                 </Button>
               </div>
             </form>
@@ -879,10 +885,11 @@ export default function MaterialMaintenancePage() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={isSubmitting}
+                  isLoading={isSubmitting}
+                  loadingText="Processing..."
                   className="bg-red-600 hover:bg-red-700 text-white"
                 >
-                  {isSubmitting ? "Processing..." : "Confirm Scrap"}
+                  Confirm Scrap
                 </Button>
               </div>
             </form>

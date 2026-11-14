@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
+import { TopProgressBar } from "./top-progress-bar";
 import { SessionUser } from "@/lib/auth";
 import { Toaster } from "sonner";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,11 @@ export function AppShell({ user, children }: AppShellProps) {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex">
+      {/* Global Navigation Loading Progress Bar */}
+      <React.Suspense fallback={null}>
+        <TopProgressBar />
+      </React.Suspense>
+
       {/* Toast notifications */}
       <Toaster position="top-right" richColors />
 

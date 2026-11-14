@@ -14,6 +14,7 @@ import {
   Layers,
   ChevronRight,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const ROLE_ICONS: Record<string, React.ElementType> = {
   OWNER: ShieldCheck,
@@ -217,14 +218,15 @@ export default function TrainingPage() {
 
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-end">
                     {!mod.isCompleted ? (
-                      <button
+                      <Button
                         onClick={() => handleMarkComplete(mod.moduleCode, activeCurriculum.role)}
-                        disabled={updating === mod.moduleCode}
+                        isLoading={updating === mod.moduleCode}
+                        loadingText="Updating..."
                         className="px-3 py-1.5 bg-[#0B1E36] hover:bg-slate-800 text-white rounded text-xs font-bold shadow-sm transition flex items-center gap-1.5"
                       >
                         <CheckCircle2 className="h-3.5 w-3.5" />
-                        {updating === mod.moduleCode ? "Updating..." : "Mark Completed & Verified"}
-                      </button>
+                        Mark Completed & Verified
+                      </Button>
                     ) : (
                       <span className="text-xs text-emerald-700 font-semibold flex items-center gap-1">
                         <CheckCircle2 className="h-4 w-4" />

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TableSkeleton } from "@/components/ui/loading-states";
 
 export default function FleetFuelPage() {
   const [fuelLogs, setFuelLogs] = React.useState<any[]>([]);
@@ -135,10 +136,11 @@ export default function FleetFuelPage() {
             variant="outline"
             size="sm"
             onClick={loadData}
-            disabled={isLoading}
+            isLoading={isLoading}
+            loadingText="Refreshing..."
             className="border-slate-300 hover:bg-slate-50"
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+            <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
           <Button
@@ -197,31 +199,34 @@ export default function FleetFuelPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {fuelLogs.map((f) => (
-                <tr key={f.id} className="hover:bg-slate-50/50">
-                  <td className="px-4 py-3 font-mono font-bold text-[#0B1E36]">{f.logNumber}</td>
-                  <td className="px-4 py-3 text-xs">{new Date(f.fuelDate).toLocaleDateString("en-IN")}</td>
-                  <td className="px-4 py-3 font-semibold text-slate-800">{f.vehicle?.vehicleNumber}</td>
-                  <td className="px-4 py-3 font-mono">{Number(f.odometerReading).toLocaleString()} km</td>
-                  <td className="px-4 py-3 font-mono">{Number(f.quantityLitres).toFixed(2)} L</td>
-                  <td className="px-4 py-3 font-mono">₹{Number(f.pricePerUnit).toFixed(2)}</td>
-                  <td className="px-4 py-3 font-mono font-bold text-slate-800">₹{Number(f.totalCost).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                  <td className="px-4 py-3 font-mono font-semibold text-emerald-600">
-                    {f.mileageKmPerLitre ? `${Number(f.mileageKmPerLitre).toFixed(2)} km/L` : "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${f.isFullTank ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
-                      {f.isFullTank ? "FULL" : "PARTIAL"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-              {fuelLogs.length === 0 && (
+              {isLoading ? (
+                <TableSkeleton columns={9} rows={5} />
+              ) : fuelLogs.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="text-center py-10 text-slate-400">
                     No fuel logs recorded yet.
                   </td>
                 </tr>
+              ) : (
+                fuelLogs.map((f) => (
+                  <tr key={f.id} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-3 font-mono font-bold text-[#0B1E36]">{f.logNumber}</td>
+                    <td className="px-4 py-3 text-xs">{new Date(f.fuelDate).toLocaleDateString("en-IN")}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-800">{f.vehicle?.vehicleNumber}</td>
+                    <td className="px-4 py-3 font-mono">{Number(f.odometerReading).toLocaleString()} km</td>
+                    <td className="px-4 py-3 font-mono">{Number(f.quantityLitres).toFixed(2)} L</td>
+                    <td className="px-4 py-3 font-mono">₹{Number(f.pricePerUnit).toFixed(2)}</td>
+                    <td className="px-4 py-3 font-mono font-bold text-slate-800">₹{Number(f.totalCost).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                    <td className="px-4 py-3 font-mono font-semibold text-emerald-600">
+                      {f.mileageKmPerLitre ? `${Number(f.mileageKmPerLitre).toFixed(2)} km/L` : "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${f.isFullTank ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                        {f.isFullTank ? "FULL" : "PARTIAL"}
+                      </span>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
@@ -334,10 +339,11 @@ export default function FleetFuelPage() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={isSubmitting}
+                  isLoading={isSubmitting}
+                  loadingText="Recording Fuel..."
                   className="bg-[#0B1E36] hover:bg-[#1E293B] text-white"
                 >
-                  {isSubmitting ? "Saving..." : "Record Fuel"}
+                  Record Fuel
                 </Button>
               </div>
             </form>

@@ -17,6 +17,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TableSkeleton } from "@/components/ui/loading-states";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -425,12 +426,7 @@ export default function PurchasesPage() {
             </thead>
             <tbody className="divide-y divide-slate-200 bg-white">
               {loading ? (
-                <tr>
-                  <td colSpan={7} className="text-center py-12 text-slate-400">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-[#0B1E36]" />
-                    Loading purchase orders...
-                  </td>
-                </tr>
+                <TableSkeleton columns={7} rows={6} />
               ) : filteredOrders.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-12 text-slate-400">
@@ -687,8 +683,7 @@ export default function PurchasesPage() {
               <Button type="button" variant="outline" onClick={() => setIsPOModalOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={submitting} className="bg-[#0B1E36] text-white">
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              <Button type="submit" isLoading={submitting} loadingText="Generating PO..." className="bg-[#0B1E36] text-white">
                 Generate PO
               </Button>
             </DialogFooter>
@@ -837,8 +832,7 @@ export default function PurchasesPage() {
               <Button type="button" variant="outline" onClick={() => setIsGRNModalOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={submitting} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              <Button type="submit" isLoading={submitting} loadingText="Posting GRN..." className="bg-emerald-600 hover:bg-emerald-700 text-white">
                 Post GRN & Credit Stock
               </Button>
             </DialogFooter>

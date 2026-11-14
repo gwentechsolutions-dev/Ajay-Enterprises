@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TableSkeleton } from "@/components/ui/loading-states";
 
 export default function FleetMaintenancePage() {
   const [records, setRecords] = React.useState<any[]>([]);
@@ -138,10 +139,11 @@ export default function FleetMaintenancePage() {
             variant="outline"
             size="sm"
             onClick={loadData}
-            disabled={isLoading}
+            isLoading={isLoading}
+            loadingText="Refreshing..."
             className="border-slate-300 hover:bg-slate-50"
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+            <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
           <Button
@@ -186,26 +188,29 @@ export default function FleetMaintenancePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {records.map((r) => (
-                <tr key={r.id} className="hover:bg-slate-50/50">
-                  <td className="px-4 py-3 font-mono font-bold text-[#0B1E36]">{r.recordNumber}</td>
-                  <td className="px-4 py-3 text-xs">{new Date(r.serviceDate).toLocaleDateString("en-IN")}</td>
-                  <td className="px-4 py-3 font-semibold text-slate-800">{r.vehicle?.vehicleNumber}</td>
-                  <td className="px-4 py-3 text-xs font-semibold">{r.serviceCategory}</td>
-                  <td className="px-4 py-3">{r.descriptionOfWork}</td>
-                  <td className="px-4 py-3 font-mono">{Number(r.odometerReading).toLocaleString()} km</td>
-                  <td className="px-4 py-3 font-mono font-bold text-slate-800">₹{Number(r.totalCost).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                  <td className="px-4 py-3 text-xs">
-                    {r.nextServiceDate ? new Date(r.nextServiceDate).toLocaleDateString("en-IN") : "—"}
-                  </td>
-                </tr>
-              ))}
-              {records.length === 0 && (
+              {isLoading ? (
+                <TableSkeleton columns={8} rows={5} />
+              ) : records.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="text-center py-10 text-slate-400">
                     No maintenance records found.
                   </td>
                 </tr>
+              ) : (
+                records.map((r) => (
+                  <tr key={r.id} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-3 font-mono font-bold text-[#0B1E36]">{r.recordNumber}</td>
+                    <td className="px-4 py-3 text-xs">{new Date(r.serviceDate).toLocaleDateString("en-IN")}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-800">{r.vehicle?.vehicleNumber}</td>
+                    <td className="px-4 py-3 text-xs font-semibold">{r.serviceCategory}</td>
+                    <td className="px-4 py-3">{r.descriptionOfWork}</td>
+                    <td className="px-4 py-3 font-mono">{Number(r.odometerReading).toLocaleString()} km</td>
+                    <td className="px-4 py-3 font-mono font-bold text-slate-800">₹{Number(r.totalCost).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                    <td className="px-4 py-3 text-xs">
+                      {r.nextServiceDate ? new Date(r.nextServiceDate).toLocaleDateString("en-IN") : "—"}
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
@@ -351,10 +356,11 @@ export default function FleetMaintenancePage() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={isSubmitting}
+                  isLoading={isSubmitting}
+                  loadingText="Saving Record..."
                   className="bg-[#0B1E36] hover:bg-[#1E293B] text-white"
                 >
-                  {isSubmitting ? "Saving..." : "Save Service Record"}
+                  Save Service Record
                 </Button>
               </div>
             </form>

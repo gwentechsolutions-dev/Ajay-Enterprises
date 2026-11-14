@@ -13,6 +13,7 @@ import {
   HardHat,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TableSkeleton } from "@/components/ui/loading-states";
 
 export default function LabourAttendancePage() {
   const [selectedDate, setSelectedDate] = React.useState(
@@ -244,10 +245,10 @@ export default function LabourAttendancePage() {
             variant="outline"
             size="sm"
             onClick={() => loadData(selectedDate)}
-            disabled={isLoading}
+            isLoading={isLoading}
             className="border-slate-300 hover:bg-slate-50"
           >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+            <RefreshCw className="w-4 h-4" />
           </Button>
         </div>
       </div>
@@ -334,21 +335,25 @@ export default function LabourAttendancePage() {
             type="button"
             size="sm"
             onClick={handleSave}
-            disabled={isSaving || workers.length === 0}
+            disabled={workers.length === 0}
+            isLoading={isSaving}
+            loadingText="Saving..."
             className="bg-[#0B1E36] hover:bg-[#1E293B] text-white"
           >
             <Save className="w-4 h-4 mr-1.5" />
-            {isSaving ? "Saving..." : "Save Attendance"}
+            Save Attendance
           </Button>
           <Button
             type="button"
             size="sm"
             onClick={handleApproveAll}
-            disabled={isApproving || attendanceRecords.length === 0}
+            disabled={attendanceRecords.length === 0}
+            isLoading={isApproving}
+            loadingText="Approving..."
             className="bg-emerald-600 hover:bg-emerald-700 text-white"
           >
             <CheckCheck className="w-4 h-4 mr-1.5" />
-            {isApproving ? "Approving..." : "Approve Records"}
+            Approve Records
           </Button>
         </div>
       </div>
@@ -369,106 +374,109 @@ export default function LabourAttendancePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {workers.map((w) => {
-                const row = rowStates[w.id] || {
-                  status: "PRESENT",
-                  overtimeHours: 0,
-                  supervisorRemarks: "",
-                  isApproved: false,
-                };
-
-                return (
-                  <tr key={w.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="p-3">
-                      <div className="font-semibold text-slate-900">{w.name}</div>
-                      <div className="text-xs font-mono text-slate-500">{w.workerCode}</div>
-                    </td>
-                    <td className="p-3">
-                      <span className="text-xs bg-slate-100 px-2 py-0.5 rounded font-medium text-slate-700">
-                        {w.category}
-                      </span>
-                    </td>
-                    <td className="p-3 font-mono text-xs">
-                      {w.wageType === "DAILY" ? `₹${Number(w.dailyWage || 0)}/day` : `₹${Number(w.monthlySalary || 0)}/mo`}
-                    </td>
-                    <td className="p-3">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {(["PRESENT", "HALF_DAY", "ABSENT", "PAID_LEAVE", "UNPAID_LEAVE", "HOLIDAY"] as const).map(
-                          (st) => {
-                            const isSelected = row.status === st;
-                            return (
-                              <button
-                                key={st}
-                                type="button"
-                                onClick={() => handleStatusChange(w.id, st)}
-                                className={`px-2.5 py-1 text-xs rounded-md font-semibold transition-colors ${
-                                  isSelected
-                                    ? st === "PRESENT"
-                                      ? "bg-emerald-600 text-white"
-                                      : st === "HALF_DAY"
-                                      ? "bg-amber-500 text-white"
-                                      : st === "ABSENT"
-                                      ? "bg-red-600 text-white"
-                                      : "bg-slate-800 text-white"
-                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                }`}
-                              >
-                                {st === "PRESENT"
-                                  ? "Present (1.0)"
-                                  : st === "HALF_DAY"
-                                  ? "Half (0.5)"
-                                  : st === "ABSENT"
-                                  ? "Absent (0)"
-                                  : st.replace("_", " ")}
-                              </button>
-                            );
-                          }
-                        )}
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <input
-                        type="number"
-                        min="0"
-                        max="16"
-                        step="0.5"
-                        value={row.overtimeHours}
-                        onChange={(e) => handleOvertimeChange(w.id, parseFloat(e.target.value) || 0)}
-                        className="w-20 px-2.5 py-1 text-xs border border-slate-300 rounded font-mono text-center focus:outline-none focus:ring-1 focus:ring-[#0B1E36]"
-                      />
-                    </td>
-                    <td className="p-3">
-                      <input
-                        type="text"
-                        placeholder="Work area or notes..."
-                        value={row.supervisorRemarks}
-                        onChange={(e) => handleRemarksChange(w.id, e.target.value)}
-                        className="w-full px-2.5 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-[#0B1E36]"
-                      />
-                    </td>
-                    <td className="p-3 text-center">
-                      {row.isApproved ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                          Approved
-                        </span>
-                      ) : row.id ? (
-                        <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-medium">
-                          Saved
-                        </span>
-                      ) : (
-                        <span className="text-xs text-slate-400">Not Saved</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-              {workers.length === 0 && !isLoading && (
+              {isLoading ? (
+                <TableSkeleton columns={7} rows={6} />
+              ) : workers.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="p-8 text-center text-slate-400">
                     No active workers found. Add active workers in the Workforce Register first.
                   </td>
                 </tr>
+              ) : (
+                workers.map((w) => {
+                  const row = rowStates[w.id] || {
+                    status: "PRESENT",
+                    overtimeHours: 0,
+                    supervisorRemarks: "",
+                    isApproved: false,
+                  };
+
+                  return (
+                    <tr key={w.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="p-3">
+                        <div className="font-semibold text-slate-900">{w.name}</div>
+                        <div className="text-xs font-mono text-slate-500">{w.workerCode}</div>
+                      </td>
+                      <td className="p-3">
+                        <span className="text-xs bg-slate-100 px-2 py-0.5 rounded font-medium text-slate-700">
+                          {w.category}
+                        </span>
+                      </td>
+                      <td className="p-3 font-mono text-xs">
+                        {w.wageType === "DAILY" ? `₹${Number(w.dailyWage || 0)}/day` : `₹${Number(w.monthlySalary || 0)}/mo`}
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {(["PRESENT", "HALF_DAY", "ABSENT", "PAID_LEAVE", "UNPAID_LEAVE", "HOLIDAY"] as const).map(
+                            (st) => {
+                              const isSelected = row.status === st;
+                              return (
+                                <button
+                                  key={st}
+                                  type="button"
+                                  onClick={() => handleStatusChange(w.id, st)}
+                                  className={`px-2.5 py-1 text-xs rounded-md font-semibold transition-colors ${
+                                    isSelected
+                                      ? st === "PRESENT"
+                                        ? "bg-emerald-600 text-white"
+                                        : st === "HALF_DAY"
+                                        ? "bg-amber-500 text-white"
+                                        : st === "ABSENT"
+                                        ? "bg-red-600 text-white"
+                                        : "bg-slate-800 text-white"
+                                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                  }`}
+                                >
+                                  {st === "PRESENT"
+                                    ? "Present (1.0)"
+                                    : st === "HALF_DAY"
+                                    ? "Half (0.5)"
+                                    : st === "ABSENT"
+                                    ? "Absent (0)"
+                                    : st.replace("_", " ")}
+                                </button>
+                              );
+                            }
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <input
+                          type="number"
+                          min="0"
+                          max="16"
+                          step="0.5"
+                          value={row.overtimeHours}
+                          onChange={(e) => handleOvertimeChange(w.id, parseFloat(e.target.value) || 0)}
+                          className="w-20 px-2.5 py-1 text-xs border border-slate-300 rounded font-mono text-center focus:outline-none focus:ring-1 focus:ring-[#0B1E36]"
+                        />
+                      </td>
+                      <td className="p-3">
+                        <input
+                          type="text"
+                          placeholder="Work area or notes..."
+                          value={row.supervisorRemarks}
+                          onChange={(e) => handleRemarksChange(w.id, e.target.value)}
+                          className="w-full px-2.5 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-[#0B1E36]"
+                        />
+                      </td>
+                      <td className="p-3 text-center">
+                        {row.isApproved ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            Approved
+                          </span>
+                        ) : row.id ? (
+                          <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-medium">
+                            Saved
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-400">Not Saved</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

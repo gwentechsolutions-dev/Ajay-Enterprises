@@ -373,7 +373,7 @@ export default function DocumentSettingsPage() {
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setSeriesModalOpen(false)}>Cancel</Button>
-              <Button type="submit" className="bg-primary-900 text-white">Save Series</Button>
+              <Button type="submit" isLoading={seriesForm.formState.isSubmitting} loadingText="Saving Series..." className="bg-primary-900 text-white">Save Series</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -418,7 +418,7 @@ export default function DocumentSettingsPage() {
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setFyModalOpen(false)}>Cancel</Button>
-              <Button type="submit" className="bg-primary-900 text-white">Add Financial Year</Button>
+              <Button type="submit" isLoading={fyForm.formState.isSubmitting} loadingText="Adding Financial Year..." className="bg-primary-900 text-white">Add Financial Year</Button>
             </DialogFooter>
           </form>
         </DialogContent>

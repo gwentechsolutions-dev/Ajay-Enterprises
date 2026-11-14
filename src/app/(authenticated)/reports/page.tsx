@@ -88,6 +88,7 @@ export default function ReportsHubPage() {
   const [columns, setColumns] = React.useState<any[]>([]);
   const [reportTitle, setReportTitle] = React.useState("Active Rental Batches Summary");
   const [isLoading, setIsLoading] = React.useState(false);
+  const [isExporting, setIsExporting] = React.useState<"CSV" | "PRINT" | null>(null);
   const [searchQuery, setSearchQuery] = React.useState("");
 
   const loadReportPreview = React.useCallback(async (cat: string) => {
@@ -208,6 +209,7 @@ export default function ReportsHubPage() {
 
   const handleExport = async (format: "CSV" | "PRINT") => {
     try {
+      setIsExporting(format);
       const res = await fetch("/api/v1/reports/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -242,6 +244,8 @@ export default function ReportsHubPage() {
       }
     } catch (err) {
       console.error("Export failed", err);
+    } finally {
+      setIsExporting(null);
     }
   };
 
@@ -279,7 +283,9 @@ export default function ReportsHubPage() {
           <Button
             size="sm"
             onClick={() => handleExport("CSV")}
-            disabled={isLoading || reportData.length === 0}
+            disabled={reportData.length === 0}
+            isLoading={isExporting === "CSV"}
+            loadingText="Exporting..."
             className="bg-[#0B1E36] hover:bg-[#071424] text-white text-xs gap-1.5"
           >
             <Download className="w-3.5 h-3.5" /> Export Excel/CSV
@@ -288,7 +294,9 @@ export default function ReportsHubPage() {
             variant="outline"
             size="sm"
             onClick={() => handleExport("PRINT")}
-            disabled={isLoading || reportData.length === 0}
+            disabled={reportData.length === 0}
+            isLoading={isExporting === "PRINT"}
+            loadingText="Preparing..."
             className="border-slate-300 text-xs gap-1.5"
           >
             <Printer className="w-3.5 h-3.5" /> Printable View

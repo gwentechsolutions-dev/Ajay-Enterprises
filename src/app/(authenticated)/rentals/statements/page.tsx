@@ -20,6 +20,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TableSkeleton } from "@/components/ui/loading-states";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -279,10 +280,11 @@ export default function RentalStatementsPage() {
             variant="outline"
             size="sm"
             onClick={fetchStatements}
-            disabled={isLoading}
+            isLoading={isLoading}
+            loadingText="Refreshing..."
             className="text-xs"
           >
-            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isLoading ? "animate-spin" : ""}`} />
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
             Refresh
           </Button>
           <Button
@@ -344,11 +346,7 @@ export default function RentalStatementsPage() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {isLoading ? (
-                <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-400">
-                    Loading statements...
-                  </td>
-                </tr>
+                <TableSkeleton columns={8} rows={6} />
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="p-8 text-center text-slate-500">
@@ -661,10 +659,12 @@ export default function RentalStatementsPage() {
               <Button
                 type="button"
                 onClick={handleCalculatePreview}
-                disabled={isCalculating || !selectedCustomerId}
+                disabled={!selectedCustomerId}
+                isLoading={isCalculating}
+                loadingText="Calculating Accruals..."
                 className="bg-[#0B1E36] hover:bg-[#071424] text-white text-xs font-semibold"
               >
-                {isCalculating ? "Calculating Accruals..." : "Calculate Statement Preview"}
+                Calculate Statement Preview
               </Button>
             </div>
 
@@ -740,10 +740,11 @@ export default function RentalStatementsPage() {
                   <Button
                     type="button"
                     onClick={handleSaveStatement}
-                    disabled={isSaving}
+                    isLoading={isSaving}
+                    loadingText="Saving Statement..."
                     className="bg-[#0B1E36] hover:bg-[#071424] text-white text-xs font-semibold"
                   >
-                    {isSaving ? "Saving..." : "Confirm & Save Statement"}
+                    Confirm & Save Statement
                   </Button>
                 </div>
               </div>

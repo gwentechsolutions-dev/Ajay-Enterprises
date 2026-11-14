@@ -18,6 +18,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TableSkeleton } from "@/components/ui/loading-states";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +40,7 @@ export default function MaterialsPage() {
   const [types, setTypes] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [seeding, setSeeding] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   // Filters
   const [search, setSearch] = React.useState("");
@@ -116,6 +118,7 @@ export default function MaterialsPage() {
   const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      setIsSubmitting(true);
       const res = await fetch("/api/v1/materials/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -129,6 +132,8 @@ export default function MaterialsPage() {
       await fetchData();
     } catch (err: any) {
       toast.error(err.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -136,6 +141,7 @@ export default function MaterialsPage() {
   const handleCreateType = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      setIsSubmitting(true);
       const res = await fetch("/api/v1/materials/types", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -149,6 +155,8 @@ export default function MaterialsPage() {
       await fetchData();
     } catch (err: any) {
       toast.error(err.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -156,6 +164,7 @@ export default function MaterialsPage() {
   const handleCreateVariant = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      setIsSubmitting(true);
       const res = await fetch("/api/v1/materials/variants", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -187,6 +196,8 @@ export default function MaterialsPage() {
       await fetchData();
     } catch (err: any) {
       toast.error(err.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -214,6 +225,7 @@ export default function MaterialsPage() {
     e.preventDefault();
     if (!activeVariantForRate) return;
     try {
+      setIsSubmitting(true);
       const res = await fetch(`/api/v1/materials/variants/${activeVariantForRate.id}/rate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -226,6 +238,8 @@ export default function MaterialsPage() {
       await fetchData();
     } catch (err: any) {
       toast.error(err.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -291,14 +305,11 @@ export default function MaterialsPage() {
             variant="outline"
             size="sm"
             onClick={handleSeedInitial}
-            disabled={seeding}
+            isLoading={seeding}
+            loadingText="Seeding..."
             className="border-amber-300 bg-amber-50/50 hover:bg-amber-100/60 text-amber-900 text-xs font-semibold"
           >
-            {seeding ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-            ) : (
-              <Sparkles className="h-3.5 w-3.5 mr-1.5 text-amber-600" />
-            )}
+            <Sparkles className="h-3.5 w-3.5 mr-1.5 text-amber-600" />
             Seed Initial Catalogue
           </Button>
 
@@ -430,12 +441,7 @@ export default function MaterialsPage() {
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-600">
               {loading ? (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-[#0B1E36]" />
-                    Loading material catalogue...
-                  </td>
-                </tr>
+                <TableSkeleton columns={7} rows={8} />
               ) : filteredVariants.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center">
@@ -583,7 +589,7 @@ export default function MaterialsPage() {
               <Button type="button" variant="outline" onClick={() => setIsCategoryModalOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" className="bg-[#0B1E36] hover:bg-[#071424] text-white">
+              <Button type="submit" isLoading={isSubmitting} loadingText="Saving..." className="bg-[#0B1E36] hover:bg-[#071424] text-white">
                 Save Category
               </Button>
             </DialogFooter>
@@ -635,7 +641,7 @@ export default function MaterialsPage() {
               <Button type="button" variant="outline" onClick={() => setIsTypeModalOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" className="bg-[#0B1E36] hover:bg-[#071424] text-white">
+              <Button type="submit" isLoading={isSubmitting} loadingText="Saving..." className="bg-[#0B1E36] hover:bg-[#071424] text-white">
                 Save Type
               </Button>
             </DialogFooter>
@@ -785,7 +791,7 @@ export default function MaterialsPage() {
               <Button type="button" variant="outline" onClick={() => setIsVariantModalOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" className="bg-[#0B1E36] hover:bg-[#071424] text-white">
+              <Button type="submit" isLoading={isSubmitting} loadingText="Creating Variant..." className="bg-[#0B1E36] hover:bg-[#071424] text-white">
                 Create Variant
               </Button>
             </DialogFooter>
@@ -841,6 +847,8 @@ export default function MaterialsPage() {
             <Button
               type="submit"
               size="sm"
+              isLoading={isSubmitting}
+              loadingText="Posting Revision..."
               className="w-full bg-[#0B1E36] hover:bg-[#071424] text-white text-xs font-semibold"
             >
               Post Rate Revision

@@ -882,7 +882,7 @@ export default function CompanyProfilePage() {
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setAddressModalOpen(false)}>Cancel</Button>
-              <Button type="submit" className="bg-primary-900 text-white">Save Address</Button>
+              <Button type="submit" isLoading={addressForm.formState.isSubmitting} loadingText="Saving Address..." className="bg-primary-900 text-white">Save Address</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -966,7 +966,7 @@ export default function CompanyProfilePage() {
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setBankModalOpen(false)}>Cancel</Button>
-              <Button type="submit" className="bg-primary-900 text-white">Save Bank Account</Button>
+              <Button type="submit" isLoading={bankForm.formState.isSubmitting} loadingText="Saving Bank Account..." className="bg-primary-900 text-white">Save Bank Account</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -1072,7 +1072,7 @@ export default function CompanyProfilePage() {
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setSignatoryModalOpen(false)}>Cancel</Button>
-              <Button type="submit" className="bg-primary-900 text-white">Save Signatory</Button>
+              <Button type="submit" isLoading={signatoryForm.formState.isSubmitting} loadingText="Saving Signatory..." className="bg-primary-900 text-white">Save Signatory</Button>
             </DialogFooter>
           </form>
         </DialogContent>

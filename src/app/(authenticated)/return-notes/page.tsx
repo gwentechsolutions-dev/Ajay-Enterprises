@@ -27,6 +27,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
+import { TableSkeleton } from "@/components/ui/loading-states";
 import { toast } from "sonner";
 
 export default function MaterialReturnsPage() {
@@ -291,12 +292,7 @@ export default function MaterialReturnsPage() {
             </thead>
             <tbody className="divide-y divide-slate-200 bg-white">
               {loading ? (
-                <tr>
-                  <td colSpan={7} className="text-center py-12 text-slate-400">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-[#0B1E36]" />
-                    Loading material return notes...
-                  </td>
-                </tr>
+                <TableSkeleton columns={7} rows={6} />
               ) : filteredMRNs.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-12 text-slate-400">
@@ -555,8 +551,12 @@ export default function MaterialReturnsPage() {
               <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={submitting} className="bg-[#0B1E36] text-white">
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              <Button
+                type="submit"
+                isLoading={submitting}
+                loadingText="Posting Return Note..."
+                className="bg-[#0B1E36] text-white"
+              >
                 Post Return Note & Update Stock
               </Button>
             </DialogFooter>

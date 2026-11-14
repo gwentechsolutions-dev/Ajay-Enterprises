@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { TableSkeleton } from "@/components/ui/loading-states";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -170,11 +171,7 @@ export default function AuditLogsPage() {
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700 font-normal">
               {loading ? (
-                <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-400">
-                    Loading audit events...
-                  </td>
-                </tr>
+                <TableSkeleton columns={8} rows={8} />
               ) : logs.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-12 text-center text-slate-400">

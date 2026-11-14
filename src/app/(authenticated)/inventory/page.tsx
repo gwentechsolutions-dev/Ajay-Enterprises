@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
+import { TableSkeleton } from "@/components/ui/loading-states";
 import { toast } from "sonner";
 
 export default function InventoryDashboardPage() {
@@ -313,12 +314,18 @@ export default function InventoryDashboardPage() {
 
               <tbody className="divide-y divide-slate-100 text-slate-600">
                 {loadingReport ? (
-                  <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-400">
-                      <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-[#0B1E36]" />
-                      Generating report data...
-                    </td>
-                  </tr>
+                  <TableSkeleton
+                    columns={
+                      reportType === "variant_summary"
+                        ? 8
+                        : reportType === "material_summary"
+                        ? 5
+                        : reportType === "valuation_report"
+                        ? 6
+                        : 5
+                    }
+                    rows={6}
+                  />
                 ) : reportData.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="py-12 text-center text-slate-400">

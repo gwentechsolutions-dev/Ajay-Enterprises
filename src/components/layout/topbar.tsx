@@ -27,6 +27,7 @@ export function Topbar({ user, onMenuToggle }: TopbarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [profileOpen, setProfileOpen] = React.useState(false);
+  const [signingOut, setSigningOut] = React.useState(false);
   const profileRef = React.useRef<HTMLDivElement>(null);
 
   // Close profile dropdown on outside click
@@ -42,6 +43,7 @@ export function Topbar({ user, onMenuToggle }: TopbarProps) {
 
   const handleSignOut = async () => {
     try {
+      setSigningOut(true);
       const res = await fetch("/api/v1/auth/logout", { method: "POST" });
       if (res.ok) {
         toast.success("Signed out successfully");
@@ -50,6 +52,8 @@ export function Topbar({ user, onMenuToggle }: TopbarProps) {
       }
     } catch {
       toast.error("Failed to sign out");
+    } finally {
+      setSigningOut(false);
     }
   };
 
@@ -170,10 +174,11 @@ export function Topbar({ user, onMenuToggle }: TopbarProps) {
                 <button
                   type="button"
                   onClick={handleSignOut}
-                  className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors font-medium"
+                  disabled={signingOut}
+                  className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors font-medium disabled:opacity-60"
                 >
-                  <LogOut className="h-3.5 w-3.5 text-red-500" />
-                  <span>Sign Out</span>
+                  <LogOut className={`h-3.5 w-3.5 text-red-500 ${signingOut ? "animate-spin" : ""}`} />
+                  <span>{signingOut ? "Signing out..." : "Sign Out"}</span>
                 </button>
               </div>
             </div>

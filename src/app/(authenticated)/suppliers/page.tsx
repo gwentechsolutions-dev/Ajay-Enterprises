@@ -29,6 +29,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
+import { TableSkeleton } from "@/components/ui/loading-states";
 import { toast } from "sonner";
 
 export default function SuppliersPage() {
@@ -37,6 +38,7 @@ export default function SuppliersPage() {
   const [search, setSearch] = React.useState("");
   const [typeFilter, setTypeFilter] = React.useState("ALL");
   const [isModalOpen, setIsModalOpen] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const [form, setForm] = React.useState({
     supplierCode: "",
@@ -80,6 +82,7 @@ export default function SuppliersPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
     try {
       const res = await fetch("/api/v1/suppliers", {
         method: "POST",
@@ -120,6 +123,8 @@ export default function SuppliersPage() {
       await fetchSuppliers();
     } catch (err: any) {
       toast.error(err.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -213,12 +218,7 @@ export default function SuppliersPage() {
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-600">
               {loading ? (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-[#0B1E36]" />
-                    Loading suppliers...
-                  </td>
-                </tr>
+                <TableSkeleton columns={7} rows={6} />
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center">
@@ -462,7 +462,12 @@ export default function SuppliersPage() {
               <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" className="bg-[#0B1E36] hover:bg-[#071424] text-white">
+              <Button
+                type="submit"
+                isLoading={isSubmitting}
+                loadingText="Registering Vendor..."
+                className="bg-[#0B1E36] hover:bg-[#071424] text-white"
+              >
                 Register Vendor
               </Button>
             </DialogFooter>

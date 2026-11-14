@@ -17,6 +17,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TableSkeleton } from "@/components/ui/loading-states";
 
 export default function LabourWagesPage() {
   const [settlements, setSettlements] = React.useState<any[]>([]);
@@ -228,10 +229,11 @@ export default function LabourWagesPage() {
             variant="outline"
             size="sm"
             onClick={loadData}
-            disabled={isLoading}
+            isLoading={isLoading}
+            loadingText="Refreshing..."
             className="border-slate-300 hover:bg-slate-50"
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+            <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
           <Button
@@ -280,71 +282,74 @@ export default function LabourWagesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredSettlements.map((s) => (
-                <tr key={s.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="p-3 font-mono font-bold text-[#0B1E36]">{s.settlementNumber}</td>
-                  <td className="p-3">
-                    <div className="font-semibold text-slate-900">{s.worker?.name}</div>
-                    <div className="text-xs text-slate-400 font-mono">{s.worker?.workerCode}</div>
-                  </td>
-                  <td className="p-3 text-xs text-slate-600 font-mono">
-                    {new Date(s.periodStart).toLocaleDateString("en-IN")} -{" "}
-                    {new Date(s.periodEnd).toLocaleDateString("en-IN")}
-                  </td>
-                  <td className="p-3 text-right font-mono font-semibold text-slate-900">
-                    ₹{Number(s.grossWages || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                  </td>
-                  <td className="p-3 text-right font-mono text-orange-600">
-                    {Number(s.advanceDeduction || 0) > 0
-                      ? `-₹${Number(s.advanceDeduction).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
-                      : "—"}
-                  </td>
-                  <td className="p-3 text-right font-mono font-bold text-emerald-700">
-                    ₹{Number(s.netPayable || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                  </td>
-                  <td className="p-3 text-center">
-                    <span
-                      className={`px-2 py-0.5 rounded text-xs font-bold ${
-                        s.status === "PAID"
-                          ? "bg-emerald-100 text-emerald-800"
-                          : s.status === "APPROVED"
-                          ? "bg-blue-100 text-blue-800"
-                          : "bg-amber-100 text-amber-800"
-                      }`}
-                    >
-                      {s.status}
-                    </span>
-                  </td>
-                  <td className="p-3 text-right">
-                    {s.status !== "PAID" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedSettlement(s);
-                          setPaymentForm({
-                            amount: Number(s.netPayable),
-                            paymentMode: "CASH",
-                            paymentReference: "",
-                            remarks: `Settlement payout ${s.settlementNumber}`,
-                          });
-                          setPaymentModalOpen(true);
-                        }}
-                        className="text-xs text-[#0B1E36] border-slate-300 hover:bg-slate-50"
-                      >
-                        <CreditCard className="w-3.5 h-3.5 mr-1" />
-                        Pay Payout
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {filteredSettlements.length === 0 && !isLoading && (
+              {isLoading ? (
+                <TableSkeleton columns={8} rows={6} />
+              ) : filteredSettlements.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="p-8 text-center text-slate-400">
                     No wage settlements found. Click Calculate Settlement to compute wages.
                   </td>
                 </tr>
+              ) : (
+                filteredSettlements.map((s) => (
+                  <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-3 font-mono font-bold text-[#0B1E36]">{s.settlementNumber}</td>
+                    <td className="p-3">
+                      <div className="font-semibold text-slate-900">{s.worker?.name}</div>
+                      <div className="text-xs text-slate-400 font-mono">{s.worker?.workerCode}</div>
+                    </td>
+                    <td className="p-3 text-xs text-slate-600 font-mono">
+                      {new Date(s.periodStart).toLocaleDateString("en-IN")} -{" "}
+                      {new Date(s.periodEnd).toLocaleDateString("en-IN")}
+                    </td>
+                    <td className="p-3 text-right font-mono font-semibold text-slate-900">
+                      ₹{Number(s.grossWages || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="p-3 text-right font-mono text-orange-600">
+                      {Number(s.advanceDeduction || 0) > 0
+                        ? `-₹${Number(s.advanceDeduction).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
+                        : "—"}
+                    </td>
+                    <td className="p-3 text-right font-mono font-bold text-emerald-700">
+                      ₹{Number(s.netPayable || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="p-3 text-center">
+                      <span
+                        className={`px-2 py-0.5 rounded text-xs font-bold ${
+                          s.status === "PAID"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : s.status === "APPROVED"
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-amber-100 text-amber-800"
+                        }`}
+                      >
+                        {s.status}
+                      </span>
+                    </td>
+                    <td className="p-3 text-right">
+                      {s.status !== "PAID" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedSettlement(s);
+                            setPaymentForm({
+                              amount: Number(s.netPayable),
+                              paymentMode: "CASH",
+                              paymentReference: "",
+                              remarks: `Settlement payout ${s.settlementNumber}`,
+                            });
+                            setPaymentModalOpen(true);
+                          }}
+                          className="text-xs text-[#0B1E36] border-slate-300 hover:bg-slate-50"
+                        >
+                          <CreditCard className="w-3.5 h-3.5 mr-1" />
+                          Pay Payout
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
@@ -432,11 +437,13 @@ export default function LabourWagesPage() {
                   type="button"
                   variant="outline"
                   onClick={handlePreviewCalculate}
-                  disabled={isCalculating || !calcParams.workerId}
+                  disabled={!calcParams.workerId}
+                  isLoading={isCalculating}
+                  loadingText="Calculating..."
                   className="text-xs border-slate-300 hover:bg-slate-50"
                 >
                   <Calculator className="w-3.5 h-3.5 mr-1" />
-                  {isCalculating ? "Calculating..." : "Preview Wage Calculation"}
+                  Preview Wage Calculation
                 </Button>
               </div>
 
@@ -557,10 +564,12 @@ export default function LabourWagesPage() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={isSubmitting || !calcPreview}
+                  disabled={!calcPreview}
+                  isLoading={isSubmitting}
+                  loadingText="Finalising..."
                   className="bg-[#0B1E36] hover:bg-[#1E293B] text-white"
                 >
-                  {isSubmitting ? "Generating..." : "Finalise & Create Settlement"}
+                  Finalise & Create Settlement
                 </Button>
               </div>
             </form>
@@ -643,10 +652,11 @@ export default function LabourWagesPage() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={isSubmitting}
+                  isLoading={isSubmitting}
+                  loadingText="Processing..."
                   className="bg-[#0B1E36] hover:bg-[#1E293B] text-white"
                 >
-                  {isSubmitting ? "Processing..." : "Confirm Payout"}
+                  Confirm Payout
                 </Button>
               </div>
             </form>

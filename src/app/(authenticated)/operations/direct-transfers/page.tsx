@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { TableSkeleton } from "@/components/ui/loading-states";
 import { toast } from "sonner";
 
 export default function DirectTransfersPage() {
@@ -206,11 +207,7 @@ export default function DirectTransfersPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
-                  <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-400">
-                      Loading site transfer registers...
-                    </td>
-                  </tr>
+                  <TableSkeleton columns={8} rows={5} />
                 ) : filtered.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="py-12 text-center text-slate-400">

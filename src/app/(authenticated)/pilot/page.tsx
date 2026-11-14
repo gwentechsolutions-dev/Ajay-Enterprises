@@ -15,12 +15,14 @@ import {
   ShieldAlert,
   ClipboardList,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function PilotPage() {
   const [pilots, setPilots] = React.useState<any[]>([]);
   const [selectedPilot, setSelectedPilot] = React.useState<any>(null);
   const [metrics, setMetrics] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [message, setMessage] = React.useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // New Pilot Form Modal / Form
@@ -76,6 +78,7 @@ export default function PilotPage() {
   const handleCreatePilot = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      setIsSubmitting(true);
       const res = await fetch("/api/v1/pilot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -100,11 +103,14 @@ export default function PilotPage() {
       }
     } catch (err: any) {
       setMessage({ type: "error", text: err.message || "Error creating pilot" });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleActivatePilot = async (pilotId: string) => {
     try {
+      setIsSubmitting(true);
       const res = await fetch(`/api/v1/pilot/${pilotId}/activate`, { method: "POST" }).then((r) => r.json());
       if (res.success) {
         setMessage({ type: "success", text: "Pilot program activated by Owner!" });
@@ -115,6 +121,8 @@ export default function PilotPage() {
       }
     } catch (err: any) {
       setMessage({ type: "error", text: err.message || "Failed to activate pilot" });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -122,6 +130,7 @@ export default function PilotPage() {
     e.preventDefault();
     if (!metrics) return;
     try {
+      setIsSubmitting(true);
       const res = await fetch(`/api/v1/pilot/${metrics.pilotNumber}/exceptions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -142,12 +151,15 @@ export default function PilotPage() {
       }
     } catch (err: any) {
       setMessage({ type: "error", text: err.message || "Error logging exception" });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleCompletePilot = async () => {
     if (!selectedPilot) return;
     try {
+      setIsSubmitting(true);
       const res = await fetch(`/api/v1/pilot/${selectedPilot.id}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -164,6 +176,8 @@ export default function PilotPage() {
       }
     } catch (err: any) {
       setMessage({ type: "error", text: err.message || "Failed to complete pilot" });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -184,13 +198,13 @@ export default function PilotPage() {
           </p>
         </div>
 
-        <button
+        <Button
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-2 px-4 py-2 bg-[#F26522] hover:bg-orange-600 text-white text-xs font-bold rounded shadow transition"
         >
           <Plus className="h-4 w-4" />
           Define New Pilot
-        </button>
+        </Button>
       </div>
 
       {message && (
@@ -270,12 +284,14 @@ export default function PilotPage() {
 
                 <div className="flex items-center gap-2">
                   {metrics.status === "DRAFT" && (
-                    <button
+                    <Button
                       onClick={() => handleActivatePilot(selectedPilot.id)}
+                      isLoading={isSubmitting}
+                      loadingText="Activating..."
                       className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded shadow transition"
                     >
                       Authorize & Activate Pilot
-                    </button>
+                    </Button>
                   )}
                   {metrics.status === "ACTIVE" && (
                     <>
@@ -440,12 +456,14 @@ export default function PilotPage() {
                 >
                   Cancel
                 </button>
-                <button
+                <Button
                   type="submit"
+                  isLoading={isSubmitting}
+                  loadingText="Creating..."
                   className="px-4 py-1.5 bg-[#F26522] text-white text-xs font-bold rounded shadow hover:bg-orange-600"
                 >
                   Create Pilot
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -509,12 +527,14 @@ export default function PilotPage() {
                 >
                   Cancel
                 </button>
-                <button
+                <Button
                   type="submit"
+                  isLoading={isSubmitting}
+                  loadingText="Logging..."
                   className="px-4 py-1.5 bg-[#0B1E36] text-white text-xs font-bold rounded shadow hover:bg-slate-800"
                 >
                   Log Exception
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -544,13 +564,15 @@ export default function PilotPage() {
               >
                 Cancel
               </button>
-              <button
+              <Button
                 type="button"
                 onClick={handleCompletePilot}
+                isLoading={isSubmitting}
+                loadingText="Signing Off..."
                 className="px-4 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded shadow hover:bg-emerald-700"
               >
                 Conclude & Sign Off
-              </button>
+              </Button>
             </div>
           </div>
         </div>

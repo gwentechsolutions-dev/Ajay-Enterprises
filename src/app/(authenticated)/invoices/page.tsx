@@ -26,6 +26,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { TableSkeleton } from "@/components/ui/loading-states";
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = React.useState<any[]>([]);
@@ -260,7 +261,9 @@ export default function InvoicesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredInvoices.length === 0 ? (
+              {isLoading ? (
+                <TableSkeleton columns={10} rows={5} />
+              ) : filteredInvoices.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="px-4 py-8 text-center text-slate-400">
                     No tax invoices found matching your criteria
@@ -439,10 +442,11 @@ export default function InvoicesPage() {
               </Button>
               <Button
                 type="submit"
-                disabled={isSubmitting}
+                isLoading={isSubmitting}
+                loadingText="Generating Tax Invoice..."
                 className="bg-[#F26522] hover:bg-[#EA580C] text-white"
               >
-                {isSubmitting ? "Generating Tax Invoice..." : "Generate Tax Invoice"}
+                Generate Tax Invoice
               </Button>
             </DialogFooter>
           </form>

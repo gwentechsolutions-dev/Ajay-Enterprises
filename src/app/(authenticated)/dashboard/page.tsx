@@ -28,6 +28,7 @@ import {
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function OwnerDashboardPage() {
   const [data, setData] = React.useState<any | null>(null);
@@ -137,6 +138,8 @@ export default function OwnerDashboardPage() {
             size="sm"
             onClick={() => fetchDashboardData(period)}
             disabled={isLoading}
+            isLoading={isLoading}
+            loadingText="Refreshing..."
             className="border-slate-300 hover:bg-slate-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isLoading ? "animate-spin" : ""}`} />
@@ -165,7 +168,7 @@ export default function OwnerDashboardPage() {
             </div>
             <div className="mt-2 flex items-baseline gap-2">
               <span className="text-2xl font-bold tracking-tight text-slate-900">
-                {isLoading ? "..." : formatCurrency(kpis?.revenueThisMonth)}
+                {isLoading ? <Skeleton className="h-7 w-32 inline-block rounded" /> : formatCurrency(kpis?.revenueThisMonth)}
               </span>
             </div>
             <p className="mt-1 text-xs text-slate-500">
@@ -190,7 +193,7 @@ export default function OwnerDashboardPage() {
             </div>
             <div className="mt-2 flex items-baseline gap-2">
               <span className="text-2xl font-bold tracking-tight text-emerald-700">
-                {isLoading ? "..." : formatCurrency(kpis?.cashCollectedInPeriod)}
+                {isLoading ? <Skeleton className="h-7 w-32 inline-block rounded" /> : formatCurrency(kpis?.cashCollectedInPeriod)}
               </span>
             </div>
             <p className="mt-1 text-xs text-slate-500">
@@ -210,7 +213,7 @@ export default function OwnerDashboardPage() {
             </div>
             <div className="mt-2 flex items-baseline gap-2">
               <span className="text-2xl font-bold tracking-tight text-slate-900">
-                {isLoading ? "..." : formatCurrency(kpis?.customerOutstandingReceivables)}
+                {isLoading ? <Skeleton className="h-7 w-32 inline-block rounded" /> : formatCurrency(kpis?.customerOutstandingReceivables)}
               </span>
             </div>
             <Link href="/reports/customers" className="mt-1 text-xs text-orange-600 hover:underline flex items-center gap-1">
@@ -230,7 +233,7 @@ export default function OwnerDashboardPage() {
             </div>
             <div className="mt-2 flex items-baseline gap-2">
               <span className={`text-2xl font-bold tracking-tight ${kpis?.isProfit ? "text-emerald-700" : "text-red-700"}`}>
-                {isLoading ? "..." : formatCurrency(kpis?.netProfitInPeriod)}
+                {isLoading ? <Skeleton className="h-7 w-32 inline-block rounded" /> : formatCurrency(kpis?.netProfitInPeriod)}
               </span>
               <Badge variant={kpis?.isProfit ? "success" : "destructive"} className="text-[10px] px-1.5 py-0.5">
                 {kpis?.isProfit ? "PROFIT" : "LOSS"}

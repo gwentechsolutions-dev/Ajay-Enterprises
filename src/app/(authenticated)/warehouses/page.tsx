@@ -33,7 +33,7 @@ export default function WarehousesPage() {
     reset,
     setValue,
     watch,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<WarehouseInput>({
     resolver: zodResolver(warehouseSchema),
     defaultValues: {
@@ -398,7 +398,7 @@ export default function WarehousesPage() {
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
-              <Button type="submit" className="bg-primary-900 text-white">Save Yard</Button>
+              <Button type="submit" isLoading={isSubmitting} loadingText="Saving Yard..." className="bg-primary-900 text-white">Save Yard</Button>
             </DialogFooter>
           </form>
         </DialogContent>

@@ -32,7 +32,7 @@ export default function BranchesPage() {
     reset,
     setValue,
     watch,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<BranchInput>({
     resolver: zodResolver(branchSchema),
     defaultValues: {
@@ -346,7 +346,7 @@ export default function BranchesPage() {
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
-              <Button type="submit" className="bg-primary-900 text-white">Save Branch</Button>
+              <Button type="submit" isLoading={isSubmitting} loadingText="Saving Branch..." className="bg-primary-900 text-white">Save Branch</Button>
             </DialogFooter>
           </form>
         </DialogContent>

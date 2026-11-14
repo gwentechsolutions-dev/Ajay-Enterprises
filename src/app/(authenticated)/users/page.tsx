@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { createUserSchema, updateUserSchema, CreateUserInput, UpdateUserInput } from "@/lib/schemas/user";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { TableSkeleton } from "@/components/ui/loading-states";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -78,7 +79,7 @@ export default function UsersPage() {
     reset,
     setValue,
     watch,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<any>({
     resolver: zodResolver(editingUser ? updateUserSchema : createUserSchema),
     defaultValues: {
@@ -322,11 +323,7 @@ export default function UsersPage() {
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
               {loading ? (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-400">
-                    Loading users...
-                  </td>
-                </tr>
+                <TableSkeleton columns={7} rows={6} />
               ) : users.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-slate-400">
@@ -552,7 +549,7 @@ export default function UsersPage() {
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
-              <Button type="submit" className="bg-primary-900 text-white">Save User</Button>
+              <Button type="submit" isLoading={isSubmitting} loadingText="Saving User..." className="bg-primary-900 text-white">Save User</Button>
             </DialogFooter>
           </form>
         </DialogContent>

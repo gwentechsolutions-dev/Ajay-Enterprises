@@ -15,6 +15,7 @@ import {
   Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TableSkeleton } from "@/components/ui/loading-states";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -210,10 +211,11 @@ export default function JournalsPage() {
             variant="outline"
             size="sm"
             onClick={loadData}
-            disabled={isLoading}
+            isLoading={isLoading}
+            loadingText="Refreshing..."
             className="border-slate-300 hover:bg-slate-50"
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+            <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
           <Button
@@ -271,7 +273,9 @@ export default function JournalsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredJournals.length === 0 ? (
+              {isLoading ? (
+                <TableSkeleton columns={8} rows={6} />
+              ) : filteredJournals.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
                     No journal entries found
@@ -541,10 +545,12 @@ export default function JournalsPage() {
               </Button>
               <Button
                 type="submit"
-                disabled={isSubmitting || !isBalanced}
+                disabled={!isBalanced}
+                isLoading={isSubmitting}
+                loadingText="Posting..."
                 className="bg-[#0B1E36] hover:bg-[#071322] text-white"
               >
-                {isSubmitting ? "Posting..." : "Post Journal Entry"}
+                Post Journal Entry
               </Button>
             </DialogFooter>
           </form>

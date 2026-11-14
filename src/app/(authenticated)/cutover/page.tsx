@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { Button } from "@/components/ui/button";
+import { TableSkeleton } from "@/components/ui/loading-states";
 import {
   ShieldCheck,
   AlertTriangle,
@@ -202,14 +204,17 @@ export default function CutoverPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={fetchAllData}
-            disabled={loading}
+            isLoading={loading}
+            loadingText="Refreshing..."
             className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded border border-slate-700 transition"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCw className="h-3.5 w-3.5 mr-1" />
             Refresh Audit
-          </button>
+          </Button>
 
           <div className="text-right">
             <div className="text-xs text-slate-400">Cutover State</div>
@@ -416,23 +421,26 @@ export default function CutoverPage() {
             />
 
             <div className="flex items-center gap-3">
-              <button
+              <Button
                 onClick={handlePreviewCsv}
-                disabled={previewing || !stockCsvText.trim()}
+                disabled={!stockCsvText.trim()}
+                isLoading={previewing}
+                loadingText="Validating..."
                 className="px-4 py-2 bg-[#0B1E36] hover:bg-slate-800 text-white text-xs font-bold rounded shadow transition flex items-center gap-2"
               >
                 <Upload className="h-3.5 w-3.5" />
-                {previewing ? "Validating..." : "Preview & Validate CSV"}
-              </button>
+                Preview & Validate CSV
+              </Button>
 
               {stockPreview && stockPreview.isValid && (
-                <button
+                <Button
                   onClick={handleCreateStockBatch}
-                  disabled={submittingStock}
+                  isLoading={submittingStock}
+                  loadingText="Saving Batch..."
                   className="px-4 py-2 bg-[#F26522] hover:bg-orange-600 text-white text-xs font-bold rounded shadow transition"
                 >
-                  {submittingStock ? "Saving..." : "Create Draft Opening Batch"}
-                </button>
+                  Create Draft Opening Batch
+                </Button>
               )}
             </div>
 
@@ -482,7 +490,9 @@ export default function CutoverPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {stockBatches.length === 0 ? (
+                  {loading ? (
+                    <TableSkeleton columns={9} rows={5} />
+                  ) : stockBatches.length === 0 ? (
                     <tr>
                       <td colSpan={9} className="p-6 text-center text-slate-400">
                         No opening stock batches created yet.
@@ -695,9 +705,11 @@ export default function CutoverPage() {
                   : "🔒 Cutover sign-off is locked until mandatory reconciliation blockers are resolved."}
               </span>
 
-              <button
+              <Button
                 onClick={handleFinalizeSignOff}
-                disabled={signingOff || !reconciliationData.canMarkCutoverComplete}
+                disabled={!reconciliationData.canMarkCutoverComplete}
+                isLoading={signingOff}
+                loadingText="Signing Off..."
                 className={`px-5 py-2.5 text-xs font-bold rounded shadow transition flex items-center gap-2 ${
                   reconciliationData.canMarkCutoverComplete
                     ? "bg-[#0B1E36] hover:bg-slate-800 text-white"
@@ -705,8 +717,8 @@ export default function CutoverPage() {
                 }`}
               >
                 <ShieldCheck className="h-4 w-4" />
-                {signingOff ? "Signing Off..." : "Authorize Cutover Completion"}
-              </button>
+                Authorize Cutover Completion
+              </Button>
             </div>
           </div>
         </div>

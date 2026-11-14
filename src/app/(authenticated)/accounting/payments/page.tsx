@@ -16,6 +16,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TableSkeleton } from "@/components/ui/loading-states";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -219,10 +220,11 @@ export default function PaymentsPage() {
             variant="outline"
             size="sm"
             onClick={loadData}
-            disabled={isLoading}
+            isLoading={isLoading}
+            loadingText="Refreshing..."
             className="border-slate-300 hover:bg-slate-50"
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+            <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
           {activeTab === "RECEIPTS" ? (
@@ -335,7 +337,9 @@ export default function PaymentsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredReceipts.length === 0 ? (
+                {isLoading ? (
+                  <TableSkeleton columns={8} rows={6} />
+                ) : filteredReceipts.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
                       No customer receipts found
@@ -397,7 +401,9 @@ export default function PaymentsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredDisbursements.length === 0 ? (
+                {isLoading ? (
+                  <TableSkeleton columns={7} rows={6} />
+                ) : filteredDisbursements.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
                       No supplier payments found
@@ -553,10 +559,11 @@ export default function PaymentsPage() {
               </Button>
               <Button
                 type="submit"
-                disabled={isSubmittingRc}
+                isLoading={isSubmittingRc}
+                loadingText="Posting Receipt..."
                 className="bg-emerald-600 hover:bg-emerald-700 text-white"
               >
-                {isSubmittingRc ? "Posting Receipt..." : "Record & Post Receipt"}
+                Record & Post Receipt
               </Button>
             </DialogFooter>
           </form>
@@ -673,10 +680,11 @@ export default function PaymentsPage() {
               </Button>
               <Button
                 type="submit"
-                disabled={isSubmittingSp}
+                isLoading={isSubmittingSp}
+                loadingText="Disbursing..."
                 className="bg-[#0B1E36] hover:bg-[#071322] text-white"
               >
-                {isSubmittingSp ? "Disbursing..." : "Record & Post Payment"}
+                Record & Post Payment
               </Button>
             </DialogFooter>
           </form>

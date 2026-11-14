@@ -4,7 +4,7 @@ import * as React from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ShieldCheck, ShieldAlert, Check, X, Lock } from "lucide-react";
+import { ShieldCheck, ShieldAlert, Check, X, Lock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -198,7 +198,9 @@ export default function RolesPermissionsPage() {
                           )}
                           title={`${isAllowed ? "Revoke" : "Grant"} ${act.label} on ${mod.label}`}
                         >
-                          {isAllowed ? (
+                          {isBusy ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : isAllowed ? (
                             <Check className="h-4 w-4 stroke-[2.5]" />
                           ) : (
                             <X className="h-3.5 w-3.5" />

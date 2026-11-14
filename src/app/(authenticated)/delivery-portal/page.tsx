@@ -429,8 +429,7 @@ export default function DeliveryPortalPage() {
               <Button type="button" variant="outline" onClick={() => setIsDeliverModalOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={submitting} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              <Button type="submit" isLoading={submitting} loadingText="Confirming Handover..." className="bg-emerald-600 hover:bg-emerald-700 text-white">
                 Confirm Handover
               </Button>
             </DialogFooter>

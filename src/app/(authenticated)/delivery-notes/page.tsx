@@ -31,6 +31,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
+import { TableSkeleton } from "@/components/ui/loading-states";
 import { toast } from "sonner";
 
 export default function DeliveryNotesPage() {
@@ -448,12 +449,7 @@ export default function DeliveryNotesPage() {
             </thead>
             <tbody className="divide-y divide-slate-200 bg-white">
               {loading ? (
-                <tr>
-                  <td colSpan={7} className="text-center py-12 text-slate-400">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-[#0B1E36]" />
-                    Loading delivery notes...
-                  </td>
-                </tr>
+                <TableSkeleton columns={7} rows={6} />
               ) : filteredDNs.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-12 text-slate-400">
@@ -756,8 +752,12 @@ export default function DeliveryNotesPage() {
               <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={submitting} className="bg-[#0B1E36] text-white">
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              <Button
+                type="submit"
+                isLoading={submitting}
+                loadingText="Saving Delivery Note..."
+                className="bg-[#0B1E36] text-white"
+              >
                 Save Delivery Note
               </Button>
             </DialogFooter>
@@ -847,8 +847,12 @@ export default function DeliveryNotesPage() {
               <Button type="button" variant="outline" onClick={() => setIsDeliverModalOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={submitting} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              <Button
+                type="submit"
+                isLoading={submitting}
+                loadingText="Confirming Delivery..."
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
                 Confirm Delivery & Lock Custody
               </Button>
             </DialogFooter>
@@ -914,8 +918,12 @@ export default function DeliveryNotesPage() {
               <Button type="button" variant="outline" onClick={() => setIsEwbModalOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={submitting} className="bg-[#0B1E36] text-white">
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              <Button
+                type="submit"
+                isLoading={submitting}
+                loadingText="Generating E-Way Bill..."
+                className="bg-[#0B1E36] text-white"
+              >
                 Generate via FYN Gateway
               </Button>
             </DialogFooter>

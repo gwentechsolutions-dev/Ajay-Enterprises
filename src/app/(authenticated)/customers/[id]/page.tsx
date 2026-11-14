@@ -40,6 +40,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
+import { PageSkeleton } from "@/components/ui/loading-states";
 import { toast } from "sonner";
 
 export default function CustomerDetailPage() {
@@ -54,6 +55,8 @@ export default function CustomerDetailPage() {
   // Modals
   const [isSiteModalOpen, setIsSiteModalOpen] = React.useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = React.useState(false);
+  const [isSiteSubmitting, setIsSiteSubmitting] = React.useState(false);
+  const [isContactSubmitting, setIsContactSubmitting] = React.useState(false);
 
   // Forms
   const [siteForm, setSiteForm] = React.useState({
@@ -114,6 +117,7 @@ export default function CustomerDetailPage() {
   // Handle Add Site
   const handleAddSite = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSiteSubmitting(true);
     try {
       const res = await fetch(`/api/v1/customers/${id}/sites`, {
         method: "POST",
@@ -150,12 +154,15 @@ export default function CustomerDetailPage() {
       await fetchCustomer();
     } catch (err: any) {
       toast.error(err.message);
+    } finally {
+      setIsSiteSubmitting(false);
     }
   };
 
   // Handle Add Contact
   const handleAddContact = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsContactSubmitting(true);
     try {
       const res = await fetch(`/api/v1/customers/${id}/contacts`, {
         method: "POST",
@@ -188,15 +195,18 @@ export default function CustomerDetailPage() {
       await fetchCustomer();
     } catch (err: any) {
       toast.error(err.message);
+    } finally {
+      setIsContactSubmitting(false);
     }
   };
 
   if (loading) {
     return (
-      <div className="py-24 text-center">
-        <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#0B1E36] mb-3" />
-        <p className="text-sm text-slate-500 font-medium">Loading customer profile & sites...</p>
-      </div>
+      <PageSkeleton
+        title="Customer Profile"
+        subtitle="Loading customer details, sites, and custody records..."
+        cardCount={3}
+      />
     );
   }
 
@@ -758,7 +768,12 @@ export default function CustomerDetailPage() {
               <Button type="button" variant="outline" onClick={() => setIsSiteModalOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" className="bg-[#0B1E36] hover:bg-[#071424] text-white">
+              <Button
+                type="submit"
+                isLoading={isSiteSubmitting}
+                loadingText="Saving Site..."
+                className="bg-[#0B1E36] hover:bg-[#071424] text-white"
+              >
                 Save Construction Site
               </Button>
             </DialogFooter>
@@ -907,7 +922,12 @@ export default function CustomerDetailPage() {
               <Button type="button" variant="outline" onClick={() => setIsContactModalOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" className="bg-[#0B1E36] hover:bg-[#071424] text-white">
+              <Button
+                type="submit"
+                isLoading={isContactSubmitting}
+                loadingText="Saving Contact..."
+                className="bg-[#0B1E36] hover:bg-[#071424] text-white"
+              >
                 Save Contact
               </Button>
             </DialogFooter>

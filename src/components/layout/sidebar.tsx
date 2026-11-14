@@ -285,7 +285,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed, mobileOpen, setMobileOpen
                     onClick={() => setMobileOpen(false)}
                     title={isCollapsed ? item.title : undefined}
                     className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all active:scale-[0.98]",
                       isActive
                         ? "bg-accent-500 text-white font-semibold shadow-sm"
                         : "text-slate-300 hover:bg-slate-800 hover:text-white",

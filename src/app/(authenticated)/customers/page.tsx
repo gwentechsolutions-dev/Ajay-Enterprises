@@ -30,6 +30,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
+import { TableSkeleton } from "@/components/ui/loading-states";
 import { toast } from "sonner";
 
 export default function CustomersPage() {
@@ -39,6 +40,7 @@ export default function CustomersPage() {
   const [gstFilter, setGstFilter] = React.useState("ALL");
   const [typeFilter, setTypeFilter] = React.useState("ALL");
   const [isModalOpen, setIsModalOpen] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const [form, setForm] = React.useState({
     customerCode: "",
@@ -82,6 +84,7 @@ export default function CustomersPage() {
 
   const handleSubmitCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
     try {
       const res = await fetch("/api/v1/customers", {
         method: "POST",
@@ -123,6 +126,8 @@ export default function CustomersPage() {
       await fetchCustomers();
     } catch (err: any) {
       toast.error(err.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -270,12 +275,7 @@ export default function CustomersPage() {
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-600">
               {loading ? (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-[#0B1E36]" />
-                    Loading customers...
-                  </td>
-                </tr>
+                <TableSkeleton columns={7} rows={6} />
               ) : filteredCustomers.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center">
@@ -538,7 +538,12 @@ export default function CustomersPage() {
               <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" className="bg-[#0B1E36] hover:bg-[#071424] text-white">
+              <Button
+                type="submit"
+                isLoading={isSubmitting}
+                loadingText="Creating Account..."
+                className="bg-[#0B1E36] hover:bg-[#071424] text-white"
+              >
                 Create Account
               </Button>
             </DialogFooter>
