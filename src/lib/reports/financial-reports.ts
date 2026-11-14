@@ -10,6 +10,7 @@ import {
   getGstr3bSummary,
 } from "@/lib/accounting/reports";
 import { getCurrentFiscalYear } from "@/lib/document-series";
+import { getAllCashAndBankLedger } from "@/lib/accounting/account-mapping";
 
 export interface FinancialReportFilters {
   reportType?: string;
@@ -97,40 +98,8 @@ export async function getFinancialReportsData(filters?: FinancialReportFilters) 
 }
 
 async function getCashAndBankSummary(asOfDate: Date) {
-  const accounts = await db.chartOfAccount.findMany({
-    where: {
-      accountCode: { in: ["1010", "1020"] },
-    },
-    include: {
-      journalLines: {
-        where: {
-          journalEntry: {
-            status: "POSTED",
-            postingDate: { lte: asOfDate },
-          },
-        },
-        select: {
-          debitAmount: true,
-          creditAmount: true,
-        },
-      },
-    },
-  });
-
-  return accounts.map((acc) => {
-    const totalDebits = acc.journalLines.reduce((sum, l) => sum.plus(new Prisma.Decimal(l.debitAmount)), new Prisma.Decimal(0));
-    const totalCredits = acc.journalLines.reduce((sum, l) => sum.plus(new Prisma.Decimal(l.creditAmount)), new Prisma.Decimal(0));
-    const closingBalance = totalDebits.minus(totalCredits);
-
-    return {
-      accountId: acc.id,
-      accountCode: acc.accountCode,
-      accountName: acc.accountName,
-      totalDebits,
-      totalCredits,
-      closingBalance,
-    };
-  });
+  const ledger = await getAllCashAndBankLedger(asOfDate);
+  return ledger.accounts;
 }
 
 async function getCreditDebitNotesRegister(start: Date, end: Date) {

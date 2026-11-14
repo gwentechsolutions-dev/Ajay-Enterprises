@@ -80,7 +80,7 @@ export async function getTrialBalance(asOfDate?: Date | string, fiscalYear?: str
   });
 
   const difference = totalDebitSum.minus(totalCreditSum).abs();
-  const isBalanced = difference.lte(new Prisma.Decimal("0.05"));
+  const isBalanced = difference.isZero() || difference.equals(new Prisma.Decimal(0));
 
   return {
     asOfDate: targetDate,
@@ -176,7 +176,7 @@ export async function getBalanceSheet(asOfDate?: Date | string) {
   const totalEquity = baseEquity.plus(pnl.netProfitOrLoss);
   const totalLiabilitiesAndEquity = totalLiabilities.plus(totalEquity);
   const difference = totalAssets.minus(totalLiabilitiesAndEquity).abs();
-  const isBalanced = difference.lte(new Prisma.Decimal("0.05"));
+  const isBalanced = difference.isZero() || difference.equals(new Prisma.Decimal(0));
 
   return {
     asOfDate: targetDate,

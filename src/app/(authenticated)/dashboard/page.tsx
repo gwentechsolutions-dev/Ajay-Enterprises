@@ -170,6 +170,11 @@ export default function OwnerDashboardPage() {
             </div>
             <p className="mt-1 text-xs text-slate-500">
               FY Total: <strong className="text-slate-700">{formatCurrency(kpis?.revenueThisFinancialYear)}</strong>
+              {Number(kpis?.uninvoicedAccrualRevenue) > 0 && (
+                <span className="block text-[11px] text-amber-600 font-medium mt-0.5">
+                  + {formatCurrency(kpis?.uninvoicedAccrualRevenue)} unbilled daily accrual
+                </span>
+              )}
             </p>
           </CardContent>
         </Card>
@@ -233,13 +238,18 @@ export default function OwnerDashboardPage() {
             </div>
             <p className="mt-1 text-xs text-slate-500">
               Liquid Cash & Bank: <strong className="text-slate-700">{formatCurrency(kpis?.totalLiquidFunds)}</strong>
+              {kpis?.cashAndBankAccounts && kpis.cashAndBankAccounts.length > 0 && (
+                <span className="block text-[11px] text-slate-400 mt-0.5 truncate">
+                  {kpis.cashAndBankAccounts.map((a: any) => `${a.accountCode}: ${formatCurrency(a.closingBalance)}`).join(" · ")}
+                </span>
+              )}
             </p>
           </CardContent>
         </Card>
       </div>
 
       {/* 3. Operational & Equipment Deployment KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <div className="text-slate-500 text-xs font-medium">Material at Sites</div>
           <div className="text-xl font-bold text-[#0B1E36] mt-1">{formatQuantity(kpis?.materialQuantityAtSites)}</div>
@@ -274,6 +284,14 @@ export default function OwnerDashboardPage() {
           <div className="text-slate-500 text-xs font-medium">Active Sites</div>
           <div className="text-xl font-bold text-slate-900 mt-1">{kpis?.activeCustomerSites || 0}</div>
           <div className="text-[11px] text-slate-400 mt-0.5">Live customer sites</div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm col-span-2 sm:col-span-1">
+          <div className="text-slate-500 text-xs font-medium">Owned Valuation</div>
+          <div className="text-sm font-bold text-slate-900 mt-1 truncate" title={kpis?.inventoryValuation?.displayLabel || "Valuation unavailable"}>
+            {kpis?.inventoryValuation?.displayLabel || "Valuation unavailable"}
+          </div>
+          <div className="text-[11px] text-slate-400 mt-0.5">At purchase cost</div>
         </div>
       </div>
 

@@ -42,6 +42,16 @@ export const DEFAULT_CHART_OF_ACCOUNTS: DefaultAccountSpec[] = [
     notes: "Primary business operating bank account",
   },
   {
+    accountCode: "1021",
+    accountName: "SBI Current Account",
+    accountCategory: "ASSET",
+    accountSubcategory: "BANK_ACCOUNT",
+    openingBalanceType: "DEBIT",
+    isControlAccount: false,
+    isSystemProtected: false,
+    notes: "Secondary business bank account",
+  },
+  {
     accountCode: "1025",
     accountName: "UPI & Digital Clearing Account",
     accountCategory: "ASSET",
@@ -397,20 +407,8 @@ export async function seedDefaultChartOfAccounts(tx?: Prisma.TransactionClient) 
         },
       });
       created.push(item.accountCode);
-    } else if (
-      existing.accountName !== item.accountName ||
-      existing.accountSubcategory !== item.accountSubcategory
-    ) {
-      await runner.chartOfAccount.update({
-        where: { id: existing.id },
-        data: {
-          accountName: item.accountName,
-          accountSubcategory: item.accountSubcategory,
-          accountCategory: item.accountCategory,
-          notes: item.notes,
-        },
-      });
     }
+    // Existing accounts are preserved and never overwritten or renamed
   }
 
   return { seededCount: created.length, createdCodes: created };

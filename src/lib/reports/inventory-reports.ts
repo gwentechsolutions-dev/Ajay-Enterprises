@@ -27,6 +27,7 @@ export async function getInventoryReportsData(filters?: InventoryReportFilters) 
     stockAuditDifferences,
     ownershipAnalysis,
     damageIntelligence,
+    inventoryValuation,
   ] = await Promise.all([
     getStockSummary(filters),
     getWarehouseWiseStock(filters),
@@ -39,6 +40,7 @@ export async function getInventoryReportsData(filters?: InventoryReportFilters) 
     getStockAuditDifferences(),
     getOwnershipAnalysis(filters),
     getMaterialLossAndDamageIntelligence(start, end),
+    getInventoryValuationReport(filters),
   ]);
 
   return {
@@ -53,6 +55,7 @@ export async function getInventoryReportsData(filters?: InventoryReportFilters) 
     stockAuditDifferences,
     ownershipAnalysis,
     damageIntelligence,
+    inventoryValuation,
   };
 }
 
@@ -522,5 +525,163 @@ async function getMaterialLossAndDamageIntelligence(start: Date, end: Date) {
   return {
     topDamagedMaterials,
     customerDamageHistory,
+  };
+}
+
+export interface InventoryValuationReport {
+  asOfDate: Date;
+  totalOwnedQty: Prisma.Decimal;
+  totalOwnedValuation: Prisma.Decimal;
+  totalOwnedVariants: number;
+  valuedOwnedVariantsCount: number;
+  unvaluedOwnedVariantsCount: number;
+  hiredInTotalQty: Prisma.Decimal;
+  status: "FULLY_VALUED" | "PARTIALLY_VALUED" | "VALUATION_UNAVAILABLE";
+  displayValuation: string;
+  variantValuations: Array<{
+    variantId: string;
+    variantName: string;
+    variantCode: string;
+    categoryName: string;
+    typeName: string;
+    ownership: string;
+    workingQty: Prisma.Decimal;
+    unitPurchaseCost: Prisma.Decimal | null;
+    totalValuation: Prisma.Decimal | null;
+    valuationStatus: "VALUED" | "MISSING_COST_DATA" | "NOT_APPLICABLE_HIRED";
+  }>;
+}
+
+export async function getInventoryValuationReport(
+  filters?: InventoryReportFilters
+): Promise<InventoryValuationReport> {
+  const now = new Date();
+  const variants = await db.materialVariant.findMany({
+    where: {
+      isActive: true,
+      ...(filters?.materialVariantId ? { id: filters.materialVariantId } : {}),
+      ...(filters?.ownershipType && filters.ownershipType !== "ALL" ? { ownershipClassification: filters.ownershipType } : {}),
+    },
+    include: {
+      materialType: {
+        include: { category: true },
+      },
+      stockBalances: {
+        where: {
+          ...(filters?.warehouseId ? { warehouseId: filters.warehouseId } : {}),
+        },
+        select: {
+          ownershipType: true,
+          locationType: true,
+          totalQty: true,
+          availableQty: true,
+          damagedQty: true,
+          maintenanceQty: true,
+        },
+      },
+    },
+    orderBy: { materialCode: "asc" },
+  });
+
+  let totalOwnedQty = new Prisma.Decimal(0);
+  let totalOwnedValuation = new Prisma.Decimal(0);
+  let totalOwnedVariants = 0;
+  let valuedOwnedVariantsCount = 0;
+  let unvaluedOwnedVariantsCount = 0;
+  let hiredInTotalQty = new Prisma.Decimal(0);
+
+  const variantValuations = variants.map((v) => {
+    const isOwned = v.ownershipClassification === "OWNED";
+
+    // Working physical quantity across warehouse, customer sites, and maintenance (excluding SCRAP)
+    let workingQty = new Prisma.Decimal(0);
+    for (const sb of v.stockBalances) {
+      if (sb.locationType !== "SCRAP") {
+        workingQty = workingQty.plus(new Prisma.Decimal(sb.totalQty));
+      }
+    }
+
+    if (!isOwned) {
+      hiredInTotalQty = hiredInTotalQty.plus(workingQty);
+      return {
+        variantId: v.id,
+        variantName: v.name,
+        variantCode: v.materialCode,
+        categoryName: v.materialType.category.name,
+        typeName: v.materialType.name,
+        ownership: "HIRED_IN",
+        workingQty,
+        unitPurchaseCost: null,
+        totalValuation: null,
+        valuationStatus: "NOT_APPLICABLE_HIRED" as const,
+      };
+    }
+
+    // Owned material
+    totalOwnedVariants++;
+    totalOwnedQty = totalOwnedQty.plus(workingQty);
+
+    if (v.purchaseCost && new Prisma.Decimal(v.purchaseCost).gt(0)) {
+      const unitCost = new Prisma.Decimal(v.purchaseCost);
+      const val = workingQty.mul(unitCost);
+      totalOwnedValuation = totalOwnedValuation.plus(val);
+      valuedOwnedVariantsCount++;
+
+      return {
+        variantId: v.id,
+        variantName: v.name,
+        variantCode: v.materialCode,
+        categoryName: v.materialType.category.name,
+        typeName: v.materialType.name,
+        ownership: "OWNED",
+        workingQty,
+        unitPurchaseCost: unitCost,
+        totalValuation: val,
+        valuationStatus: "VALUED" as const,
+      };
+    } else {
+      unvaluedOwnedVariantsCount++;
+      return {
+        variantId: v.id,
+        variantName: v.name,
+        variantCode: v.materialCode,
+        categoryName: v.materialType.category.name,
+        typeName: v.materialType.name,
+        ownership: "OWNED",
+        workingQty,
+        unitPurchaseCost: null,
+        totalValuation: null,
+        valuationStatus: "MISSING_COST_DATA" as const,
+      };
+    }
+  });
+
+  let status: "FULLY_VALUED" | "PARTIALLY_VALUED" | "VALUATION_UNAVAILABLE" = "VALUATION_UNAVAILABLE";
+  let displayValuation = "Valuation unavailable";
+
+  if (totalOwnedVariants > 0) {
+    if (valuedOwnedVariantsCount === totalOwnedVariants) {
+      status = "FULLY_VALUED";
+      displayValuation = `₹${totalOwnedValuation.toFixed(2)}`;
+    } else if (valuedOwnedVariantsCount > 0) {
+      status = "PARTIALLY_VALUED";
+      displayValuation = `₹${totalOwnedValuation.toFixed(2)} (Partial: ${valuedOwnedVariantsCount}/${totalOwnedVariants} variants valued)`;
+    } else {
+      status = "VALUATION_UNAVAILABLE";
+      displayValuation = "Valuation unavailable (Missing purchase cost data)";
+    }
+  }
+
+  return {
+    asOfDate: now,
+    totalOwnedQty,
+    totalOwnedValuation,
+    totalOwnedVariants,
+    valuedOwnedVariantsCount,
+    unvaluedOwnedVariantsCount,
+    hiredInTotalQty,
+    status,
+    displayValuation,
+    variantValuations,
   };
 }

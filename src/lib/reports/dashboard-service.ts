@@ -2,6 +2,13 @@ import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getCurrentFiscalYear } from "@/lib/document-series";
 import { getBalanceSheet, getProfitAndLoss } from "@/lib/accounting/reports";
+import {
+  getAllCashAndBankLedger,
+  getCustomerLiabilitiesReconciliation,
+  getOperationalExpenseLedger,
+  getPostedAccountBalance,
+} from "@/lib/accounting/account-mapping";
+import { getInventoryValuationReport } from "@/lib/reports/inventory-reports";
 
 export interface OwnerDashboardFilters {
   period?: "THIS_MONTH" | "PREV_MONTH" | "THIS_FY" | "PREV_FY" | "CUSTOM";
@@ -78,8 +85,15 @@ export async function getOwnerDashboardData(filters?: OwnerDashboardFilters) {
     warehouseAvailableStockAgg,
     repairJobsAgg,
     missingDamagesAgg,
-    cashAccount,
-    bankAccount,
+    cashAndBankLedger,
+    customerLiabilities,
+    operationalExpenses,
+    inventoryValuation,
+    arGLBalance,
+    apGLBalance,
+    employeeAdvancesGL,
+    wagesPayableGL,
+    activeBatchesForAccrual,
     alerts,
     recentActivity,
   ] = await Promise.all([
@@ -119,7 +133,7 @@ export async function getOwnerDashboardData(filters?: OwnerDashboardFilters) {
       },
     }),
 
-    // Customer Outstanding (Total Unpaid Invoices)
+    // Customer Outstanding (Total Unpaid Invoices Subledger)
     db.invoice.aggregate({
       _sum: { outstandingAmount: true },
       where: {
@@ -129,7 +143,7 @@ export async function getOwnerDashboardData(filters?: OwnerDashboardFilters) {
       },
     }),
 
-    // Supplier Outstanding (Total Unpaid Purchase Bills)
+    // Supplier Outstanding (Total Unpaid Purchase Bills Subledger)
     db.purchaseBill.aggregate({
       _sum: { outstandingAmount: true },
       where: {
@@ -191,24 +205,42 @@ export async function getOwnerDashboardData(filters?: OwnerDashboardFilters) {
       },
     }),
 
-    // Cash Account 1010 Balance
-    db.chartOfAccount.findUnique({
-      where: { accountCode: "1010" },
-      include: {
-        journalLines: {
-          where: { journalEntry: { status: "POSTED" } },
-        },
-      },
-    }),
+    // Cash and All Bank Accounts from General Ledger
+    getAllCashAndBankLedger(now),
 
-    // Bank Account 1020 Balance
-    db.chartOfAccount.findUnique({
-      where: { accountCode: "1020" },
-      include: {
-        journalLines: {
-          where: { journalEntry: { status: "POSTED" } },
-        },
+    // Customer Liabilities (Security Deposits 2060 & Advances 2020)
+    getCustomerLiabilitiesReconciliation(now),
+
+    // Reconciled Operational Expenses from General Ledger (5030, 5035, 5010, 5040)
+    getOperationalExpenseLedger(start, end),
+
+    // Inventory Valuation (Owned at Purchase Cost, Scrap Excluded, Hired Separated)
+    getInventoryValuationReport(filters),
+
+    // Accounts Receivable General Ledger Control Account Balance
+    getPostedAccountBalance("ACCOUNTS_RECEIVABLE", now),
+
+    // Accounts Payable General Ledger Control Account Balance
+    getPostedAccountBalance("ACCOUNTS_PAYABLE", now),
+
+    // Employee Advances General Ledger Account 1070
+    getPostedAccountBalance("EMPLOYEE_ADVANCES", now),
+
+    // Wages Payable General Ledger Account 2070
+    getPostedAccountBalance("WAGES_PAYABLE", now),
+
+    // Active Batches for Uninvoiced Accrual Calculation
+    db.rentalBatch.findMany({
+      where: {
+        status: "ACTIVE",
+        currentHeldQty: { gt: 0 },
       },
+      select: {
+        currentHeldQty: true,
+        applicableDailyRate: true,
+        deliveryDate: true,
+      },
+      take: 200,
     }),
 
     // Business Alerts & Exceptions
@@ -218,22 +250,18 @@ export async function getOwnerDashboardData(filters?: OwnerDashboardFilters) {
     fetchRecentActivity(),
   ]);
 
-  const calcAccountBalance = (account: any) => {
-    if (!account || !account.journalLines) return new Prisma.Decimal(0);
-    const debits = account.journalLines.reduce(
-      (sum: Prisma.Decimal, l: any) => sum.plus(new Prisma.Decimal(l.debitAmount)),
-      new Prisma.Decimal(0)
+  // Uninvoiced Operational Rental Daily Accruals
+  let uninvoicedRentalAccruals = new Prisma.Decimal(0);
+  for (const b of activeBatchesForAccrual) {
+    const days = Math.max(1, Math.min(30, Math.floor((end.getTime() - Math.max(start.getTime(), b.deliveryDate.getTime())) / (1000 * 60 * 60 * 24))));
+    uninvoicedRentalAccruals = uninvoicedRentalAccruals.plus(
+      new Prisma.Decimal(b.currentHeldQty).mul(b.applicableDailyRate).mul(days)
     );
-    const credits = account.journalLines.reduce(
-      (sum: Prisma.Decimal, l: any) => sum.plus(new Prisma.Decimal(l.creditAmount)),
-      new Prisma.Decimal(0)
-    );
-    return debits.minus(credits);
-  };
+  }
 
-  const cashBalance = calcAccountBalance(cashAccount);
-  const bankBalance = calcAccountBalance(bankAccount);
-  const totalLiquidFunds = cashBalance.plus(bankBalance);
+  const cashBalance = cashAndBankLedger.totalCashBalance;
+  const bankBalance = cashAndBankLedger.totalBankBalance;
+  const totalLiquidFunds = cashAndBankLedger.totalLiquidFunds;
 
   // Revenue by Category (Rental, Sales, Transport, Repair Recoveries)
   const categoryBreakdown = await getRevenueCategoryBreakdown(start, end);
@@ -249,33 +277,65 @@ export async function getOwnerDashboardData(filters?: OwnerDashboardFilters) {
       fiscalYear: currentFy,
     },
     kpis: {
+      // 1. Accounting Revenue & Profit strictly from General Ledger
+      postedAccountingRevenue: pnlData.totalIncome,
+      postedAccountingExpenses: pnlData.totalExpenses,
+      postedNetProfit: pnlData.netProfitOrLoss,
+      netProfitInPeriod: pnlData.netProfitOrLoss,
+      totalExpensesInPeriod: pnlData.totalExpenses,
+      isProfit: pnlData.isProfit,
+
+      // 2. Operational Billed & Unbilled Distinction
       totalRentalRevenue: totalRentalInvoices._sum.taxableAmount || new Prisma.Decimal(0),
       revenueThisMonth: periodInvoices._sum.taxableAmount || new Prisma.Decimal(0),
       revenueThisFinancialYear: fyInvoices._sum.taxableAmount || new Prisma.Decimal(0),
+      invoicedRevenueThisPeriod: periodInvoices._sum.taxableAmount || new Prisma.Decimal(0),
+      uninvoicedAccrualRevenue: uninvoicedRentalAccruals,
+
+      // 3. Category Breakdown
       materialSalesRevenue: categoryBreakdown.materialSales,
       serviceAndRepairRecovery: categoryBreakdown.repairRecovery,
       transportIncome: categoryBreakdown.transportIncome,
 
+      // 4. Receivables, Payables & Cash Collection
       cashCollectedInPeriod: totalReceipts._sum.amountReceived || new Prisma.Decimal(0),
       customerOutstandingReceivables: totalCustomerOutstanding._sum.outstandingAmount || new Prisma.Decimal(0),
+      customerReceivablesGL: arGLBalance,
       supplierOutstandingPayables: totalSupplierOutstanding._sum.outstandingAmount || new Prisma.Decimal(0),
+      supplierPayablesGL: apGLBalance,
+
+      // 5. Liquid Funds & Individual Cash/Bank Accounts
       cashBalance,
       bankBalance,
       totalLiquidFunds,
+      cashAndBankAccounts: cashAndBankLedger.accounts,
 
-      totalExpensesInPeriod: pnlData.totalExpenses,
-      netProfitInPeriod: pnlData.netProfitOrLoss,
-      isProfit: pnlData.isProfit,
+      // 6. Balance Sheet Totals & Reconciled Liabilities
       totalAssets: balanceSheetData.totalAssets,
       totalLiabilities: balanceSheetData.totalLiabilities,
       totalEquity: balanceSheetData.totalEquity,
+      customerSecurityDeposits: customerLiabilities.customerSecurityDeposits, // GL 2060
+      unallocatedCustomerAdvances: customerLiabilities.unallocatedCustomerAdvances, // GL 2020
+      employeeAdvances: employeeAdvancesGL, // GL 1070
+      wagesPayable: wagesPayableGL, // GL 2070
 
+      // 7. General Ledger Operational Expenses Breakdown
+      operationalExpensesLedger: operationalExpenses,
+
+      // 8. Physical Inventory & Asset Valuation
       activeRentalAgreements: activeAgreementsCount,
       activeCustomerSites: activeSitesCount,
       materialQuantityAtSites: heldMaterialBatchAgg._sum.currentHeldQty || new Prisma.Decimal(0),
       availableWarehouseStock: warehouseAvailableStockAgg._sum.availableQty || new Prisma.Decimal(0),
       damagedAndUnderRepairStock: repairJobsAgg._sum.remainingQuantity || new Prisma.Decimal(0),
       missingMaterialQuantity: missingDamagesAgg._sum.quantity || new Prisma.Decimal(0),
+      inventoryValuation: {
+        totalOwnedValuation: inventoryValuation.totalOwnedValuation,
+        valuedVariantsCount: inventoryValuation.valuedOwnedVariantsCount,
+        totalVariantsCount: inventoryValuation.totalOwnedVariants,
+        status: inventoryValuation.status,
+        displayLabel: inventoryValuation.displayValuation,
+      },
     },
     categoryBreakdown,
     monthlyTrends,

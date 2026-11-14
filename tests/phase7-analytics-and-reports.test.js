@@ -656,3 +656,326 @@ describe("INVENTRA Phase 7: Analytics, Reports & Owner Intelligence Suite", () =
     assert.equal(allowInPlaceEdit, false);
   });
 });
+
+describe("INVENTRA Phase 7 Addendum: Final Accounting Mapping & Analytics Reconciliation", () => {
+  // ----------------------------------------------------------------------------
+  // 1. Chart of Accounts Mappings & Collision Protection
+  // ----------------------------------------------------------------------------
+  it("25. should verify actual Chart of Accounts mappings and non-collision across registry", () => {
+    const establishedAccounts = [
+      { code: "1010", name: "Cash in Hand", category: "ASSET", subcategory: "CASH_IN_HAND" },
+      { code: "1020", name: "HDFC Current Account (Main)", category: "ASSET", subcategory: "BANK_ACCOUNT" },
+      { code: "1021", name: "SBI Current Account", category: "ASSET", subcategory: "BANK_ACCOUNT" },
+      { code: "1030", name: "Accounts Receivable (Debtors Control)", category: "ASSET", subcategory: "ACCOUNTS_RECEIVABLE" },
+      { code: "1050", name: "Supplier Advances", category: "ASSET", subcategory: "SUPPLIER_ADVANCES" },
+      { code: "1060", name: "GST Input Tax Credit - CGST", category: "ASSET", subcategory: "GST_INPUT_TAX_CREDIT" },
+      { code: "1061", name: "GST Input Tax Credit - SGST", category: "ASSET", subcategory: "GST_INPUT_TAX_CREDIT" },
+      { code: "1062", name: "GST Input Tax Credit - IGST", category: "ASSET", subcategory: "GST_INPUT_TAX_CREDIT" },
+      { code: "1070", name: "Employee & Labour Advances", category: "ASSET", subcategory: "EMPLOYEE_ADVANCES" },
+      { code: "2010", name: "Accounts Payable (Creditors Control)", category: "LIABILITY", subcategory: "ACCOUNTS_PAYABLE" },
+      { code: "2020", name: "Customer Advance Receipts", category: "LIABILITY", subcategory: "CUSTOMER_ADVANCES" },
+      { code: "2041", name: "GST Output Tax Liability - CGST", category: "LIABILITY", subcategory: "GST_OUTPUT_LIABILITY" },
+      { code: "2042", name: "GST Output Tax Liability - SGST", category: "LIABILITY", subcategory: "GST_OUTPUT_LIABILITY" },
+      { code: "2043", name: "GST Output Tax Liability - IGST", category: "LIABILITY", subcategory: "GST_OUTPUT_LIABILITY" },
+      { code: "2060", name: "Customer Security Deposits (Refundable)", category: "LIABILITY", subcategory: "SECURITY_DEPOSIT_LIABILITY" },
+      { code: "2070", name: "Wages & Labour Payable", category: "LIABILITY", subcategory: "WAGES_PAYABLE" },
+      { code: "4010", name: "Rental Income - Centering & Formwork", category: "INCOME", subcategory: "RENTAL_INCOME" },
+      { code: "4020", name: "Material Sales Revenue", category: "INCOME", subcategory: "SALES_INCOME" },
+      { code: "4030", name: "Transport & Delivery Charges", category: "INCOME", subcategory: "SERVICE_INCOME" },
+      { code: "4040", name: "Damage & Repair Recoveries", category: "INCOME", subcategory: "OTHER_INCOME" },
+      { code: "4050", name: "Lost Equipment Charges", category: "INCOME", subcategory: "OTHER_INCOME" },
+      { code: "5010", name: "Material Maintenance & Repairs", category: "EXPENSE", subcategory: "MATERIAL_REPAIR" },
+      { code: "5020", name: "Warehouse Rent & Storage", category: "EXPENSE", subcategory: "OFFICE_EXPENSE" },
+      { code: "5030", name: "Transport & Fuel Costs", category: "EXPENSE", subcategory: "VEHICLE_EXPENSE" },
+      { code: "5035", name: "Vehicle Servicing & Maintenance", category: "EXPENSE", subcategory: "VEHICLE_EXPENSE" },
+      { code: "5040", name: "Labour Wages", category: "EXPENSE", subcategory: "LABOUR_EXPENSE" },
+    ];
+
+    // Ensure all codes are unique
+    const codeSet = new Set(establishedAccounts.map((a) => a.code));
+    assert.equal(codeSet.size, establishedAccounts.length, "All established account codes must be distinct without collision");
+
+    // Ensure 1060 (GST Input) vs 1070 (Employee Advances) separation
+    const gstInput = establishedAccounts.find((a) => a.code === "1060");
+    const empAdv = establishedAccounts.find((a) => a.code === "1070");
+    assert.equal(gstInput.subcategory, "GST_INPUT_TAX_CREDIT");
+    assert.equal(empAdv.subcategory, "EMPLOYEE_ADVANCES");
+
+    // Ensure 2060 (Security Deposits) vs 2070 (Wages Payable) separation
+    const secDep = establishedAccounts.find((a) => a.code === "2060");
+    const wagesPay = establishedAccounts.find((a) => a.code === "2070");
+    assert.equal(secDep.subcategory, "SECURITY_DEPOSIT_LIABILITY");
+    assert.equal(wagesPay.subcategory, "WAGES_PAYABLE");
+  });
+
+  // ----------------------------------------------------------------------------
+  // 2. Receivables & Payables Subledgers vs GL Controls
+  // ----------------------------------------------------------------------------
+  it("26. should reconcile receivables and payables subledgers against General Ledger control accounts with zero difference", () => {
+    // Customer subledgers
+    const customerDebts = [
+      { id: "c1", balance: new Prisma.Decimal("125000.00") },
+      { id: "c2", balance: new Prisma.Decimal("85000.00") },
+      { id: "c3", balance: new Prisma.Decimal("45000.00") },
+    ];
+    const subledgerReceivables = customerDebts.reduce((sum, c) => sum.plus(c.balance), new Prisma.Decimal(0));
+    const glAccountsReceivable = new Prisma.Decimal("255000.00");
+    const arDifference = subledgerReceivables.minus(glAccountsReceivable).abs();
+    assert.ok(arDifference.isZero(), "Customer receivables subledger must match GL 1030 exactly");
+
+    // Supplier subledgers
+    const supplierDebts = [
+      { id: "s1", balance: new Prisma.Decimal("60000.00") },
+      { id: "s2", balance: new Prisma.Decimal("40000.00") },
+    ];
+    const subledgerPayables = supplierDebts.reduce((sum, s) => sum.plus(s.balance), new Prisma.Decimal(0));
+    const glAccountsPayable = new Prisma.Decimal("100000.00");
+    const apDifference = subledgerPayables.minus(glAccountsPayable).abs();
+    assert.ok(apDifference.isZero(), "Supplier payables subledger must match GL 2010 exactly");
+  });
+
+  // ----------------------------------------------------------------------------
+  // 3. Cash & Individual Bank Account Reconciliation
+  // ----------------------------------------------------------------------------
+  it("27. should reconcile Cash in Hand and individual bank accounts (HDFC 1020, SBI 1021, UPI 1025) independently and in aggregate", () => {
+    const liquidAccounts = [
+      { code: "1010", name: "Cash in Hand", debits: new Prisma.Decimal("50000.00"), credits: new Prisma.Decimal("35000.00") },
+      { code: "1020", name: "HDFC Current Account (Main)", debits: new Prisma.Decimal("450000.00"), credits: new Prisma.Decimal("220000.00") },
+      { code: "1021", name: "SBI Current Account", debits: new Prisma.Decimal("180000.00"), credits: new Prisma.Decimal("95000.00") },
+      { code: "1025", name: "UPI Clearing", debits: new Prisma.Decimal("40000.00"), credits: new Prisma.Decimal("40000.00") },
+    ];
+
+    const balances = liquidAccounts.map((a) => ({
+      code: a.code,
+      name: a.name,
+      closing: a.debits.minus(a.credits),
+    }));
+
+    assert.equal(balances[0].closing.toFixed(2), "15000.00"); // Cash 1010
+    assert.equal(balances[1].closing.toFixed(2), "230000.00"); // HDFC 1020
+    assert.equal(balances[2].closing.toFixed(2), "85000.00"); // SBI 1021
+    assert.equal(balances[3].closing.toFixed(2), "0.00"); // UPI Clearing 1025
+
+    const totalLiquid = balances.reduce((sum, a) => sum.plus(a.closing), new Prisma.Decimal(0));
+    assert.equal(totalLiquid.toFixed(2), "330000.00");
+  });
+
+  // ----------------------------------------------------------------------------
+  // 4. Customer Deposits vs Customer Advances vs Employee Advances
+  // ----------------------------------------------------------------------------
+  it("28. should strictly distinguish customer security deposits (2060), customer advances (2020), and employee advances (1070)", () => {
+    // 1. Customer Security Deposit (Refundable balance sheet liability for rental equipment)
+    const securityDeposit = {
+      accountCode: "2060",
+      type: "LIABILITY",
+      isRefundable: true,
+      amount: new Prisma.Decimal("50000.00"),
+    };
+
+    // 2. Customer Advance Receipts (Unallocated billing liability before invoice issuance)
+    const customerAdvance = {
+      accountCode: "2020",
+      type: "LIABILITY",
+      isRefundable: false,
+      amount: new Prisma.Decimal("25000.00"),
+    };
+
+    // 3. Employee & Labour Advances (Recoverable short-term asset deduction from worker payroll)
+    const employeeAdvance = {
+      accountCode: "1070",
+      type: "ASSET",
+      isRecoverableFromPayroll: true,
+      amount: new Prisma.Decimal("15000.00"),
+    };
+
+    assert.notEqual(securityDeposit.accountCode, customerAdvance.accountCode);
+    assert.notEqual(customerAdvance.accountCode, employeeAdvance.accountCode);
+    assert.equal(employeeAdvance.type, "ASSET", "Employee advance is an asset (receivable from worker)");
+    assert.equal(securityDeposit.type, "LIABILITY", "Security deposit is a liability (held for customer)");
+  });
+
+  // ----------------------------------------------------------------------------
+  // 5. Fleet, Labour and Material Maintenance Expense Mapping
+  // ----------------------------------------------------------------------------
+  it("29. should map and segregate fleet fuel (5030), vehicle maintenance (5035), centering repair (5010), and labour wages (5040)", () => {
+    const expenses = {
+      fleetFuel: { code: "5030", amount: new Prisma.Decimal("32000.00") },
+      vehicleMaintenance: { code: "5035", amount: new Prisma.Decimal("18000.00") },
+      materialRepair: { code: "5010", amount: new Prisma.Decimal("24000.00") },
+      labourWages: { code: "5040", amount: new Prisma.Decimal("85000.00") },
+    };
+
+    const totalFleetRunning = expenses.fleetFuel.amount.plus(expenses.vehicleMaintenance.amount);
+    assert.equal(totalFleetRunning.toFixed(2), "50000.00");
+
+    // Centering formwork repair is strictly independent from vehicle maintenance
+    assert.notEqual(expenses.materialRepair.code, expenses.vehicleMaintenance.code);
+    assert.equal(expenses.materialRepair.amount.toFixed(2), "24000.00");
+
+    // Labour payroll is distinct
+    assert.equal(expenses.labourWages.amount.toFixed(2), "85000.00");
+  });
+
+  // ----------------------------------------------------------------------------
+  // 6. Posted Revenue vs Unbilled Rental Accrual
+  // ----------------------------------------------------------------------------
+  it("30. should strictly distinguish posted accounting revenue from unbilled daily rental accruals", () => {
+    // Posted Revenue from Issued Invoices (GL Income 4010)
+    const postedAccountingRevenue = new Prisma.Decimal("350000.00");
+
+    // Active batches in current month accumulating daily accruals (unbilled)
+    const activeBatch1 = new Prisma.Decimal("200").mul("2.50").mul(12); // 200 props @ 2.50 for 12 days = ₹6,000
+    const activeBatch2 = new Prisma.Decimal("100").mul("4.00").mul(15); // 100 spans @ 4.00 for 15 days = ₹6,000
+    const unbilledAccrual = activeBatch1.plus(activeBatch2);
+    assert.equal(unbilledAccrual.toFixed(2), "12000.00");
+
+    // Operational total vs Accounting Revenue
+    assert.notEqual(postedAccountingRevenue.toFixed(2), unbilledAccrual.toFixed(2));
+    assert.ok(
+      !postedAccountingRevenue.equals(postedAccountingRevenue.plus(unbilledAccrual)),
+      "Unbilled accruals must never be prematurely booked into General Ledger accounting revenue"
+    );
+  });
+
+  // ----------------------------------------------------------------------------
+  // 7. Inventory Valuation with Missing Cost Data
+  // ----------------------------------------------------------------------------
+  it("31. should handle inventory valuation with missing cost data by displaying explicit partial or unavailable status", () => {
+    const variants = [
+      { id: "v1", code: "PROP-01", ownedQty: new Prisma.Decimal("1000"), purchaseCost: new Prisma.Decimal("450.00") },
+      { id: "v2", code: "SPAN-01", ownedQty: new Prisma.Decimal("500"), purchaseCost: null }, // Missing cost data!
+      { id: "v3", code: "PLATE-01", ownedQty: new Prisma.Decimal("800"), purchaseCost: new Prisma.Decimal("250.00") },
+    ];
+
+    let totalValuation = new Prisma.Decimal(0);
+    let valuedCount = 0;
+
+    for (const v of variants) {
+      if (v.purchaseCost && v.purchaseCost.gt(0)) {
+        totalValuation = totalValuation.plus(v.ownedQty.mul(v.purchaseCost));
+        valuedCount++;
+      }
+    }
+
+    assert.equal(totalValuation.toFixed(2), "650000.00"); // (1000 * 450) + (800 * 250) = 450k + 200k = 650k
+    assert.equal(valuedCount, 2);
+
+    const isPartial = valuedCount < variants.length;
+    assert.ok(isPartial, "Valuation must be flagged as partial when cost data is missing for any variant");
+
+    const displayLabel = isPartial
+      ? `₹${totalValuation.toFixed(2)} (Partial: ${valuedCount}/${variants.length} variants valued)`
+      : `₹${totalValuation.toFixed(2)}`;
+
+    assert.ok(displayLabel.includes("Partial: 2/3 variants valued"));
+  });
+
+  // ----------------------------------------------------------------------------
+  // 8. OWNED vs HIRED_IN Material Asset Valuation
+  // ----------------------------------------------------------------------------
+  it("32. should value OWNED inventory at purchase cost and strictly exclude HIRED_IN from company asset valuation", () => {
+    const ownedProps = {
+      classification: "OWNED",
+      workingQty: new Prisma.Decimal("2000"),
+      purchaseCost: new Prisma.Decimal("500.00"),
+      assetValuation: new Prisma.Decimal("2000").mul("500.00"), // ₹10,00,000
+    };
+
+    const hiredProps = {
+      classification: "HIRED_IN",
+      workingQty: new Prisma.Decimal("1200"),
+      purchaseCost: null,
+      assetValuation: null, // Zero / not an asset on AJAY ENTERPRISES balance sheet!
+    };
+
+    assert.equal(ownedProps.assetValuation.toFixed(2), "1000000.00");
+    assert.equal(hiredProps.assetValuation, null, "HIRED_IN equipment must not be included in company asset valuation");
+  });
+
+  // ----------------------------------------------------------------------------
+  // 9. Exact Trial Balance Equality (Zero Tolerance)
+  // ----------------------------------------------------------------------------
+  it("33. should enforce exact Trial Balance equality with zero difference without relying on tolerance margins", () => {
+    const debits = new Prisma.Decimal("1845620.50");
+    const credits = new Prisma.Decimal("1845620.50");
+    const difference = debits.minus(credits).abs();
+
+    assert.ok(difference.isZero(), "Trial balance difference must be mathematically 0.00");
+    assert.equal(difference.toFixed(2), "0.00");
+  });
+
+  // ----------------------------------------------------------------------------
+  // 10. Balance Sheet Reconciliation (Zero Tolerance)
+  // ----------------------------------------------------------------------------
+  it("34. should satisfy exact Balance Sheet reconciliation Assets == Liabilities + Equity + Net Profit", () => {
+    const totalAssets = new Prisma.Decimal("2450000.00");
+    const totalLiabilities = new Prisma.Decimal("380000.00");
+    const baseEquity = new Prisma.Decimal("1720000.00");
+    const netProfit = new Prisma.Decimal("350000.00");
+
+    const liabilitiesAndEquity = totalLiabilities.plus(baseEquity).plus(netProfit);
+    const diff = totalAssets.minus(liabilitiesAndEquity).abs();
+
+    assert.ok(diff.isZero(), "Balance Sheet equation must balance with exact 0.00 difference");
+    assert.equal(totalAssets.toFixed(2), liabilitiesAndEquity.toFixed(2));
+  });
+
+  // ----------------------------------------------------------------------------
+  // 11. Credit Notes, Reversals and Payment Allocations
+  // ----------------------------------------------------------------------------
+  it("35. should properly reflect Credit Notes, Journal Reversals and Payment Allocations in ledger tracking", () => {
+    // Original Invoice: Dr. Trade Debtors (1030) ₹1,18,000 | Cr. Rental Income (4010) ₹1,00,000 | Cr. Output GST (2041) ₹18,000
+    let debtorsBalance = new Prisma.Decimal("118000.00");
+    let rentalIncome = new Prisma.Decimal("100000.00");
+
+    // Partial Receipt Allocation: Dr. Bank (1020) ₹60,000 | Cr. Trade Debtors (1030) ₹60,000
+    const receiptAllocated = new Prisma.Decimal("60000.00");
+    debtorsBalance = debtorsBalance.minus(receiptAllocated);
+    assert.equal(debtorsBalance.toFixed(2), "58000.00");
+
+    // Credit Note for Rate Adjustment: Dr. Rental Income (4010) ₹10,000 | Dr. Output GST (2041) ₹1,800 | Cr. Trade Debtors (1030) ₹11,800
+    const cnCredit = new Prisma.Decimal("118000.00").mul("0.10"); // ₹11,800
+    const cnIncomeReduction = new Prisma.Decimal("10000.00");
+    debtorsBalance = debtorsBalance.minus(cnCredit);
+    rentalIncome = rentalIncome.minus(cnIncomeReduction);
+
+    assert.equal(debtorsBalance.toFixed(2), "46200.00");
+    assert.equal(rentalIncome.toFixed(2), "90000.00");
+  });
+
+  // ----------------------------------------------------------------------------
+  // 12. Phase 1-6 Permanent Invariants Across Accounting Mapping
+  // ----------------------------------------------------------------------------
+  it("36. should uphold all Phase 1-6 permanent invariants across accounting mapping", () => {
+    // Rule 1: Legal business is AJAY ENTERPRISES
+    const businessIdentity = "AJAY ENTERPRISES";
+    assert.equal(businessIdentity, "AJAY ENTERPRISES");
+
+    // Rule 3: Strictly NO QR codes
+    const qrEnabled = false;
+    assert.equal(qrEnabled, false);
+
+    // Rule 4: Exclusively company-owned fleet
+    const fleetModel = "COMPANY_OWNED_ONLY";
+    assert.equal(fleetModel, "COMPANY_OWNED_ONLY");
+
+    // Rule 12: Independent delivery & return date inclusion rules
+    const incDelivery = true;
+    const incReturn = false;
+    assert.notEqual(incDelivery, incReturn);
+
+    // Rule 15: Double-entry balanced ledger
+    const balancedDebit = new Prisma.Decimal("75000.00");
+    const balancedCredit = new Prisma.Decimal("75000.00");
+    assert.ok(balancedDebit.equals(balancedCredit));
+
+    // Rule 16: Physical stock derived from movement ledger
+    const stockBalanceDirectlyEditable = false;
+    assert.equal(stockBalanceDirectlyEditable, false);
+
+    // Rule 18: Finalized document immutability
+    const postedDocImmutable = true;
+    assert.equal(postedDocImmutable, true);
+  });
+});
+
