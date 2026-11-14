@@ -111,10 +111,10 @@ export default function DeliveryNotesPage() {
         varRes.json(),
       ]);
 
-      if (dnData.success) setDeliveryNotes(dnData.data);
-      if (custData.success) setCustomers(custData.data);
-      if (whData.success) setWarehouses(whData.data);
-      if (varData.success) setVariants(varData.data);
+      if (dnData.success) setDeliveryNotes(Array.isArray(dnData.data) ? dnData.data : []);
+      if (custData.success) setCustomers(Array.isArray(custData.data) ? custData.data : []);
+      if (whData.success) setWarehouses(Array.isArray(whData.data) ? whData.data : []);
+      if (varData.success) setVariants(Array.isArray(varData.data) ? varData.data : []);
     } catch {
       toast.error("Failed to load delivery notes.");
     } finally {
@@ -307,11 +307,17 @@ export default function DeliveryNotesPage() {
     }
   };
 
-  const filteredDNs = deliveryNotes.filter((dn) => {
+  const filteredDNs = (deliveryNotes || []).filter((dn) => {
+    if (!dn) return false;
+    const dnNum = dn.dnNumber || "";
+    const custName = dn.customer?.name || "";
+    const siteName = dn.customerSite?.siteName || "";
+    const q = (search || "").toLowerCase();
+
     const matchesSearch =
-      dn.dnNumber.toLowerCase().includes(search.toLowerCase()) ||
-      dn.customer?.name?.toLowerCase().includes(search.toLowerCase()) ||
-      dn.customerSite?.siteName?.toLowerCase().includes(search.toLowerCase());
+      dnNum.toLowerCase().includes(q) ||
+      custName.toLowerCase().includes(q) ||
+      siteName.toLowerCase().includes(q);
     const matchesStatus = statusFilter === "ALL" || dn.status === statusFilter;
     return matchesSearch && matchesStatus;
   });

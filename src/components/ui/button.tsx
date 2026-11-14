@@ -158,10 +158,21 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       }
     }
 
-    const Comp = asChild ? Slot : "button";
+    if (asChild) {
+      return (
+        <Slot
+          className={cn(buttonVariants({ variant, size, className }))}
+          ref={ref as any}
+          onClick={handleClick as any}
+          {...(props as any)}
+        >
+          {children}
+        </Slot>
+      );
+    }
 
     return (
-      <Comp
+      <button
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         disabled={disabled || activeLoading}
@@ -174,7 +185,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           <Loader2 className="mr-2 h-4 w-4 animate-spin shrink-0 text-current" />
         )}
         {displayContent}
-      </Comp>
+      </button>
     );
   }
 );

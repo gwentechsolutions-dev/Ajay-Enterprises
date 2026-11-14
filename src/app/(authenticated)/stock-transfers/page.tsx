@@ -88,9 +88,9 @@ export default function StockTransfersPage() {
         varRes.json(),
       ]);
 
-      if (stnData.success) setTransfers(stnData.data);
-      if (whData.success) setWarehouses(whData.data);
-      if (varData.success) setVariants(varData.data);
+      if (stnData.success) setTransfers(Array.isArray(stnData.data) ? stnData.data : []);
+      if (whData.success) setWarehouses(Array.isArray(whData.data) ? whData.data : []);
+      if (varData.success) setVariants(Array.isArray(varData.data) ? varData.data : []);
     } catch {
       toast.error("Failed to load stock transfers.");
     } finally {
@@ -227,11 +227,16 @@ export default function StockTransfersPage() {
     }
   };
 
-  const filteredSTNs = transfers.filter((stn) => {
+  const filteredSTNs = (transfers || []).filter((stn) => {
+    if (!stn) return false;
+    const stnNum = stn.stnNumber || "";
+    const srcName = stn.sourceWarehouse?.name || "";
+    const destName = stn.destinationWarehouse?.name || "";
+    const q = (search || "").toLowerCase();
     return (
-      stn.stnNumber.toLowerCase().includes(search.toLowerCase()) ||
-      stn.sourceWarehouse?.name.toLowerCase().includes(search.toLowerCase()) ||
-      stn.destinationWarehouse?.name.toLowerCase().includes(search.toLowerCase())
+      stnNum.toLowerCase().includes(q) ||
+      srcName.toLowerCase().includes(q) ||
+      destName.toLowerCase().includes(q)
     );
   });
 

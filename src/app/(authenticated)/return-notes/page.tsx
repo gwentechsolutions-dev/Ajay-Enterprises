@@ -86,10 +86,10 @@ export default function MaterialReturnsPage() {
         varRes.json(),
       ]);
 
-      if (mrnData.success) setReturnNotes(mrnData.data);
-      if (custData.success) setCustomers(custData.data);
-      if (whData.success) setWarehouses(whData.data);
-      if (varData.success) setVariants(varData.data);
+      if (mrnData.success) setReturnNotes(Array.isArray(mrnData.data) ? mrnData.data : []);
+      if (custData.success) setCustomers(Array.isArray(custData.data) ? custData.data : []);
+      if (whData.success) setWarehouses(Array.isArray(whData.data) ? whData.data : []);
+      if (varData.success) setVariants(Array.isArray(varData.data) ? varData.data : []);
     } catch {
       toast.error("Failed to load material return notes.");
     } finally {
@@ -176,11 +176,16 @@ export default function MaterialReturnsPage() {
     }
   };
 
-  const filteredMRNs = returnNotes.filter((mrn) => {
+  const filteredMRNs = (returnNotes || []).filter((mrn) => {
+    if (!mrn) return false;
+    const mrnNum = mrn.mrnNumber || "";
+    const custName = mrn.customer?.name || "";
+    const siteName = mrn.customerSite?.siteName || "";
+    const q = (search || "").toLowerCase();
     return (
-      mrn.mrnNumber.toLowerCase().includes(search.toLowerCase()) ||
-      mrn.customer?.name?.toLowerCase().includes(search.toLowerCase()) ||
-      mrn.customerSite?.siteName?.toLowerCase().includes(search.toLowerCase())
+      mrnNum.toLowerCase().includes(q) ||
+      custName.toLowerCase().includes(q) ||
+      siteName.toLowerCase().includes(q)
     );
   });
 
