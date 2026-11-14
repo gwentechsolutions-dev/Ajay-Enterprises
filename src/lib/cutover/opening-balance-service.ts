@@ -29,6 +29,43 @@ export interface CreateOpeningBalanceBatchInput {
   lines: OpeningBalanceLineInput[];
 }
 
+export const SPECIAL_CUTOVER_ACCOUNTS: Record<string, {
+  name: string;
+  category: string;
+  subcategory: string;
+  balanceType: string;
+  notes: string;
+}> = {
+  "1200": {
+    name: "Centering & Formwork Equipment (Capital Asset)",
+    category: "ASSET",
+    subcategory: "DEPRECIATION",
+    balanceType: "DEBIT",
+    notes: "Gross capital asset value of owned steel props, sheets, and formwork equipment",
+  },
+  "1210": {
+    name: "Company Vehicles & Logistics Fleet (Capital Asset)",
+    category: "ASSET",
+    subcategory: "DEPRECIATION",
+    balanceType: "DEBIT",
+    notes: "Capital asset value of company-owned fleet (407, Bolero, Dost)",
+  },
+  "1220": {
+    name: "Yard & Office Infrastructure Equipment (Capital Asset)",
+    category: "ASSET",
+    subcategory: "DEPRECIATION",
+    balanceType: "DEBIT",
+    notes: "Welding machines, cut-off saws, computers, and yard infrastructure",
+  },
+  "3030": {
+    name: "Opening Balance Offset / Suspense Account",
+    category: "EQUITY",
+    subcategory: "OTHER_INCOME",
+    balanceType: "CREDIT",
+    notes: "Controlled equity suspense account used strictly for balancing opening trial balance cutovers",
+  },
+};
+
 export interface OpeningTrialBalanceRow {
   accountCode: string;
   accountName: string;
@@ -102,6 +139,21 @@ export async function createOpeningBalanceBatch(
       account = await resolveAccountByRole(line.accountRole, db);
     } else if (line.accountCode) {
       account = await db.chartOfAccount.findUnique({ where: { accountCode: line.accountCode } });
+      if (!account && SPECIAL_CUTOVER_ACCOUNTS[line.accountCode]) {
+        const spec = SPECIAL_CUTOVER_ACCOUNTS[line.accountCode];
+        account = await db.chartOfAccount.create({
+          data: {
+            accountCode: line.accountCode,
+            accountName: spec.name,
+            accountCategory: spec.category,
+            accountSubcategory: spec.subcategory,
+            openingBalanceType: spec.balanceType,
+            isControlAccount: false,
+            isSystemProtected: true,
+            notes: spec.notes,
+          },
+        });
+      }
     }
 
     if (!account) {

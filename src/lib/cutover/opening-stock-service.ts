@@ -16,6 +16,9 @@ export interface OpeningStockItemInput {
   condition?: "GOOD" | "DAMAGED";
   unitCost?: number | string | Prisma.Decimal | null;
   dailyRentalRate?: number | string | Prisma.Decimal | null;
+  isOnRent?: boolean;
+  rentalStartDate?: Date | string | null;
+  includeDeliveryDate?: boolean;
   notes?: string | null;
 }
 
@@ -37,6 +40,9 @@ export interface CsvOpeningStockRow {
   quantity: string;
   unitCost?: string;
   dailyRentalRate?: string;
+  isOnRent?: string;
+  includeDeliveryDate?: string;
+  rentalStartDate?: string;
   condition?: string;
   notes?: string;
 }
@@ -202,6 +208,19 @@ export async function previewOpeningStockCsv(
       }
     }
 
+    // Explicit rent classification for customer site stock
+    let isOnRent = location === "CUSTOMER_SITE" && (dailyRate !== null || Boolean(row.isOnRent && !["NO", "FALSE", "0"].includes(row.isOnRent.trim().toUpperCase())));
+    if (row.isOnRent !== undefined && row.isOnRent !== null && row.isOnRent.trim() !== "") {
+      const r = row.isOnRent.trim().toUpperCase();
+      isOnRent = !["NO", "FALSE", "0"].includes(r);
+    }
+
+    let includeDeliveryDate = true;
+    if (row.includeDeliveryDate !== undefined && row.includeDeliveryDate !== null && row.includeDeliveryDate.trim() !== "") {
+      const r = row.includeDeliveryDate.trim().toUpperCase();
+      includeDeliveryDate = !["NO", "FALSE", "0"].includes(r);
+    }
+
     // Duplicate check within batch
     const dedupeKey = `${variant.id}:${ownership}:${location}:${resolvedWarehouseId || ""}:${resolvedSiteId || ""}`;
     if (duplicateKeySet.has(dedupeKey)) {
@@ -222,6 +241,9 @@ export async function previewOpeningStockCsv(
       condition: row.condition === "DAMAGED" ? "DAMAGED" : "GOOD",
       unitCost,
       dailyRentalRate: dailyRate,
+      isOnRent,
+      includeDeliveryDate,
+      rentalStartDate: row.rentalStartDate ? new Date(row.rentalStartDate) : null,
       notes: row.notes || null,
     });
   }
@@ -314,6 +336,15 @@ export async function createOpeningStockBatch(
       totalHiredQty = totalHiredQty.plus(qty);
     }
 
+    const isOffRent = it.isOnRent === false;
+    let combinedNotes = it.notes || "";
+    if (isOffRent) {
+      combinedNotes = `[OFF_RENT] ${combinedNotes}`.trim();
+    }
+    if (it.includeDeliveryDate === false) {
+      combinedNotes = `[EXCL_DELIV_DATE] ${combinedNotes}`.trim();
+    }
+
     itemData.push({
       materialVariantId: it.materialVariantId,
       ownershipType: ownership,
@@ -327,7 +358,7 @@ export async function createOpeningStockBatch(
       unitCost,
       totalValuation: valuation,
       dailyRentalRate: it.dailyRentalRate ? new Prisma.Decimal(it.dailyRentalRate) : null,
-      notes: it.notes || null,
+      notes: combinedNotes || null,
     });
   }
 
@@ -538,41 +569,56 @@ export async function postOpeningStockBatch(
           availableDelta: qty,
         });
 
-        // 3. Create Active RentalBatch for initial rental custody tracking
-        const rbNumber = await generateNextDocumentNumber("RB");
-        const dailyRate =
-          item.dailyRentalRate ||
-          item.materialVariant.defaultRentalRate ||
-          new Prisma.Decimal(0);
+        const isExplicitlyOffRent = item.notes?.includes("[OFF_RENT]");
 
-        const rentalBatch = await tx.rentalBatch.create({
-          data: {
-            batchNumber: rbNumber,
-            customerId: item.customerId!,
-            customerSiteId: item.customerSiteId,
-            materialVariantId: item.materialVariantId,
-            ownershipType: item.ownershipType,
-            deliveryDate: batch.cutoverDate,
-            includeDeliveryDate: true,
-            deliveredQty: qty,
-            returnedQty: new Prisma.Decimal(0),
-            damagedQty: new Prisma.Decimal(0),
-            missingQty: new Prisma.Decimal(0),
-            currentHeldQty: qty,
-            applicableDailyRate: dailyRate,
-            status: "ACTIVE",
-          },
-        });
+        if (!isExplicitlyOffRent) {
+          // 3. Create Active RentalBatch for initial rental custody tracking
+          const rbNumber = await generateNextDocumentNumber("RB");
+          const dailyRate =
+            item.dailyRentalRate ||
+            item.materialVariant.defaultRentalRate ||
+            new Prisma.Decimal(0);
 
-        // Link RentalBatch to OpeningStockItem
-        await tx.openingStockItem.update({
-          where: { id: item.id },
-          data: {
-            rentalBatchId: rentalBatch.id,
-            inventoryMovementId: movement.id,
-            status: "POSTED",
-          },
-        });
+          const includeDelivDate = !item.notes?.includes("[EXCL_DELIV_DATE]");
+
+          const rentalBatch = await tx.rentalBatch.create({
+            data: {
+              batchNumber: rbNumber,
+              customerId: item.customerId!,
+              customerSiteId: item.customerSiteId,
+              materialVariantId: item.materialVariantId,
+              ownershipType: item.ownershipType,
+              deliveryDate: batch.cutoverDate, // Strictly approved cutover date - prevents charges prior to cutover
+              includeDeliveryDate: includeDelivDate,
+              deliveredQty: qty,
+              returnedQty: new Prisma.Decimal(0),
+              damagedQty: new Prisma.Decimal(0),
+              missingQty: new Prisma.Decimal(0),
+              currentHeldQty: qty,
+              applicableDailyRate: dailyRate,
+              status: "ACTIVE",
+            },
+          });
+
+          // Link RentalBatch to OpeningStockItem
+          await tx.openingStockItem.update({
+            where: { id: item.id },
+            data: {
+              rentalBatchId: rentalBatch.id,
+              inventoryMovementId: movement.id,
+              status: "POSTED",
+            },
+          });
+        } else {
+          // Customer custody without rental billing (e.g. storage / not on rent)
+          await tx.openingStockItem.update({
+            where: { id: item.id },
+            data: {
+              inventoryMovementId: movement.id,
+              status: "POSTED",
+            },
+          });
+        }
       } else {
         await tx.openingStockItem.update({
           where: { id: item.id },
