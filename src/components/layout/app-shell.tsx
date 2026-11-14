@@ -4,6 +4,7 @@ import * as React from "react";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { TopProgressBar } from "./top-progress-bar";
+import { DemoModeBanner } from "./demo-mode-banner";
 import { SessionUser } from "@/lib/auth";
 import { Toaster } from "sonner";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,9 @@ export function AppShell({ user, children }: AppShellProps) {
           isCollapsed ? "lg:ml-20" : "lg:ml-64"
         )}
       >
+        {/* Global Demo Mode Banner */}
+        <DemoModeBanner />
+
         {/* Topbar */}
         <Topbar user={user} onMenuToggle={() => setMobileOpen(true)} />
 
@@ -53,4 +57,3 @@ export function AppShell({ user, children }: AppShellProps) {
     </div>
   );
 }
-
