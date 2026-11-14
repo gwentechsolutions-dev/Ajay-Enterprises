@@ -393,7 +393,7 @@ async function adjustWarehouseBalance(
   }
 }
 
-async function adjustSiteBalance(
+export async function adjustSiteBalance(
   tx: Prisma.TransactionClient,
   params: {
     siteId: string;

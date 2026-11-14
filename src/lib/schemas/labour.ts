@@ -84,12 +84,21 @@ export const createLabourAdvanceSchema = z.object({
 });
 
 // 4. Wage Calculation & Settlement Schema
+export const PRORATION_POLICIES = [
+  "STANDARD_30_DAYS",
+  "ACTUAL_MONTH_DAYS",
+  "WORKING_DAYS_EXCLUDING_SUNDAYS",
+] as const;
+
 export const calculateWageSettlementSchema = z.object({
   workerId: z.string().uuid("Worker ID is required"),
   periodStart: z.string().min(4, "Start date is required"),
   periodEnd: z.string().min(4, "End date is required"),
   overtimeRatePerHour: z.coerce.number().min(0).optional(),
+  overtimeMultiplier: z.coerce.number().min(1).max(3).default(1.5),
+  requireApprovedOvertimeOnly: z.boolean().default(true),
   halfDayFactor: z.coerce.number().min(0).max(1).default(0.5),
+  monthlyProrationPolicy: z.enum(PRORATION_POLICIES).default("STANDARD_30_DAYS"),
   bonusAmount: z.coerce.number().min(0).default(0),
   otherDeductions: z.coerce.number().min(0).default(0),
   advanceDeduction: z.coerce.number().min(0).optional(),

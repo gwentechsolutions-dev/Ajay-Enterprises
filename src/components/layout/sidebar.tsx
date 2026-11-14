@@ -68,6 +68,7 @@ const NAVIGATION: NavGroup[] = [
     items: [
       { title: "Delivery Notes (DN)", href: "/delivery-notes", icon: Truck },
       { title: "Material Returns (MRN)", href: "/return-notes", icon: RotateCcw },
+      { title: "Direct Transfers (DSTN)", href: "/operations/direct-transfers", icon: ArrowLeftRight },
       { title: "Stock Transfers (STN)", href: "/stock-transfers", icon: ArrowLeftRight },
       { title: "Purchases & GRN", href: "/purchases", icon: ShoppingBag },
       { title: "Hiring Notes (HDN/HRN)", href: "/hiring-notes", icon: Repeat },

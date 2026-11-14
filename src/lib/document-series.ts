@@ -44,6 +44,7 @@ export const DOCUMENT_TYPES = [
   { id: "LAB_WAGE", label: "Labour Wage Settlement", defaultPrefix: "AE/LWAGE/" },
   { id: "LAB_PAY", label: "Labour Payment Voucher", defaultPrefix: "AE/LPAY/" },
   { id: "MAT_REP", label: "Material Repair Job", defaultPrefix: "AE/REP/" },
+  { id: "DSTN", label: "Direct Site Transfer Note (DSTN)", defaultPrefix: "AE/DSTN/" },
 ] as const;
 
 export type DocumentTypeId = (typeof DOCUMENT_TYPES)[number]["id"];

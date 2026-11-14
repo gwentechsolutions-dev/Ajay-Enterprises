@@ -76,10 +76,10 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Accounting Journal Entry (Account 5040 Vehicle Fuel & Maintenance)
+      // Accounting Journal Entry (Account 5030 Transport & Vehicle Fuel Costs)
       let journalId: string | null = null;
       if (input.postToAccounts) {
-        const fuelExpenseAccount = await getSystemAccount("5040", tx);
+        const fuelExpenseAccount = await getSystemAccount("5030", tx);
         const paymentAccount = input.paidFromAccountId
           ? await tx.chartOfAccount.findUnique({ where: { id: input.paidFromAccountId } })
           : await getSystemAccount("1010", tx); // Default cash

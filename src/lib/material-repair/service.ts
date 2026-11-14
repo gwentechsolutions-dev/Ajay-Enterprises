@@ -155,10 +155,10 @@ export async function completeMaterialRepair(
       );
     }
 
-    // 2. Post Accounting Journal if repair expenses incurred
+    // 2. Post Accounting Journal if repair expenses incurred (Account 5010 Material Maintenance & Repairs)
     let journalId: string | null = null;
     if (input.postToAccounts !== false && totalCost.gt(0)) {
-      const repairExpenseAccount = await getSystemAccount("5020", tx);
+      const repairExpenseAccount = await getSystemAccount("5010", tx);
       const paymentAccount = input.paidFromAccountId
         ? await tx.chartOfAccount.findUnique({ where: { id: input.paidFromAccountId } })
         : await getSystemAccount("1010", tx); // Default cash in hand

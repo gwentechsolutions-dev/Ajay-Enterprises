@@ -44,6 +44,7 @@ export const MODULES = [
   { id: "fleet", label: "Company Fleet" },
   { id: "labour", label: "Labour & Attendance" },
   { id: "material_maintenance", label: "Centering Material Maintenance & Repair" },
+  { id: "direct_transfers", label: "Direct Site-to-Site Material Transfers" },
 ] as const;
 
 export type ModuleType = (typeof MODULES)[number]["id"];
@@ -83,6 +84,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     fleet: ["view", "create", "edit", "approve", "post", "cancel", "export"],
     labour: ["view", "create", "edit", "approve", "post", "cancel", "export"],
     material_maintenance: ["view", "create", "edit", "approve", "post", "cancel", "export"],
+    direct_transfers: ["view", "create", "edit", "approve", "post", "cancel", "export"],
   },
   ADMINISTRATOR: {
     dashboard: ["view", "export"],

@@ -58,8 +58,8 @@ export async function POST(req: NextRequest) {
     const expenseNumber = await generateNextDocumentNumber("VEH_EXP");
 
     const expense = await db.$transaction(async (tx) => {
-      // 1. Post double-entry journal to account 5040 (Vehicle Fuel & Maintenance / Running Expenses)
-      const expenseAccount = await getSystemAccount("5040", tx);
+      // 1. Post double-entry journal to account 5030 (Transport & Fleet Running Expenses)
+      const expenseAccount = await getSystemAccount("5030", tx);
       const paymentAccount = input.paidFromAccountId
         ? await tx.chartOfAccount.findUnique({ where: { id: input.paidFromAccountId } })
         : input.paymentMode === "CASH"

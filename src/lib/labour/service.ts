@@ -38,7 +38,10 @@ export async function calculateWorkerWages(params: {
   periodStart: Date;
   periodEnd: Date;
   overtimeRatePerHour?: number;
+  overtimeMultiplier?: number;
+  requireApprovedOvertimeOnly?: boolean;
   halfDayFactor?: number;
+  monthlyProrationPolicy?: "STANDARD_30_DAYS" | "ACTUAL_MONTH_DAYS" | "WORKING_DAYS_EXCLUDING_SUNDAYS";
   bonusAmount?: number;
   otherDeductions?: number;
   advanceDeduction?: number;
@@ -81,7 +84,10 @@ export async function calculateWorkerWages(params: {
       daysLeave = daysLeave.plus(1);
     }
     if (att.overtimeHours && new Prisma.Decimal(att.overtimeHours).gt(0)) {
-      overtimeHours = overtimeHours.plus(new Prisma.Decimal(att.overtimeHours));
+      // Overtime requires authorized supervisor approval unless explicitly allowed
+      if (params.requireApprovedOvertimeOnly === false || att.isApproved) {
+        overtimeHours = overtimeHours.plus(new Prisma.Decimal(att.overtimeHours));
+      }
     }
   }
 
@@ -94,17 +100,43 @@ export async function calculateWorkerWages(params: {
     const halfDayWage = halfDays.times(dailyRate).times(halfDayFactor);
     baseWageAmount = fullDayWage.plus(halfDayWage);
   } else {
-    // Monthly salary: prorate based on 30 standard working days if partial
+    // Configurable Monthly salary proration policy
     const monthlyRate = new Prisma.Decimal(worker.monthlySalary);
-    baseWageAmount = monthlyRate;
+    const effectiveDays = daysPresent.plus(halfDays.times(halfDayFactor));
+
+    const policy = params.monthlyProrationPolicy || "STANDARD_30_DAYS";
+    let divisorDays = 30;
+
+    if (policy === "ACTUAL_MONTH_DAYS") {
+      const year = params.periodStart.getFullYear();
+      const month = params.periodStart.getMonth() + 1;
+      divisorDays = new Date(year, month, 0).getDate(); // 28, 29, 30, or 31
+    } else if (policy === "WORKING_DAYS_EXCLUDING_SUNDAYS") {
+      // Count total non-Sunday days in period
+      let workingDays = 0;
+      const curr = new Date(params.periodStart);
+      while (curr <= params.periodEnd) {
+        if (curr.getDay() !== 0) workingDays++;
+        curr.setDate(curr.getDate() + 1);
+      }
+      divisorDays = workingDays > 0 ? workingDays : 26;
+    }
+
+    if (effectiveDays.gte(divisorDays)) {
+      baseWageAmount = monthlyRate;
+    } else {
+      const dailyEquivalent = monthlyRate.dividedBy(divisorDays);
+      baseWageAmount = dailyEquivalent.times(effectiveDays).toDecimalPlaces(2);
+    }
   }
 
-  // Calculate Overtime
+  // Calculate Overtime with configurable multiplier
+  const otMultiplier = new Prisma.Decimal(params.overtimeMultiplier ?? 1.5);
   const defaultOtRate = worker.wageType === "DAILY"
-    ? new Prisma.Decimal(worker.dailyWage).dividedBy(8).times(1.5) // 1.5x hourly rate
-    : new Prisma.Decimal(100);
+    ? new Prisma.Decimal(worker.dailyWage).dividedBy(8).times(otMultiplier)
+    : new Prisma.Decimal(worker.monthlySalary).dividedBy(30 * 8).times(otMultiplier);
   const otRate = params.overtimeRatePerHour ? new Prisma.Decimal(params.overtimeRatePerHour) : defaultOtRate;
-  const overtimeAmount = overtimeHours.times(otRate);
+  const overtimeAmount = overtimeHours.times(otRate).toDecimalPlaces(2);
 
   const bonusAmount = new Prisma.Decimal(params.bonusAmount ?? 0);
   const otherDeductions = new Prisma.Decimal(params.otherDeductions ?? 0);

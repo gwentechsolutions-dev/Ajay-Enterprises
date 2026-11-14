@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     const record = await db.$transaction(async (tx) => {
       let journalId: string | null = null;
       if (input.postToAccounts && totalCost.gt(0)) {
-        const expenseAccount = await getSystemAccount("5040", tx);
+        const expenseAccount = (await getSystemAccount("5035", tx)) || (await getSystemAccount("5030", tx));
         const paymentAccount = input.paidFromAccountId
           ? await tx.chartOfAccount.findUnique({ where: { id: input.paidFromAccountId } })
           : await getSystemAccount("1020", tx); // Default bank

@@ -335,6 +335,7 @@ model MaterialVariant {
   invoiceItems             InvoiceItem[]
   purchaseBillItems        PurchaseBillItem[]
   materialRepairJobs       MaterialRepairJob[]
+  directSiteTransferItems  DirectSiteTransferItem[]
 
   @@index([materialCode])
   @@index([materialTypeId])
@@ -406,6 +407,8 @@ model Customer {
   creditDebitNotes     CreditDebitNote[]
   paymentReceipts      PaymentReceipt[]
   journalLines         JournalEntryLine[]
+  sourceTransfers      DirectSiteTransferNote[] @relation("SourceTransferCustomer")
+  destinationTransfers DirectSiteTransferNote[] @relation("DestTransferCustomer")
 
   @@index([customerCode])
   @@index([primaryMobile])
@@ -460,6 +463,8 @@ model CustomerSite {
   journalLines         JournalEntryLine[]
   destinationTrips     VehicleTrip[]        @relation("TripDestinationSite")
   labourAttendances    LabourAttendance[]
+  sourceSiteTransfers      DirectSiteTransferNote[] @relation("SourceTransferSite")
+  destinationSiteTransfers DirectSiteTransferNote[] @relation("DestTransferSite")
 
   @@index([siteCode])
   @@index([customerId])
@@ -1336,6 +1341,8 @@ model RentalAgreement {
   items                RentalAgreementItem[]
   deposits             RentalDepositTransaction[]
   statements           RentalStatement[]
+  sourceTransfers      DirectSiteTransferNote[] @relation("SourceTransferAgreement")
+  destinationTransfers DirectSiteTransferNote[] @relation("DestTransferAgreement")
 
   @@index([agreementNumber])
   @@index([customerId])
@@ -1370,8 +1377,10 @@ model RentalBatch {
   customerSiteId       String                   @db.Uuid
   materialVariantId    String                   @db.Uuid
   ownershipType        String                   @default("OWNED") // OWNED, HIRED_IN
-  deliveryNoteId       String                   @db.Uuid
-  deliveryNoteItemId   String                   @db.Uuid
+  deliveryNoteId       String?                  @db.Uuid
+  deliveryNoteItemId   String?                  @db.Uuid
+  directSiteTransferId     String?              @db.Uuid
+  directSiteTransferItemId String?              @db.Uuid
   deliveryDate         DateTime
   includeDeliveryDate  Boolean                  @default(true)
   deliveredQty         Decimal                  @db.Decimal(12, 3)
@@ -1387,43 +1396,153 @@ model RentalBatch {
   customer             Customer                 @relation(fields: [customerId], references: [id], onDelete: Restrict)
   customerSite         CustomerSite             @relation(fields: [customerSiteId], references: [id], onDelete: Restrict)
   materialVariant      MaterialVariant          @relation(fields: [materialVariantId], references: [id], onDelete: Restrict)
-  deliveryNote         DeliveryNote             @relation(fields: [deliveryNoteId], references: [id], onDelete: Restrict)
-  deliveryNoteItem     DeliveryNoteItem         @relation(fields: [deliveryNoteItemId], references: [id], onDelete: Restrict)
+  deliveryNote         DeliveryNote?            @relation(fields: [deliveryNoteId], references: [id], onDelete: SetNull)
+  deliveryNoteItem     DeliveryNoteItem?        @relation(fields: [deliveryNoteItemId], references: [id], onDelete: SetNull)
+  directSiteTransfer     DirectSiteTransferNote? @relation("DestBatchTransfer", fields: [directSiteTransferId], references: [id], onDelete: SetNull)
+  directSiteTransferItem DirectSiteTransferItem? @relation("DestBatchTransferItem", fields: [directSiteTransferItemId], references: [id], onDelete: SetNull)
   returnAllocations    RentalReturnAllocation[]
   statementItems       RentalStatementItem[]
   dayDetails           RentalStatementDayDetail[]
   materialRepairJobs   MaterialRepairJob[]
+  sourceTransferItems  DirectSiteTransferItem[] @relation("SourceBatchTransferItem")
 
   @@index([customerId])
   @@index([customerSiteId])
   @@index([materialVariantId])
   @@index([deliveryNoteId])
+  @@index([directSiteTransferId])
   @@index([ownershipType])
   @@index([status])
   @@index([deliveryDate])
 }
 
 model RentalReturnAllocation {
-  id                       String                 @id @default(uuid()) @db.Uuid
-  rentalBatchId            String                 @db.Uuid
-  materialReturnNoteId     String                 @db.Uuid
-  materialReturnNoteItemId String                 @db.Uuid
+  id                       String                  @id @default(uuid()) @db.Uuid
+  rentalBatchId            String                  @db.Uuid
+  materialReturnNoteId     String?                 @db.Uuid
+  materialReturnNoteItemId String?                 @db.Uuid
+  directSiteTransferId     String?                 @db.Uuid
+  directSiteTransferItemId String?                 @db.Uuid
   returnDate               DateTime
-  includeReturnDate        Boolean                @default(false)
-  allocatedReturnedQty     Decimal                @db.Decimal(12, 3)
-  allocatedAcceptedQty     Decimal                @db.Decimal(12, 3)
-  allocatedDamagedQty      Decimal                @default(0) @db.Decimal(12, 3)
-  allocatedMissingQty      Decimal                @default(0) @db.Decimal(12, 3)
-  createdAt                DateTime               @default(now())
+  includeReturnDate        Boolean                 @default(false)
+  allocatedReturnedQty     Decimal                 @db.Decimal(12, 3)
+  allocatedAcceptedQty     Decimal                 @db.Decimal(12, 3)
+  allocatedDamagedQty      Decimal                 @default(0) @db.Decimal(12, 3)
+  allocatedMissingQty      Decimal                 @default(0) @db.Decimal(12, 3)
+  createdAt                DateTime                @default(now())
 
-  rentalBatch              RentalBatch            @relation(fields: [rentalBatchId], references: [id], onDelete: Cascade)
-  materialReturnNote       MaterialReturnNote     @relation(fields: [materialReturnNoteId], references: [id], onDelete: Restrict)
-  materialReturnNoteItem   MaterialReturnNoteItem @relation(fields: [materialReturnNoteItemId], references: [id], onDelete: Restrict)
+  rentalBatch              RentalBatch             @relation(fields: [rentalBatchId], references: [id], onDelete: Cascade)
+  materialReturnNote       MaterialReturnNote?     @relation(fields: [materialReturnNoteId], references: [id], onDelete: SetNull)
+  materialReturnNoteItem   MaterialReturnNoteItem? @relation(fields: [materialReturnNoteItemId], references: [id], onDelete: SetNull)
+  directSiteTransfer       DirectSiteTransferNote? @relation("TransferReturnAllocations", fields: [directSiteTransferId], references: [id], onDelete: SetNull)
+  directSiteTransferItem   DirectSiteTransferItem? @relation(fields: [directSiteTransferItemId], references: [id], onDelete: SetNull)
 
   @@index([rentalBatchId])
   @@index([materialReturnNoteId])
   @@index([materialReturnNoteItemId])
+  @@index([directSiteTransferId])
   @@index([returnDate])
+}
+
+// ------------------------------------------------------------------------------
+// 19B. Direct Site-to-Site Material Transfers
+// ------------------------------------------------------------------------------
+
+model DirectSiteTransferNote {
+  id                           String                    @id @default(uuid()) @db.Uuid
+  transferNumber               String                    @unique // e.g. "AE/DSTN/2026-27/0001"
+  transferDate                 DateTime                  @default(now())
+  sourceCustomerId             String                    @db.Uuid
+  sourceCustomerSiteId         String                    @db.Uuid
+  destinationCustomerId        String                    @db.Uuid
+  destinationCustomerSiteId    String                    @db.Uuid
+  sourceRentalAgreementId      String?                   @db.Uuid
+  destinationRentalAgreementId String?                   @db.Uuid
+  vehicleId                    String?                   @db.Uuid
+  driverId                     String?                   @db.Uuid
+  vehicleTripId                String?                   @db.Uuid
+  status                       String                    @default("DRAFT") // DRAFT, PENDING_APPROVAL, APPROVED, DISPATCHED, PARTIALLY_RECEIVED, COMPLETED, REJECTED, CANCELLED
+
+  // Dispatch fields
+  dispatchedAt                 DateTime?
+  dispatchedById               String?                   @db.Uuid
+  sourceRepName                String?
+  sourceRepPhone               String?
+  sourceRepDesignation         String?
+  sourceRepSignatureUrl        String?
+  sourceGpsLat                 Decimal?                  @db.Decimal(10, 7)
+  sourceGpsLng                 Decimal?                  @db.Decimal(10, 7)
+  sourcePhotoUrl               String?
+
+  // Receipt fields
+  receivedAt                   DateTime?
+  receivedById                 String?                   @db.Uuid
+  destRepName                  String?
+  destRepPhone                 String?
+  destRepDesignation           String?
+  destRepSignatureUrl          String?
+  destGpsLat                   Decimal?                  @db.Decimal(10, 7)
+  destGpsLng                   Decimal?                  @db.Decimal(10, 7)
+  destPhotoUrl                 String?
+
+  includeCutoffDate            Boolean                   @default(false)
+  transportCharges             Decimal                   @default(0) @db.Decimal(15, 2)
+  notes                        String?
+  discrepancyNotes             String?
+  createdById                  String?                   @db.Uuid
+  approvedById                 String?                   @db.Uuid
+  approvedAt                   DateTime?
+  createdAt                    DateTime                  @default(now())
+  updatedAt                    DateTime                  @updatedAt
+
+  sourceCustomer               Customer                  @relation("SourceTransferCustomer", fields: [sourceCustomerId], references: [id], onDelete: Restrict)
+  sourceCustomerSite           CustomerSite              @relation("SourceTransferSite", fields: [sourceCustomerSiteId], references: [id], onDelete: Restrict)
+  destinationCustomer          Customer                  @relation("DestTransferCustomer", fields: [destinationCustomerId], references: [id], onDelete: Restrict)
+  destinationCustomerSite     CustomerSite              @relation("DestTransferSite", fields: [destinationCustomerSiteId], references: [id], onDelete: Restrict)
+  sourceRentalAgreement        RentalAgreement?          @relation("SourceTransferAgreement", fields: [sourceRentalAgreementId], references: [id], onDelete: SetNull)
+  destinationRentalAgreement   RentalAgreement?          @relation("DestTransferAgreement", fields: [destinationRentalAgreementId], references: [id], onDelete: SetNull)
+  vehicle                      Vehicle?                  @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  driver                       Driver?                   @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  vehicleTrip                  VehicleTrip?              @relation(fields: [vehicleTripId], references: [id], onDelete: SetNull)
+
+  items                        DirectSiteTransferItem[]
+  rentalBatches                RentalBatch[]             @relation("DestBatchTransfer")
+  returnAllocations            RentalReturnAllocation[]  @relation("TransferReturnAllocations")
+
+  @@index([sourceCustomerId])
+  @@index([sourceCustomerSiteId])
+  @@index([destinationCustomerId])
+  @@index([destinationCustomerSiteId])
+  @@index([status])
+  @@index([transferDate])
+}
+
+model DirectSiteTransferItem {
+  id                       String                  @id @default(uuid()) @db.Uuid
+  transferId               String                  @db.Uuid
+  materialVariantId        String                  @db.Uuid
+  ownershipType            String                  @default("OWNED") // OWNED, HIRED_IN
+  sourceRentalBatchId      String?                 @db.Uuid
+  quantityDispatched       Decimal                 @db.Decimal(12, 3)
+  quantityAccepted         Decimal                 @default(0) @db.Decimal(12, 3)
+  quantityDamaged          Decimal                 @default(0) @db.Decimal(12, 3)
+  quantityMissing          Decimal                 @default(0) @db.Decimal(12, 3)
+  quantityRejected         Decimal                 @default(0) @db.Decimal(12, 3)
+  agreedDailyRate          Decimal?                @db.Decimal(15, 2)
+  remarks                  String?
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
+
+  transfer                 DirectSiteTransferNote  @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  materialVariant          MaterialVariant         @relation(fields: [materialVariantId], references: [id], onDelete: Restrict)
+  sourceRentalBatch        RentalBatch?            @relation("SourceBatchTransferItem", fields: [sourceRentalBatchId], references: [id], onDelete: SetNull)
+  destinationBatches       RentalBatch[]           @relation("DestBatchTransferItem")
+  returnAllocations        RentalReturnAllocation[]
+
+  @@index([transferId])
+  @@index([materialVariantId])
+  @@index([sourceRentalBatchId])
+  @@index([ownershipType])
 }
 
 // ------------------------------------------------------------------------------
@@ -2241,6 +2360,7 @@ model Vehicle {
   fuelLogs              VehicleFuelLog[]
   maintenanceRecords    VehicleMaintenanceRecord[]
   expenses              VehicleExpense[]
+  directSiteTransfers   DirectSiteTransferNote[]
 
   @@index([status])
   @@index([branchId])
@@ -2271,6 +2391,7 @@ model Driver {
   vehicleAssignments DriverVehicleAssignment[]
   trips              VehicleTrip[]
   fuelLogs           VehicleFuelLog[]
+  directSiteTransfers DirectSiteTransferNote[]
 
   @@index([status])
   @@index([mobileNumber])
@@ -2324,6 +2445,7 @@ model VehicleTrip {
   destinationSite    CustomerSite?             @relation("TripDestinationSite", fields: [destinationSiteId], references: [id], onDelete: SetNull)
   deliveryNotes      VehicleTripDeliveryNote[]
   expenses           VehicleExpense[]
+  directSiteTransfers DirectSiteTransferNote[]
 
   @@index([vehicleId])
   @@index([driverId])

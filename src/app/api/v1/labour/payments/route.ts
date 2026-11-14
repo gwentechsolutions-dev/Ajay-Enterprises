@@ -56,17 +56,19 @@ export async function POST(req: NextRequest) {
         throw new Error(`Worker '${input.workerId}' not found.`);
       }
 
-      // Accounting Journal Entry: Debit 5030 Labour Expense, Credit Cash/Bank
+      // Accounting Journal Entry: Debit Wages Payable (2060) or Labour Expense (5040), Credit Cash/Bank
       let journalId: string | null = null;
       if (input.postToAccounts) {
-        const wageAccount = await getSystemAccount("5030", tx);
+        const debitAccount = input.wageSettlementId
+          ? (await getSystemAccount("2060", tx)) || (await getSystemAccount("5040", tx))
+          : await getSystemAccount("5040", tx);
         const paymentAccount = input.paidFromAccountId
           ? await tx.chartOfAccount.findUnique({ where: { id: input.paidFromAccountId } })
           : input.paymentMode === "CASH"
           ? await getSystemAccount("1010", tx)
           : await getSystemAccount("1020", tx);
 
-        if (wageAccount && paymentAccount) {
+        if (debitAccount && paymentAccount) {
           const journal = await postJournalEntry(
             {
               journalType: "PAYMENT",
@@ -78,7 +80,7 @@ export async function POST(req: NextRequest) {
               referenceNumber: paymentNumber,
               lines: [
                 {
-                  accountId: wageAccount.id,
+                  accountId: debitAccount.id,
                   description: `Wage payment to ${worker.name}`,
                   debitAmount: amount,
                   creditAmount: new Prisma.Decimal(0),

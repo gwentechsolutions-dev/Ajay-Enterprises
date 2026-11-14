@@ -59,10 +59,10 @@ export async function POST(req: NextRequest) {
         throw new Error(`Worker '${input.workerId}' not found.`);
       }
 
-      // Accounting Journal Entry: Debit Advances (1050), Credit Cash/Bank
+      // Accounting Journal Entry: Debit Employee Advances (1060), Credit Cash/Bank
       let journalId: string | null = null;
       if (input.postToAccounts) {
-        const advanceAccount = await getSystemAccount("1050", tx);
+        const advanceAccount = await getSystemAccount("1060", tx);
         const paymentAccount = input.paidFromAccountId
           ? await tx.chartOfAccount.findUnique({ where: { id: input.paidFromAccountId } })
           : input.paymentMode === "CASH"

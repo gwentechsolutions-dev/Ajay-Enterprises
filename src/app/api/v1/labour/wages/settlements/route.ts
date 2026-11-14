@@ -54,12 +54,37 @@ export async function POST(req: NextRequest) {
     const periodStart = new Date(input.periodStart);
     const periodEnd = new Date(input.periodEnd);
 
+    // Prevent duplicate settlements for the same worker and overlapping period
+    const overlapping = await db.labourWageSettlement.findFirst({
+      where: {
+        workerId: input.workerId,
+        status: { notIn: ["CANCELLED", "REVERSED"] },
+        periodStart: { lte: periodEnd },
+        periodEnd: { gte: periodStart },
+      },
+    });
+    if (overlapping) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "OVERLAPPING_SETTLEMENT",
+            message: `Worker already has active wage settlement ${overlapping.settlementNumber} for overlapping period (${overlapping.periodStart.toISOString().split("T")[0]} to ${overlapping.periodEnd.toISOString().split("T")[0]}).`,
+          },
+        },
+        { status: 422 }
+      );
+    }
+
     const calc = await calculateWorkerWages({
       workerId: input.workerId,
       periodStart,
       periodEnd,
       overtimeRatePerHour: input.overtimeRatePerHour,
+      overtimeMultiplier: input.overtimeMultiplier,
+      requireApprovedOvertimeOnly: input.requireApprovedOvertimeOnly,
       halfDayFactor: input.halfDayFactor,
+      monthlyProrationPolicy: input.monthlyProrationPolicy,
       bonusAmount: input.bonusAmount,
       otherDeductions: input.otherDeductions,
       advanceDeduction: input.advanceDeduction,
@@ -102,8 +127,8 @@ export async function POST(req: NextRequest) {
       // 2. Post Accounting Journal if requested
       let journalId: string | null = null;
       if (input.postToAccounts && calc.grossAmount.gt(0)) {
-        const wageExpenseAccount = await getSystemAccount("5030", tx); // Yard Labour & Loading Wages
-        const advanceAccount = await getSystemAccount("1050", tx); // Advances
+        const wageExpenseAccount = await getSystemAccount("5040", tx); // Yard Labour Wages (Expense)
+        const advanceAccount = await getSystemAccount("1060", tx); // Employee & Labour Advances (Asset)
         const paymentAccount = input.paidFromAccountId
           ? await tx.chartOfAccount.findUnique({ where: { id: input.paidFromAccountId } })
           : await getSystemAccount("1010", tx); // Default cash

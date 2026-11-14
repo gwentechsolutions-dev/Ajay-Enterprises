@@ -102,6 +102,16 @@ export const DEFAULT_CHART_OF_ACCOUNTS: DefaultAccountSpec[] = [
     notes: "Pre-payments and advances disbursed to suppliers",
   },
   {
+    accountCode: "1060",
+    accountName: "Employee & Labour Advances",
+    accountCategory: "ASSET",
+    accountSubcategory: "EMPLOYEE_ADVANCES",
+    openingBalanceType: "DEBIT",
+    isControlAccount: false,
+    isSystemProtected: true,
+    notes: "Short-term recoverable advances issued to yard workers and labour staff",
+  },
+  {
     accountCode: "1200",
     accountName: "Centering & Formwork Equipment (Capital Asset)",
     accountCategory: "ASSET",
@@ -184,6 +194,16 @@ export const DEFAULT_CHART_OF_ACCOUNTS: DefaultAccountSpec[] = [
     isControlAccount: false,
     isSystemProtected: false,
     notes: "Tax deducted at source on supplier and contractor payments",
+  },
+  {
+    accountCode: "2060",
+    accountName: "Wages & Labour Payable",
+    accountCategory: "LIABILITY",
+    accountSubcategory: "WAGES_PAYABLE",
+    openingBalanceType: "CREDIT",
+    isControlAccount: true,
+    isSystemProtected: true,
+    notes: "Accrued payroll and net wages liability pending disbursement to workers",
   },
 
   // ----------------------------------------------------------------------------
@@ -269,6 +289,56 @@ export const DEFAULT_CHART_OF_ACCOUNTS: DefaultAccountSpec[] = [
   // ----------------------------------------------------------------------------
   {
     accountCode: "5010",
+    accountName: "Material Repair, Welding & Maintenance",
+    accountCategory: "EXPENSE",
+    accountSubcategory: "MATERIAL_REPAIR",
+    openingBalanceType: "DEBIT",
+    isControlAccount: false,
+    isSystemProtected: false,
+    notes: "Centering equipment repair, props straightening, welding, and reconditioning",
+  },
+  {
+    accountCode: "5020",
+    accountName: "Yard & Storage Rent",
+    accountCategory: "EXPENSE",
+    accountSubcategory: "OFFICE_EXPENSE",
+    openingBalanceType: "DEBIT",
+    isControlAccount: false,
+    isSystemProtected: false,
+    notes: "Lease rental for storage yards, warehouses, and branch facilities",
+  },
+  {
+    accountCode: "5030",
+    accountName: "Transport & Vehicle Fuel Costs",
+    accountCategory: "EXPENSE",
+    accountSubcategory: "VEHICLE_EXPENSE",
+    openingBalanceType: "DEBIT",
+    isControlAccount: false,
+    isSystemProtected: false,
+    notes: "Diesel, tolls, road tax, and logistics transport running costs",
+  },
+  {
+    accountCode: "5035",
+    accountName: "Vehicle Servicing & Maintenance",
+    accountCategory: "EXPENSE",
+    accountSubcategory: "VEHICLE_EXPENSE",
+    openingBalanceType: "DEBIT",
+    isControlAccount: false,
+    isSystemProtected: false,
+    notes: "Workshop repairs, tyre replacement, and periodic servicing for company fleet",
+  },
+  {
+    accountCode: "5040",
+    accountName: "Yard Labour & Loading Wages",
+    accountCategory: "EXPENSE",
+    accountSubcategory: "LABOUR_EXPENSE",
+    openingBalanceType: "DEBIT",
+    isControlAccount: false,
+    isSystemProtected: false,
+    notes: "Direct labour wages, daily earnings, and overtime compensation",
+  },
+  {
+    accountCode: "5050",
     accountName: "Material & Equipment Purchases",
     accountCategory: "EXPENSE",
     accountSubcategory: "PURCHASE_EXPENSE",
@@ -276,46 +346,6 @@ export const DEFAULT_CHART_OF_ACCOUNTS: DefaultAccountSpec[] = [
     isControlAccount: false,
     isSystemProtected: true,
     notes: "Direct raw material and formwork stock procurement",
-  },
-  {
-    accountCode: "5020",
-    accountName: "Material Repair, Welding & Maintenance",
-    accountCategory: "EXPENSE",
-    accountSubcategory: "MATERIAL_REPAIR",
-    openingBalanceType: "DEBIT",
-    isControlAccount: false,
-    isSystemProtected: false,
-    notes: "Props straightening, welding, painting, and yard reconditioning",
-  },
-  {
-    accountCode: "5030",
-    accountName: "Yard Labour & Loading Wages",
-    accountCategory: "EXPENSE",
-    accountSubcategory: "LABOUR_EXPENSE",
-    openingBalanceType: "DEBIT",
-    isControlAccount: false,
-    isSystemProtected: false,
-    notes: "Direct labour wages for loading, unloading, and yard handling",
-  },
-  {
-    accountCode: "5040",
-    accountName: "Company Vehicle Fuel & Maintenance",
-    accountCategory: "EXPENSE",
-    accountSubcategory: "VEHICLE_EXPENSE",
-    openingBalanceType: "DEBIT",
-    isControlAccount: false,
-    isSystemProtected: false,
-    notes: "Diesel, tolls, fitness certificates, and fleet servicing",
-  },
-  {
-    accountCode: "5050",
-    accountName: "Yard & Storage Rent",
-    accountCategory: "EXPENSE",
-    accountSubcategory: "OFFICE_EXPENSE",
-    openingBalanceType: "DEBIT",
-    isControlAccount: false,
-    isSystemProtected: false,
-    notes: "Lease rental for storage yards and branch facilities",
   },
   {
     accountCode: "5060",
@@ -367,6 +397,19 @@ export async function seedDefaultChartOfAccounts(tx?: Prisma.TransactionClient) 
         },
       });
       created.push(item.accountCode);
+    } else if (
+      existing.accountName !== item.accountName ||
+      existing.accountSubcategory !== item.accountSubcategory
+    ) {
+      await runner.chartOfAccount.update({
+        where: { id: existing.id },
+        data: {
+          accountName: item.accountName,
+          accountSubcategory: item.accountSubcategory,
+          accountCategory: item.accountCategory,
+          notes: item.notes,
+        },
+      });
     }
   }
 
