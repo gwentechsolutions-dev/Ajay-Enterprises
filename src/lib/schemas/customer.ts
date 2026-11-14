@@ -46,6 +46,7 @@ export const customerSiteSchema = z.object({
   pinCode: IndianPinCodeSchema,
   gpsLatitude: z.coerce.number().min(-90).max(90).optional().nullable(),
   gpsLongitude: z.coerce.number().min(-180).max(180).optional().nullable(),
+  mapsUrl: z.string().optional().nullable().or(z.literal("")),
   siteOwnerName: z.string().optional().nullable(),
   siteOwnerContact: OptionalIndianMobileSchema,
   siteInCharge: z.string().optional().nullable(),

@@ -24,6 +24,7 @@ import {
   Receipt,
   UserCheck,
   Loader2,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +42,10 @@ import {
 } from "@/components/ui/dialog";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { PageSkeleton } from "@/components/ui/loading-states";
+import { FormFieldError } from "@/components/ui/form-field-error";
+import { FormErrorSummary } from "@/components/ui/form-error-summary";
+import { GoogleMapsLocationInput } from "@/components/forms/google-maps-location-input";
+import { useFormValidation } from "@/lib/forms";
 import { toast } from "sonner";
 
 export default function CustomerDetailPage() {
@@ -54,12 +59,18 @@ export default function CustomerDetailPage() {
 
   // Modals
   const [isSiteModalOpen, setIsSiteModalOpen] = React.useState(false);
+  const [editingSiteId, setEditingSiteId] = React.useState<string | null>(null);
   const [isContactModalOpen, setIsContactModalOpen] = React.useState(false);
   const [isSiteSubmitting, setIsSiteSubmitting] = React.useState(false);
   const [isContactSubmitting, setIsContactSubmitting] = React.useState(false);
 
-  // Forms
-  const [siteForm, setSiteForm] = React.useState({
+  const siteModalRef = React.useRef<HTMLDivElement>(null);
+  const contactModalRef = React.useRef<HTMLDivElement>(null);
+
+  const siteValidation = useFormValidation({ containerRef: siteModalRef });
+  const contactValidation = useFormValidation({ containerRef: contactModalRef });
+
+  const initialSiteForm = {
     siteCode: "",
     siteName: "",
     fullAddress: "",
@@ -70,15 +81,16 @@ export default function CustomerDetailPage() {
     pinCode: "",
     gpsLatitude: "",
     gpsLongitude: "",
+    mapsUrl: "",
     siteOwnerName: "",
     siteOwnerContact: "",
     siteInCharge: "",
     siteContactDetails: "",
     projectType: "RESIDENTIAL",
     deliveryInstructions: "",
-  });
+  };
 
-  const [contactForm, setContactForm] = React.useState({
+  const initialContactForm = {
     name: "",
     mobile: "",
     alternateMobile: "",
@@ -93,7 +105,11 @@ export default function CustomerDetailPage() {
     canReceiveInvoices: false,
     canReceivePaymentReminders: false,
     canReceiveWhatsApp: true,
-  });
+  };
+
+  // Forms
+  const [siteForm, setSiteForm] = React.useState(initialSiteForm);
+  const [contactForm, setContactForm] = React.useState(initialContactForm);
 
   const fetchCustomer = React.useCallback(async () => {
     if (!id) return;
@@ -114,46 +130,103 @@ export default function CustomerDetailPage() {
     fetchCustomer();
   }, [fetchCustomer]);
 
-  // Handle Add Site
-  const handleAddSite = async (e: React.FormEvent) => {
+  const handleOpenAddSite = () => {
+    setEditingSiteId(null);
+    siteValidation.clearErrors();
+    setSiteForm(initialSiteForm);
+    setIsSiteModalOpen(true);
+  };
+
+  const handleOpenEditSite = (site: any) => {
+    setEditingSiteId(site.id);
+    siteValidation.clearErrors();
+    setSiteForm({
+      siteCode: site.siteCode || "",
+      siteName: site.siteName || "",
+      fullAddress: site.fullAddress || "",
+      district: site.district || "",
+      city: site.city || "",
+      state: site.state || "Karnataka",
+      stateCode: site.stateCode || "29",
+      pinCode: site.pinCode || "",
+      gpsLatitude:
+        site.gpsLatitude !== null && site.gpsLatitude !== undefined ? String(site.gpsLatitude) : "",
+      gpsLongitude:
+        site.gpsLongitude !== null && site.gpsLongitude !== undefined ? String(site.gpsLongitude) : "",
+      mapsUrl: "",
+      siteOwnerName: site.siteOwnerName || "",
+      siteOwnerContact: site.siteOwnerContact || "",
+      siteInCharge: site.siteInCharge || "",
+      siteContactDetails: site.siteContactDetails || "",
+      projectType: site.projectType || "RESIDENTIAL",
+      deliveryInstructions: site.deliveryInstructions || "",
+    });
+    setIsSiteModalOpen(true);
+  };
+
+  const handleOpenAddContact = () => {
+    contactValidation.clearErrors();
+    setContactForm(initialContactForm);
+    setIsContactModalOpen(true);
+  };
+
+  // Handle Save Site (Add or Edit)
+  const handleSaveSite = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSiteSubmitting(true);
     try {
-      const res = await fetch(`/api/v1/customers/${id}/sites`, {
-        method: "POST",
+      const isEdit = Boolean(editingSiteId);
+      const url = isEdit
+        ? `/api/v1/customers/sites/${editingSiteId}`
+        : `/api/v1/customers/${id}/sites`;
+      const method = isEdit ? "PUT" : "POST";
+
+      const payload: any = {
+        ...siteForm,
+        siteCode: siteForm.siteCode.trim() || (isEdit ? undefined : "AUTO"),
+      };
+
+      // Handle GPS coordinates:
+      // If coordinates are set in form, pass numeric values.
+      // If editing an existing site that already has coordinates and user hasn't changed or cleared them, preserve existing.
+      if (siteForm.gpsLatitude && siteForm.gpsLongitude) {
+        payload.gpsLatitude = Number(siteForm.gpsLatitude);
+        payload.gpsLongitude = Number(siteForm.gpsLongitude);
+      } else if (isEdit && !siteForm.mapsUrl) {
+        // Keep existing database coordinates untouched when link field is empty
+        delete payload.gpsLatitude;
+        delete payload.gpsLongitude;
+      } else {
+        payload.gpsLatitude = null;
+        payload.gpsLongitude = null;
+      }
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...siteForm,
-          siteCode: siteForm.siteCode.trim() || "AUTO",
-          gpsLatitude: siteForm.gpsLatitude ? Number(siteForm.gpsLatitude) : null,
-          gpsLongitude: siteForm.gpsLongitude ? Number(siteForm.gpsLongitude) : null,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || "Failed to add site");
-      toast.success(`Construction site '${data.data.siteName}' created.`);
+
+      if (!siteValidation.handleApiResponse(res, data, siteModalRef.current)) {
+        if (data.error?.message && !data.error?.details && !data.error?.issues) {
+          toast.error(data.error.message);
+        }
+        return;
+      }
+
+      toast.success(
+        isEdit
+          ? `Construction site '${data.data?.siteName || siteForm.siteName}' updated.`
+          : `Construction site '${data.data?.siteName || siteForm.siteName}' created.`
+      );
       setIsSiteModalOpen(false);
-      setSiteForm({
-        siteCode: "",
-        siteName: "",
-        fullAddress: "",
-        district: "",
-        city: "",
-        state: "Karnataka",
-        stateCode: "29",
-        pinCode: "",
-        gpsLatitude: "",
-        gpsLongitude: "",
-        siteOwnerName: "",
-        siteOwnerContact: "",
-        siteInCharge: "",
-        siteContactDetails: "",
-        projectType: "RESIDENTIAL",
-        deliveryInstructions: "",
-      });
+      setEditingSiteId(null);
+      siteValidation.clearErrors();
+      setSiteForm(initialSiteForm);
       await fetchCustomer();
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error(err.message || (editingSiteId ? "Failed to update site" : "Failed to add site"));
     } finally {
       setIsSiteSubmitting(false);
     }
@@ -173,28 +246,21 @@ export default function CustomerDetailPage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || "Failed to add contact");
+
+      if (!contactValidation.handleApiResponse(res, data, contactModalRef.current)) {
+        if (data.error?.message && !data.error?.details && !data.error?.issues) {
+          toast.error(data.error.message);
+        }
+        return;
+      }
+
       toast.success(`Contact '${data.data.name}' added with configured authorizations.`);
       setIsContactModalOpen(false);
-      setContactForm({
-        name: "",
-        mobile: "",
-        alternateMobile: "",
-        email: "",
-        designation: "Site Supervisor",
-        contactType: "SITE_INCHARGE",
-        siteId: "",
-        isPrimary: false,
-        canReceiveDeliveryNotes: true,
-        canAcknowledgeDeliveries: true,
-        canReceiveReturnNotes: true,
-        canReceiveInvoices: false,
-        canReceivePaymentReminders: false,
-        canReceiveWhatsApp: true,
-      });
+      contactValidation.clearErrors();
+      setContactForm(initialContactForm);
       await fetchCustomer();
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error(err.message || "Failed to add contact");
     } finally {
       setIsContactSubmitting(false);
     }
@@ -260,7 +326,7 @@ export default function CustomerDetailPage() {
         <div className="flex items-center gap-2">
           <Button
             size="sm"
-            onClick={() => setIsSiteModalOpen(true)}
+            onClick={handleOpenAddSite}
             className="bg-[#0B1E36] hover:bg-[#071424] text-white text-xs font-semibold"
           >
             <Plus className="h-3.5 w-3.5 mr-1" /> Add Construction Site
@@ -268,7 +334,7 @@ export default function CustomerDetailPage() {
           <Button
             size="sm"
             variant="outline"
-            onClick={() => setIsContactModalOpen(true)}
+            onClick={handleOpenAddContact}
             className="text-xs border-slate-300"
           >
             <UserCheck className="h-3.5 w-3.5 mr-1" /> Add Contact Person
@@ -401,7 +467,7 @@ export default function CustomerDetailPage() {
                 <p className="text-xs text-slate-500 mt-1 mb-4">
                   Each customer can have unlimited independent construction sites with unique delivery addresses and GPS tracking.
                 </p>
-                <Button size="sm" onClick={() => setIsSiteModalOpen(true)} className="bg-[#0B1E36] text-white text-xs">
+                <Button size="sm" onClick={handleOpenAddSite} className="bg-[#0B1E36] text-white text-xs">
                   <Plus className="h-3.5 w-3.5 mr-1" /> Add First Construction Site
                 </Button>
               </div>
@@ -420,16 +486,29 @@ export default function CustomerDetailPage() {
                         {site.projectType} Project • {site.city}, {site.district}
                       </div>
                     </div>
-                    <Badge
-                      variant="outline"
-                      className={
-                        site.status === "ACTIVE"
-                          ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                          : "bg-slate-100 text-slate-600"
-                      }
-                    >
-                      {site.status}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleOpenEditSite(site)}
+                        className="h-7 px-2 text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                        title="Edit Construction Site"
+                      >
+                        <Pencil className="h-3 w-3 mr-1 text-slate-400" />
+                        Edit
+                      </Button>
+                      <Badge
+                        variant="outline"
+                        className={
+                          site.status === "ACTIVE"
+                            ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                            : "bg-slate-100 text-slate-600"
+                        }
+                      >
+                        {site.status}
+                      </Badge>
+                    </div>
                   </div>
 
                   <div className="space-y-2 text-xs text-slate-600 pt-2 border-t border-slate-100">
@@ -441,9 +520,22 @@ export default function CustomerDetailPage() {
                     </div>
 
                     {site.gpsLatitude && site.gpsLongitude ? (
-                      <div className="flex items-center gap-2 font-mono text-[11px] text-slate-500 bg-slate-50 p-2 rounded border border-slate-200">
-                        <Compass className="h-3.5 w-3.5 text-[#F26522]" />
-                        <span>GPS: {Number(site.gpsLatitude).toFixed(6)}, {Number(site.gpsLongitude).toFixed(6)}</span>
+                      <div className="flex items-center justify-between font-mono text-[11px] text-slate-600 bg-slate-50 p-2 rounded border border-slate-200">
+                        <div className="flex items-center gap-2">
+                          <Compass className="h-3.5 w-3.5 text-[#F26522]" />
+                          <span>
+                            GPS: {Number(site.gpsLatitude).toFixed(6)}, {Number(site.gpsLongitude).toFixed(6)}
+                          </span>
+                        </div>
+                        <a
+                          href={`https://www.google.com/maps?q=${Number(site.gpsLatitude)},${Number(site.gpsLongitude)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-sans text-[11px] text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1"
+                        >
+                          <span>Open Maps</span>
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
                       </div>
                     ) : null}
 
@@ -633,34 +725,61 @@ export default function CustomerDetailPage() {
 
       {/* ADD SITE MODAL */}
       <Dialog open={isSiteModalOpen} onOpenChange={setIsSiteModalOpen}>
-        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent ref={siteModalRef} className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add Customer Construction Site</DialogTitle>
+            <DialogTitle>
+              {editingSiteId ? "Edit Customer Construction Site" : "Add Customer Construction Site"}
+            </DialogTitle>
             <DialogDescription>
-              Register an independent project location for {customer.name}.
+              {editingSiteId
+                ? `Update project location details, Google Maps GPS coordinates and delivery directions for ${customer.name}.`
+                : `Register an independent project location for ${customer.name}.`}
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleAddSite} className="space-y-4 pt-2">
+          <form onSubmit={handleSaveSite} className="space-y-4 pt-2" noValidate>
+            <FormErrorSummary
+              errors={siteValidation.fieldErrors}
+              generalError={siteValidation.generalError}
+              onFieldClick={(field) => siteValidation.scrollToField(field, siteModalRef.current)}
+              containerRef={siteModalRef}
+            />
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="siteCode">Site ID</Label>
                 <Input
                   id="siteCode"
+                  name="siteCode"
                   placeholder="Auto-generated if blank"
                   value={siteForm.siteCode}
-                  onChange={(e) => setSiteForm({ ...siteForm, siteCode: e.target.value.toUpperCase() })}
+                  error={!!siteValidation.fieldErrors.siteCode}
+                  aria-invalid={!!siteValidation.fieldErrors.siteCode}
+                  aria-describedby={siteValidation.fieldErrors.siteCode ? "siteCode-error" : undefined}
+                  onChange={(e) => {
+                    setSiteForm({ ...siteForm, siteCode: e.target.value.toUpperCase() });
+                    siteValidation.clearFieldError("siteCode");
+                  }}
                 />
+                <FormFieldError id="siteCode-error" error={siteValidation.fieldErrors.siteCode} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="siteName" required>Construction Site Name</Label>
                 <Input
                   id="siteName"
+                  name="siteName"
                   placeholder="e.g. Prestige Tech Park Tower 3"
                   value={siteForm.siteName}
-                  onChange={(e) => setSiteForm({ ...siteForm, siteName: e.target.value })}
+                  error={!!siteValidation.fieldErrors.siteName}
+                  aria-invalid={!!siteValidation.fieldErrors.siteName}
+                  aria-describedby={siteValidation.fieldErrors.siteName ? "siteName-error" : undefined}
+                  onChange={(e) => {
+                    setSiteForm({ ...siteForm, siteName: e.target.value });
+                    siteValidation.clearFieldError("siteName");
+                  }}
                   required
                 />
+                <FormFieldError id="siteName-error" error={siteValidation.fieldErrors.siteName} />
               </div>
             </div>
 
@@ -668,11 +787,19 @@ export default function CustomerDetailPage() {
               <Label htmlFor="siteAddress" required>Full Site Address</Label>
               <Input
                 id="siteAddress"
+                name="fullAddress"
                 placeholder="Plot #, Street, Landmark"
                 value={siteForm.fullAddress}
-                onChange={(e) => setSiteForm({ ...siteForm, fullAddress: e.target.value })}
+                error={!!siteValidation.fieldErrors.fullAddress}
+                aria-invalid={!!siteValidation.fieldErrors.fullAddress}
+                aria-describedby={siteValidation.fieldErrors.fullAddress ? "siteAddress-error" : undefined}
+                onChange={(e) => {
+                  setSiteForm({ ...siteForm, fullAddress: e.target.value });
+                  siteValidation.clearFieldError("fullAddress");
+                }}
                 required
               />
+              <FormFieldError id="siteAddress-error" error={siteValidation.fieldErrors.fullAddress} />
             </div>
 
             <div className="grid grid-cols-3 gap-3">
@@ -680,77 +807,121 @@ export default function CustomerDetailPage() {
                 <Label htmlFor="siteCity" required>City</Label>
                 <Input
                   id="siteCity"
+                  name="city"
                   placeholder="e.g. Bengaluru"
                   value={siteForm.city}
-                  onChange={(e) => setSiteForm({ ...siteForm, city: e.target.value })}
+                  error={!!siteValidation.fieldErrors.city}
+                  aria-invalid={!!siteValidation.fieldErrors.city}
+                  aria-describedby={siteValidation.fieldErrors.city ? "siteCity-error" : undefined}
+                  onChange={(e) => {
+                    setSiteForm({ ...siteForm, city: e.target.value });
+                    siteValidation.clearFieldError("city");
+                  }}
                   required
                 />
+                <FormFieldError id="siteCity-error" error={siteValidation.fieldErrors.city} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="siteDistrict" required>District</Label>
                 <Input
                   id="siteDistrict"
+                  name="district"
                   placeholder="e.g. Bengaluru Urban"
                   value={siteForm.district}
-                  onChange={(e) => setSiteForm({ ...siteForm, district: e.target.value })}
+                  error={!!siteValidation.fieldErrors.district}
+                  aria-invalid={!!siteValidation.fieldErrors.district}
+                  aria-describedby={siteValidation.fieldErrors.district ? "siteDistrict-error" : undefined}
+                  onChange={(e) => {
+                    setSiteForm({ ...siteForm, district: e.target.value });
+                    siteValidation.clearFieldError("district");
+                  }}
                   required
                 />
+                <FormFieldError id="siteDistrict-error" error={siteValidation.fieldErrors.district} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="sitePin" required>PIN Code</Label>
                 <Input
                   id="sitePin"
+                  name="pinCode"
                   placeholder="6 digits"
                   value={siteForm.pinCode}
-                  onChange={(e) => setSiteForm({ ...siteForm, pinCode: e.target.value })}
+                  error={!!siteValidation.fieldErrors.pinCode}
+                  aria-invalid={!!siteValidation.fieldErrors.pinCode}
+                  aria-describedby={siteValidation.fieldErrors.pinCode ? "sitePin-error" : undefined}
+                  onChange={(e) => {
+                    setSiteForm({ ...siteForm, pinCode: e.target.value });
+                    siteValidation.clearFieldError("pinCode");
+                  }}
                   required
                 />
+                <FormFieldError id="sitePin-error" error={siteValidation.fieldErrors.pinCode} />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="siteLat">GPS Latitude</Label>
-                <Input
-                  id="siteLat"
-                  type="number"
-                  step="0.0000001"
-                  placeholder="e.g. 12.9715987"
-                  value={siteForm.gpsLatitude}
-                  onChange={(e) => setSiteForm({ ...siteForm, gpsLatitude: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="siteLng">GPS Longitude</Label>
-                <Input
-                  id="siteLng"
-                  type="number"
-                  step="0.0000001"
-                  placeholder="e.g. 77.5945627"
-                  value={siteForm.gpsLongitude}
-                  onChange={(e) => setSiteForm({ ...siteForm, gpsLongitude: e.target.value })}
-                />
-              </div>
-            </div>
+            {/* GOOGLE MAPS LOCATION & GPS EXTRACTOR */}
+            <GoogleMapsLocationInput
+              id="siteMapsUrl"
+              value={siteForm.mapsUrl}
+              latitude={siteForm.gpsLatitude}
+              longitude={siteForm.gpsLongitude}
+              error={
+                siteValidation.fieldErrors.mapsUrl ||
+                siteValidation.fieldErrors.gpsLatitude ||
+                siteValidation.fieldErrors.gpsLongitude
+              }
+              onErrorClear={() => {
+                siteValidation.clearFieldError("mapsUrl");
+                siteValidation.clearFieldError("gpsLatitude");
+                siteValidation.clearFieldError("gpsLongitude");
+              }}
+              onChange={({ latitude, longitude, mapsUrl }) => {
+                setSiteForm((prev) => ({
+                  ...prev,
+                  gpsLatitude: latitude !== null ? String(latitude) : "",
+                  gpsLongitude: longitude !== null ? String(longitude) : "",
+                  mapsUrl,
+                }));
+                siteValidation.clearFieldError("mapsUrl");
+                siteValidation.clearFieldError("gpsLatitude");
+                siteValidation.clearFieldError("gpsLongitude");
+              }}
+            />
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="siteInCharge">Site In-Charge / Supervisor</Label>
                 <Input
                   id="siteInCharge"
+                  name="siteInCharge"
                   placeholder="e.g. Suresh Kumar"
                   value={siteForm.siteInCharge}
-                  onChange={(e) => setSiteForm({ ...siteForm, siteInCharge: e.target.value })}
+                  error={!!siteValidation.fieldErrors.siteInCharge}
+                  aria-invalid={!!siteValidation.fieldErrors.siteInCharge}
+                  aria-describedby={siteValidation.fieldErrors.siteInCharge ? "siteInCharge-error" : undefined}
+                  onChange={(e) => {
+                    setSiteForm({ ...siteForm, siteInCharge: e.target.value });
+                    siteValidation.clearFieldError("siteInCharge");
+                  }}
                 />
+                <FormFieldError id="siteInCharge-error" error={siteValidation.fieldErrors.siteInCharge} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="siteContact">Supervisor Phone</Label>
                 <Input
                   id="siteContact"
+                  name="siteContactDetails"
                   placeholder="e.g. 9845012345"
                   value={siteForm.siteContactDetails}
-                  onChange={(e) => setSiteForm({ ...siteForm, siteContactDetails: e.target.value })}
+                  error={!!siteValidation.fieldErrors.siteContactDetails}
+                  aria-invalid={!!siteValidation.fieldErrors.siteContactDetails}
+                  aria-describedby={siteValidation.fieldErrors.siteContactDetails ? "siteContact-error" : undefined}
+                  onChange={(e) => {
+                    setSiteForm({ ...siteForm, siteContactDetails: e.target.value });
+                    siteValidation.clearFieldError("siteContactDetails");
+                  }}
                 />
+                <FormFieldError id="siteContact-error" error={siteValidation.fieldErrors.siteContactDetails} />
               </div>
             </div>
 
@@ -758,10 +929,18 @@ export default function CustomerDetailPage() {
               <Label htmlFor="siteInstructions">Delivery & Yard Access Instructions</Label>
               <Input
                 id="siteInstructions"
+                name="deliveryInstructions"
                 placeholder="Gate #, vehicle height limits, unloading timings"
                 value={siteForm.deliveryInstructions}
-                onChange={(e) => setSiteForm({ ...siteForm, deliveryInstructions: e.target.value })}
+                error={!!siteValidation.fieldErrors.deliveryInstructions}
+                aria-invalid={!!siteValidation.fieldErrors.deliveryInstructions}
+                aria-describedby={siteValidation.fieldErrors.deliveryInstructions ? "siteInstructions-error" : undefined}
+                onChange={(e) => {
+                  setSiteForm({ ...siteForm, deliveryInstructions: e.target.value });
+                  siteValidation.clearFieldError("deliveryInstructions");
+                }}
               />
+              <FormFieldError id="siteInstructions-error" error={siteValidation.fieldErrors.deliveryInstructions} />
             </div>
 
             <DialogFooter className="pt-2">
@@ -771,10 +950,10 @@ export default function CustomerDetailPage() {
               <Button
                 type="submit"
                 isLoading={isSiteSubmitting}
-                loadingText="Saving Site..."
+                loadingText={editingSiteId ? "Updating Site..." : "Saving Site..."}
                 className="bg-[#0B1E36] hover:bg-[#071424] text-white"
               >
-                Save Construction Site
+                {editingSiteId ? "Update Construction Site" : "Save Construction Site"}
               </Button>
             </DialogFooter>
           </form>
@@ -783,7 +962,7 @@ export default function CustomerDetailPage() {
 
       {/* ADD CONTACT MODAL */}
       <Dialog open={isContactModalOpen} onOpenChange={setIsContactModalOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent ref={contactModalRef} className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Authorized Contact Person</DialogTitle>
             <DialogDescription>
@@ -791,27 +970,50 @@ export default function CustomerDetailPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleAddContact} className="space-y-4 pt-2">
+          <form onSubmit={handleAddContact} className="space-y-4 pt-2" noValidate>
+            <FormErrorSummary
+              errors={contactValidation.fieldErrors}
+              generalError={contactValidation.generalError}
+              onFieldClick={(field) => contactValidation.scrollToField(field, contactModalRef.current)}
+              containerRef={contactModalRef}
+            />
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="cntName" required>Full Name</Label>
                 <Input
                   id="cntName"
+                  name="name"
                   placeholder="e.g. Ramesh Babu"
                   value={contactForm.name}
-                  onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
+                  error={!!contactValidation.fieldErrors.name}
+                  aria-invalid={!!contactValidation.fieldErrors.name}
+                  aria-describedby={contactValidation.fieldErrors.name ? "cntName-error" : undefined}
+                  onChange={(e) => {
+                    setContactForm({ ...contactForm, name: e.target.value });
+                    contactValidation.clearFieldError("name");
+                  }}
                   required
                 />
+                <FormFieldError id="cntName-error" error={contactValidation.fieldErrors.name} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="cntDesig" required>Designation</Label>
                 <Input
                   id="cntDesig"
+                  name="designation"
                   placeholder="e.g. Project Manager / Site Engineer"
                   value={contactForm.designation}
-                  onChange={(e) => setContactForm({ ...contactForm, designation: e.target.value })}
+                  error={!!contactValidation.fieldErrors.designation}
+                  aria-invalid={!!contactValidation.fieldErrors.designation}
+                  aria-describedby={contactValidation.fieldErrors.designation ? "cntDesig-error" : undefined}
+                  onChange={(e) => {
+                    setContactForm({ ...contactForm, designation: e.target.value });
+                    contactValidation.clearFieldError("designation");
+                  }}
                   required
                 />
+                <FormFieldError id="cntDesig-error" error={contactValidation.fieldErrors.designation} />
               </div>
             </div>
 
@@ -820,21 +1022,37 @@ export default function CustomerDetailPage() {
                 <Label htmlFor="cntMobile" required>Mobile Number</Label>
                 <Input
                   id="cntMobile"
+                  name="mobile"
                   placeholder="10 digits"
                   value={contactForm.mobile}
-                  onChange={(e) => setContactForm({ ...contactForm, mobile: e.target.value })}
+                  error={!!contactValidation.fieldErrors.mobile}
+                  aria-invalid={!!contactValidation.fieldErrors.mobile}
+                  aria-describedby={contactValidation.fieldErrors.mobile ? "cntMobile-error" : undefined}
+                  onChange={(e) => {
+                    setContactForm({ ...contactForm, mobile: e.target.value });
+                    contactValidation.clearFieldError("mobile");
+                  }}
                   required
                 />
+                <FormFieldError id="cntMobile-error" error={contactValidation.fieldErrors.mobile} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="cntEmail">Email</Label>
                 <Input
                   id="cntEmail"
+                  name="email"
                   type="email"
                   placeholder="ramesh@company.com"
                   value={contactForm.email}
-                  onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+                  error={!!contactValidation.fieldErrors.email}
+                  aria-invalid={!!contactValidation.fieldErrors.email}
+                  aria-describedby={contactValidation.fieldErrors.email ? "cntEmail-error" : undefined}
+                  onChange={(e) => {
+                    setContactForm({ ...contactForm, email: e.target.value });
+                    contactValidation.clearFieldError("email");
+                  }}
                 />
+                <FormFieldError id="cntEmail-error" error={contactValidation.fieldErrors.email} />
               </div>
             </div>
 

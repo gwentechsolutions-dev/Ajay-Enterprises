@@ -31,6 +31,9 @@ import {
 } from "@/components/ui/dialog";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { TableSkeleton } from "@/components/ui/loading-states";
+import { FormFieldError } from "@/components/ui/form-field-error";
+import { FormErrorSummary } from "@/components/ui/form-error-summary";
+import { useFormValidation } from "@/lib/forms";
 import { toast } from "sonner";
 
 export default function CustomersPage() {
@@ -41,8 +44,18 @@ export default function CustomersPage() {
   const [typeFilter, setTypeFilter] = React.useState("ALL");
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const modalContainerRef = React.useRef<HTMLDivElement>(null);
 
-  const [form, setForm] = React.useState({
+  const {
+    fieldErrors,
+    generalError,
+    clearFieldError,
+    clearErrors,
+    handleApiResponse,
+    scrollToField,
+  } = useFormValidation({ containerRef: modalContainerRef });
+
+  const initialFormState = {
     customerCode: "",
     name: "",
     customerType: "COMPANY",
@@ -63,7 +76,9 @@ export default function CustomersPage() {
     paymentTermsDays: "30",
     openingBalance: "0",
     notes: "",
-  });
+  };
+
+  const [form, setForm] = React.useState(initialFormState);
 
   const fetchCustomers = React.useCallback(async () => {
     try {
@@ -82,6 +97,12 @@ export default function CustomersPage() {
     fetchCustomers();
   }, [fetchCustomers]);
 
+  const handleOpenCreateModal = () => {
+    clearErrors();
+    setForm(initialFormState);
+    setIsModalOpen(true);
+  };
+
   const handleSubmitCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -98,34 +119,21 @@ export default function CustomersPage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || "Failed to create customer");
+
+      if (!handleApiResponse(res, data, modalContainerRef.current)) {
+        if (data.error?.message && !data.error?.details && !data.error?.issues) {
+          toast.error(data.error.message);
+        }
+        return;
+      }
+
       toast.success(`Customer '${data.data.name}' (${data.data.customerCode}) created.`);
       setIsModalOpen(false);
-      setForm({
-        customerCode: "",
-        name: "",
-        customerType: "COMPANY",
-        legalBusinessName: "",
-        primaryMobile: "",
-        alternateMobile: "",
-        whatsappNumber: "",
-        email: "",
-        pan: "",
-        gstStatus: "UNREGISTERED",
-        gstin: "",
-        billingAddress: "",
-        state: "Karnataka",
-        stateCode: "29",
-        pinCode: "",
-        businessType: "COMMERCIAL",
-        creditLimit: "",
-        paymentTermsDays: "30",
-        openingBalance: "0",
-        notes: "",
-      });
+      clearErrors();
+      setForm(initialFormState);
       await fetchCustomers();
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error(err.message || "Failed to create customer");
     } finally {
       setIsSubmitting(false);
     }
@@ -173,7 +181,7 @@ export default function CustomersPage() {
         </div>
 
         <Button
-          onClick={() => setIsModalOpen(true)}
+          onClick={handleOpenCreateModal}
           className="bg-[#0B1E36] hover:bg-[#071424] text-white text-xs font-semibold shadow-sm"
         >
           <Plus className="h-3.5 w-3.5 mr-1.5" /> + New Customer Account
@@ -359,7 +367,7 @@ export default function CustomersPage() {
 
       {/* CREATE CUSTOMER MODAL */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent ref={modalContainerRef} className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Customer Account</DialogTitle>
             <DialogDescription>
@@ -367,16 +375,31 @@ export default function CustomersPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSubmitCustomer} className="space-y-4 pt-2">
+          <form onSubmit={handleSubmitCustomer} className="space-y-4 pt-2" noValidate>
+            <FormErrorSummary
+              errors={fieldErrors}
+              generalError={generalError}
+              onFieldClick={(field) => scrollToField(field, modalContainerRef.current)}
+              containerRef={modalContainerRef}
+            />
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="custCode">Customer ID</Label>
                 <Input
                   id="custCode"
+                  name="customerCode"
                   placeholder="Auto-generated if left blank"
                   value={form.customerCode}
-                  onChange={(e) => setForm({ ...form, customerCode: e.target.value.toUpperCase() })}
+                  error={!!fieldErrors.customerCode}
+                  aria-invalid={!!fieldErrors.customerCode}
+                  aria-describedby={fieldErrors.customerCode ? "custCode-error" : undefined}
+                  onChange={(e) => {
+                    setForm({ ...form, customerCode: e.target.value.toUpperCase() });
+                    clearFieldError("customerCode");
+                  }}
                 />
+                <FormFieldError id="custCode-error" error={fieldErrors.customerCode} />
               </div>
 
               <div className="space-y-1.5">
@@ -388,9 +411,14 @@ export default function CustomersPage() {
                     { value: "INDIVIDUAL", label: "Individual / Property Owner" },
                   ]}
                   value={form.customerType}
-                  onChange={(val) => setForm({ ...form, customerType: val || "COMPANY" })}
+                  error={!!fieldErrors.customerType}
+                  onChange={(val) => {
+                    setForm({ ...form, customerType: val || "COMPANY" });
+                    clearFieldError("customerType");
+                  }}
                   allowClear={false}
                 />
+                <FormFieldError id="custType-error" error={fieldErrors.customerType} />
               </div>
             </div>
 
@@ -398,11 +426,19 @@ export default function CustomersPage() {
               <Label htmlFor="custName" required>Customer / Company Trade Name</Label>
               <Input
                 id="custName"
+                name="name"
                 placeholder="e.g. Prestige Constructions Ltd / Sri Sai Builders"
                 value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                error={!!fieldErrors.name}
+                aria-invalid={!!fieldErrors.name}
+                aria-describedby={fieldErrors.name ? "custName-error" : undefined}
+                onChange={(e) => {
+                  setForm({ ...form, name: e.target.value });
+                  clearFieldError("name");
+                }}
                 required
               />
+              <FormFieldError id="custName-error" error={fieldErrors.name} />
             </div>
 
             <div className="grid grid-cols-3 gap-3">
@@ -410,30 +446,54 @@ export default function CustomersPage() {
                 <Label htmlFor="custMobile" required>Primary Mobile</Label>
                 <Input
                   id="custMobile"
+                  name="primaryMobile"
                   placeholder="10 digits (9876543210)"
                   value={form.primaryMobile}
-                  onChange={(e) => setForm({ ...form, primaryMobile: e.target.value })}
+                  error={!!fieldErrors.primaryMobile}
+                  aria-invalid={!!fieldErrors.primaryMobile}
+                  aria-describedby={fieldErrors.primaryMobile ? "custMobile-error" : undefined}
+                  onChange={(e) => {
+                    setForm({ ...form, primaryMobile: e.target.value });
+                    clearFieldError("primaryMobile");
+                  }}
                   required
                 />
+                <FormFieldError id="custMobile-error" error={fieldErrors.primaryMobile} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="custAlt">Alternate Mobile</Label>
                 <Input
                   id="custAlt"
+                  name="alternateMobile"
                   placeholder="Optional"
                   value={form.alternateMobile}
-                  onChange={(e) => setForm({ ...form, alternateMobile: e.target.value })}
+                  error={!!fieldErrors.alternateMobile}
+                  aria-invalid={!!fieldErrors.alternateMobile}
+                  aria-describedby={fieldErrors.alternateMobile ? "custAlt-error" : undefined}
+                  onChange={(e) => {
+                    setForm({ ...form, alternateMobile: e.target.value });
+                    clearFieldError("alternateMobile");
+                  }}
                 />
+                <FormFieldError id="custAlt-error" error={fieldErrors.alternateMobile} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="custEmail">Email Address</Label>
                 <Input
                   id="custEmail"
+                  name="email"
                   type="email"
                   placeholder="billing@company.com"
                   value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  error={!!fieldErrors.email}
+                  aria-invalid={!!fieldErrors.email}
+                  aria-describedby={fieldErrors.email ? "custEmail-error" : undefined}
+                  onChange={(e) => {
+                    setForm({ ...form, email: e.target.value });
+                    clearFieldError("email");
+                  }}
                 />
+                <FormFieldError id="custEmail-error" error={fieldErrors.email} />
               </div>
             </div>
 
@@ -447,27 +507,48 @@ export default function CustomersPage() {
                     { value: "COMPOSITION", label: "Composition Dealer" },
                   ]}
                   value={form.gstStatus}
-                  onChange={(val) => setForm({ ...form, gstStatus: val || "UNREGISTERED" })}
+                  error={!!fieldErrors.gstStatus}
+                  onChange={(val) => {
+                    setForm({ ...form, gstStatus: val || "UNREGISTERED" });
+                    clearFieldError("gstStatus");
+                  }}
                   allowClear={false}
                 />
+                <FormFieldError id="custGstStatus-error" error={fieldErrors.gstStatus} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="custGstin">GSTIN</Label>
                 <Input
                   id="custGstin"
+                  name="gstin"
                   placeholder="15-digit GSTIN"
                   value={form.gstin}
-                  onChange={(e) => setForm({ ...form, gstin: e.target.value.toUpperCase() })}
+                  error={!!fieldErrors.gstin}
+                  aria-invalid={!!fieldErrors.gstin}
+                  aria-describedby={fieldErrors.gstin ? "custGstin-error" : undefined}
+                  onChange={(e) => {
+                    setForm({ ...form, gstin: e.target.value.toUpperCase() });
+                    clearFieldError("gstin");
+                  }}
                 />
+                <FormFieldError id="custGstin-error" error={fieldErrors.gstin} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="custPan">PAN</Label>
                 <Input
                   id="custPan"
+                  name="pan"
                   placeholder="10-digit PAN"
                   value={form.pan}
-                  onChange={(e) => setForm({ ...form, pan: e.target.value.toUpperCase() })}
+                  error={!!fieldErrors.pan}
+                  aria-invalid={!!fieldErrors.pan}
+                  aria-describedby={fieldErrors.pan ? "custPan-error" : undefined}
+                  onChange={(e) => {
+                    setForm({ ...form, pan: e.target.value.toUpperCase() });
+                    clearFieldError("pan");
+                  }}
                 />
+                <FormFieldError id="custPan-error" error={fieldErrors.pan} />
               </div>
             </div>
 
@@ -475,11 +556,19 @@ export default function CustomersPage() {
               <Label htmlFor="custBilling" required>Billing Address</Label>
               <Input
                 id="custBilling"
+                name="billingAddress"
                 placeholder="Full registered billing address"
                 value={form.billingAddress}
-                onChange={(e) => setForm({ ...form, billingAddress: e.target.value })}
+                error={!!fieldErrors.billingAddress}
+                aria-invalid={!!fieldErrors.billingAddress}
+                aria-describedby={fieldErrors.billingAddress ? "custBilling-error" : undefined}
+                onChange={(e) => {
+                  setForm({ ...form, billingAddress: e.target.value });
+                  clearFieldError("billingAddress");
+                }}
                 required
               />
+              <FormFieldError id="custBilling-error" error={fieldErrors.billingAddress} />
             </div>
 
             <div className="grid grid-cols-3 gap-3">
@@ -487,28 +576,52 @@ export default function CustomersPage() {
                 <Label htmlFor="custState" required>State</Label>
                 <Input
                   id="custState"
+                  name="state"
                   value={form.state}
-                  onChange={(e) => setForm({ ...form, state: e.target.value })}
+                  error={!!fieldErrors.state}
+                  aria-invalid={!!fieldErrors.state}
+                  aria-describedby={fieldErrors.state ? "custState-error" : undefined}
+                  onChange={(e) => {
+                    setForm({ ...form, state: e.target.value });
+                    clearFieldError("state");
+                  }}
                   required
                 />
+                <FormFieldError id="custState-error" error={fieldErrors.state} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="custStateCode" required>State Code</Label>
                 <Input
                   id="custStateCode"
+                  name="stateCode"
                   value={form.stateCode}
-                  onChange={(e) => setForm({ ...form, stateCode: e.target.value })}
+                  error={!!fieldErrors.stateCode}
+                  aria-invalid={!!fieldErrors.stateCode}
+                  aria-describedby={fieldErrors.stateCode ? "custStateCode-error" : undefined}
+                  onChange={(e) => {
+                    setForm({ ...form, stateCode: e.target.value });
+                    clearFieldError("stateCode");
+                  }}
                   required
                 />
+                <FormFieldError id="custStateCode-error" error={fieldErrors.stateCode} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="custPin">PIN Code</Label>
                 <Input
                   id="custPin"
+                  name="pinCode"
                   placeholder="6 digits"
                   value={form.pinCode}
-                  onChange={(e) => setForm({ ...form, pinCode: e.target.value })}
+                  error={!!fieldErrors.pinCode}
+                  aria-invalid={!!fieldErrors.pinCode}
+                  aria-describedby={fieldErrors.pinCode ? "custPin-error" : undefined}
+                  onChange={(e) => {
+                    setForm({ ...form, pinCode: e.target.value });
+                    clearFieldError("pinCode");
+                  }}
                 />
+                <FormFieldError id="custPin-error" error={fieldErrors.pinCode} />
               </div>
             </div>
 
@@ -517,20 +630,36 @@ export default function CustomersPage() {
                 <Label htmlFor="custLimit">Credit Limit (₹)</Label>
                 <Input
                   id="custLimit"
+                  name="creditLimit"
                   type="number"
                   placeholder="e.g. 500000"
                   value={form.creditLimit}
-                  onChange={(e) => setForm({ ...form, creditLimit: e.target.value })}
+                  error={!!fieldErrors.creditLimit}
+                  aria-invalid={!!fieldErrors.creditLimit}
+                  aria-describedby={fieldErrors.creditLimit ? "custLimit-error" : undefined}
+                  onChange={(e) => {
+                    setForm({ ...form, creditLimit: e.target.value });
+                    clearFieldError("creditLimit");
+                  }}
                 />
+                <FormFieldError id="custLimit-error" error={fieldErrors.creditLimit} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="custTerms">Payment Terms (Days)</Label>
                 <Input
                   id="custTerms"
+                  name="paymentTermsDays"
                   type="number"
                   value={form.paymentTermsDays}
-                  onChange={(e) => setForm({ ...form, paymentTermsDays: e.target.value })}
+                  error={!!fieldErrors.paymentTermsDays}
+                  aria-invalid={!!fieldErrors.paymentTermsDays}
+                  aria-describedby={fieldErrors.paymentTermsDays ? "custTerms-error" : undefined}
+                  onChange={(e) => {
+                    setForm({ ...form, paymentTermsDays: e.target.value });
+                    clearFieldError("paymentTermsDays");
+                  }}
                 />
+                <FormFieldError id="custTerms-error" error={fieldErrors.paymentTermsDays} />
               </div>
             </div>
 

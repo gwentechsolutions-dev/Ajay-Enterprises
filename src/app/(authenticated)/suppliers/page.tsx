@@ -30,6 +30,9 @@ import {
 } from "@/components/ui/dialog";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { TableSkeleton } from "@/components/ui/loading-states";
+import { FormFieldError } from "@/components/ui/form-field-error";
+import { FormErrorSummary } from "@/components/ui/form-error-summary";
+import { useFormValidation } from "@/lib/forms";
 import { toast } from "sonner";
 
 export default function SuppliersPage() {
@@ -39,8 +42,18 @@ export default function SuppliersPage() {
   const [typeFilter, setTypeFilter] = React.useState("ALL");
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const modalContainerRef = React.useRef<HTMLDivElement>(null);
 
-  const [form, setForm] = React.useState({
+  const {
+    fieldErrors,
+    generalError,
+    clearFieldError,
+    clearErrors,
+    handleApiResponse,
+    scrollToField,
+  } = useFormValidation({ containerRef: modalContainerRef });
+
+  const initialForm = {
     supplierCode: "",
     name: "",
     contactPerson: "",
@@ -61,7 +74,9 @@ export default function SuppliersPage() {
     openingBalance: "0",
     creditTermsDays: "30",
     internalRemarks: "",
-  });
+  };
+
+  const [form, setForm] = React.useState(initialForm);
 
   const fetchSuppliers = React.useCallback(async () => {
     try {
@@ -80,6 +95,12 @@ export default function SuppliersPage() {
     fetchSuppliers();
   }, [fetchSuppliers]);
 
+  const handleOpenCreateModal = () => {
+    clearErrors();
+    setForm(initialForm);
+    setIsModalOpen(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -95,34 +116,21 @@ export default function SuppliersPage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || "Failed to create supplier");
+
+      if (!handleApiResponse(res, data, modalContainerRef.current)) {
+        if (data.error?.message && !data.error?.details && !data.error?.issues) {
+          toast.error(data.error.message);
+        }
+        return;
+      }
+
       toast.success(`Supplier '${data.data.name}' (${data.data.supplierCode}) registered.`);
       setIsModalOpen(false);
-      setForm({
-        supplierCode: "",
-        name: "",
-        contactPerson: "",
-        primaryMobile: "",
-        alternateMobile: "",
-        email: "",
-        gstStatus: "UNREGISTERED",
-        gstin: "",
-        pan: "",
-        billingAddress: "",
-        state: "Karnataka",
-        stateCode: "29",
-        pinCode: "",
-        bankName: "",
-        accountNumber: "",
-        ifscCode: "",
-        supplierType: "MANUFACTURER",
-        openingBalance: "0",
-        creditTermsDays: "30",
-        internalRemarks: "",
-      });
+      clearErrors();
+      setForm(initialForm);
       await fetchSuppliers();
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error(err.message || "Failed to create supplier");
     } finally {
       setIsSubmitting(false);
     }
@@ -304,10 +312,18 @@ export default function SuppliersPage() {
                 <Label htmlFor="supCode">Supplier Code</Label>
                 <Input
                   id="supCode"
+                  name="supplierCode"
                   placeholder="Auto-generated if blank"
                   value={form.supplierCode}
-                  onChange={(e) => setForm({ ...form, supplierCode: e.target.value.toUpperCase() })}
+                  error={!!fieldErrors.supplierCode}
+                  aria-invalid={!!fieldErrors.supplierCode}
+                  aria-describedby={fieldErrors.supplierCode ? "supCode-error" : undefined}
+                  onChange={(e) => {
+                    setForm({ ...form, supplierCode: e.target.value.toUpperCase() });
+                    clearFieldError("supplierCode");
+                  }}
                 />
+                <FormFieldError id="supCode-error" error={fieldErrors.supplierCode} />
               </div>
               <div className="space-y-1.5">
                 <Label required>Supplier Type</Label>
@@ -319,9 +335,13 @@ export default function SuppliersPage() {
                     { value: "SERVICE_PROVIDER", label: "Fabrication & Repair Service" },
                   ]}
                   value={form.supplierType}
-                  onChange={(val) => setForm({ ...form, supplierType: val || "MANUFACTURER" })}
+                  onChange={(val) => {
+                    setForm({ ...form, supplierType: val || "MANUFACTURER" });
+                    clearFieldError("supplierType");
+                  }}
                   allowClear={false}
                 />
+                <FormFieldError id="supType-error" error={fieldErrors.supplierType} />
               </div>
             </div>
 
@@ -329,11 +349,19 @@ export default function SuppliersPage() {
               <Label htmlFor="supName" required>Supplier / Company Name</Label>
               <Input
                 id="supName"
+                name="name"
                 placeholder="e.g. Jindal Steel / National Scaffolding Works"
                 value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                error={!!fieldErrors.name}
+                aria-invalid={!!fieldErrors.name}
+                aria-describedby={fieldErrors.name ? "supName-error" : undefined}
+                onChange={(e) => {
+                  setForm({ ...form, name: e.target.value });
+                  clearFieldError("name");
+                }}
                 required
               />
+              <FormFieldError id="supName-error" error={fieldErrors.name} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -341,21 +369,37 @@ export default function SuppliersPage() {
                 <Label htmlFor="supContact" required>Contact Person</Label>
                 <Input
                   id="supContact"
+                  name="contactPerson"
                   placeholder="e.g. Rajesh Sharma"
                   value={form.contactPerson}
-                  onChange={(e) => setForm({ ...form, contactPerson: e.target.value })}
+                  error={!!fieldErrors.contactPerson}
+                  aria-invalid={!!fieldErrors.contactPerson}
+                  aria-describedby={fieldErrors.contactPerson ? "supContact-error" : undefined}
+                  onChange={(e) => {
+                    setForm({ ...form, contactPerson: e.target.value });
+                    clearFieldError("contactPerson");
+                  }}
                   required
                 />
+                <FormFieldError id="supContact-error" error={fieldErrors.contactPerson} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="supMobile" required>Primary Mobile</Label>
                 <Input
                   id="supMobile"
+                  name="primaryMobile"
                   placeholder="10 digits"
                   value={form.primaryMobile}
-                  onChange={(e) => setForm({ ...form, primaryMobile: e.target.value })}
+                  error={!!fieldErrors.primaryMobile}
+                  aria-invalid={!!fieldErrors.primaryMobile}
+                  aria-describedby={fieldErrors.primaryMobile ? "supMobile-error" : undefined}
+                  onChange={(e) => {
+                    setForm({ ...form, primaryMobile: e.target.value });
+                    clearFieldError("primaryMobile");
+                  }}
                   required
                 />
+                <FormFieldError id="supMobile-error" error={fieldErrors.primaryMobile} />
               </div>
             </div>
 
@@ -364,28 +408,52 @@ export default function SuppliersPage() {
                 <Label htmlFor="supGstin">GSTIN</Label>
                 <Input
                   id="supGstin"
+                  name="gstin"
                   placeholder="15 digits"
                   value={form.gstin}
-                  onChange={(e) => setForm({ ...form, gstin: e.target.value.toUpperCase() })}
+                  error={!!fieldErrors.gstin}
+                  aria-invalid={!!fieldErrors.gstin}
+                  aria-describedby={fieldErrors.gstin ? "supGstin-error" : undefined}
+                  onChange={(e) => {
+                    setForm({ ...form, gstin: e.target.value.toUpperCase() });
+                    clearFieldError("gstin");
+                  }}
                 />
+                <FormFieldError id="supGstin-error" error={fieldErrors.gstin} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="supPan">PAN</Label>
                 <Input
                   id="supPan"
+                  name="pan"
                   placeholder="10 digits"
                   value={form.pan}
-                  onChange={(e) => setForm({ ...form, pan: e.target.value.toUpperCase() })}
+                  error={!!fieldErrors.pan}
+                  aria-invalid={!!fieldErrors.pan}
+                  aria-describedby={fieldErrors.pan ? "supPan-error" : undefined}
+                  onChange={(e) => {
+                    setForm({ ...form, pan: e.target.value.toUpperCase() });
+                    clearFieldError("pan");
+                  }}
                 />
+                <FormFieldError id="supPan-error" error={fieldErrors.pan} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="supEmail">Email Address</Label>
                 <Input
                   id="supEmail"
+                  name="email"
                   type="email"
                   value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  error={!!fieldErrors.email}
+                  aria-invalid={!!fieldErrors.email}
+                  aria-describedby={fieldErrors.email ? "supEmail-error" : undefined}
+                  onChange={(e) => {
+                    setForm({ ...form, email: e.target.value });
+                    clearFieldError("email");
+                  }}
                 />
+                <FormFieldError id="supEmail-error" error={fieldErrors.email} />
               </div>
             </div>
 
@@ -393,11 +461,19 @@ export default function SuppliersPage() {
               <Label htmlFor="supAddress" required>Billing Address</Label>
               <Input
                 id="supAddress"
+                name="billingAddress"
                 placeholder="Factory / Office Address"
                 value={form.billingAddress}
-                onChange={(e) => setForm({ ...form, billingAddress: e.target.value })}
+                error={!!fieldErrors.billingAddress}
+                aria-invalid={!!fieldErrors.billingAddress}
+                aria-describedby={fieldErrors.billingAddress ? "supAddress-error" : undefined}
+                onChange={(e) => {
+                  setForm({ ...form, billingAddress: e.target.value });
+                  clearFieldError("billingAddress");
+                }}
                 required
               />
+              <FormFieldError id="supAddress-error" error={fieldErrors.billingAddress} />
             </div>
 
             <div className="grid grid-cols-3 gap-3">
@@ -405,29 +481,53 @@ export default function SuppliersPage() {
                 <Label htmlFor="supState" required>State</Label>
                 <Input
                   id="supState"
+                  name="state"
                   value={form.state}
-                  onChange={(e) => setForm({ ...form, state: e.target.value })}
+                  error={!!fieldErrors.state}
+                  aria-invalid={!!fieldErrors.state}
+                  aria-describedby={fieldErrors.state ? "supState-error" : undefined}
+                  onChange={(e) => {
+                    setForm({ ...form, state: e.target.value });
+                    clearFieldError("state");
+                  }}
                   required
                 />
+                <FormFieldError id="supState-error" error={fieldErrors.state} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="supStateCode" required>State Code</Label>
                 <Input
                   id="supStateCode"
+                  name="stateCode"
                   value={form.stateCode}
-                  onChange={(e) => setForm({ ...form, stateCode: e.target.value })}
+                  error={!!fieldErrors.stateCode}
+                  aria-invalid={!!fieldErrors.stateCode}
+                  aria-describedby={fieldErrors.stateCode ? "supStateCode-error" : undefined}
+                  onChange={(e) => {
+                    setForm({ ...form, stateCode: e.target.value });
+                    clearFieldError("stateCode");
+                  }}
                   required
                 />
+                <FormFieldError id="supStateCode-error" error={fieldErrors.stateCode} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="supPin" required>PIN Code</Label>
                 <Input
                   id="supPin"
+                  name="pinCode"
                   placeholder="6 digits"
                   value={form.pinCode}
-                  onChange={(e) => setForm({ ...form, pinCode: e.target.value })}
+                  error={!!fieldErrors.pinCode}
+                  aria-invalid={!!fieldErrors.pinCode}
+                  aria-describedby={fieldErrors.pinCode ? "supPin-error" : undefined}
+                  onChange={(e) => {
+                    setForm({ ...form, pinCode: e.target.value });
+                    clearFieldError("pinCode");
+                  }}
                   required
                 />
+                <FormFieldError id="supPin-error" error={fieldErrors.pinCode} />
               </div>
             </div>
 
@@ -438,21 +538,33 @@ export default function SuppliersPage() {
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <Input
+                  name="bankName"
                   placeholder="Bank Name"
                   value={form.bankName}
-                  onChange={(e) => setForm({ ...form, bankName: e.target.value })}
+                  onChange={(e) => {
+                    setForm({ ...form, bankName: e.target.value });
+                    clearFieldError("bankName");
+                  }}
                   className="text-xs"
                 />
                 <Input
+                  name="accountNumber"
                   placeholder="Account Number"
                   value={form.accountNumber}
-                  onChange={(e) => setForm({ ...form, accountNumber: e.target.value })}
+                  onChange={(e) => {
+                    setForm({ ...form, accountNumber: e.target.value });
+                    clearFieldError("accountNumber");
+                  }}
                   className="text-xs"
                 />
                 <Input
+                  name="ifscCode"
                   placeholder="IFSC Code"
                   value={form.ifscCode}
-                  onChange={(e) => setForm({ ...form, ifscCode: e.target.value.toUpperCase() })}
+                  onChange={(e) => {
+                    setForm({ ...form, ifscCode: e.target.value.toUpperCase() });
+                    clearFieldError("ifscCode");
+                  }}
                   className="text-xs"
                 />
               </div>
