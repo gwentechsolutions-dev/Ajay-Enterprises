@@ -45,6 +45,9 @@ export const DOCUMENT_TYPES = [
   { id: "LAB_PAY", label: "Labour Payment Voucher", defaultPrefix: "AE/LPAY/" },
   { id: "MAT_REP", label: "Material Repair Job", defaultPrefix: "AE/REP/" },
   { id: "DSTN", label: "Direct Site Transfer Note (DSTN)", defaultPrefix: "AE/DSTN/" },
+  { id: "OSB", label: "Opening Stock Batch", defaultPrefix: "OSB-" },
+  { id: "OBB", label: "Opening Balance Batch", defaultPrefix: "OBB-" },
+  { id: "PILOT", label: "Pilot Program Reference", defaultPrefix: "PILOT-" },
 ] as const;
 
 export type DocumentTypeId = (typeof DOCUMENT_TYPES)[number]["id"];

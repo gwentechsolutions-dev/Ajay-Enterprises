@@ -64,6 +64,14 @@ const NAVIGATION: NavGroup[] = [
     ],
   },
   {
+    group: "Production Cutover & Launch",
+    items: [
+      { title: "Cutover & Go-Live Hub", href: "/cutover", icon: ShieldCheck, badge: "Owner" },
+      { title: "Pilot Operations", href: "/pilot", icon: Compass },
+      { title: "Staff Training & SOPs", href: "/training", icon: BookOpen },
+    ],
+  },
+  {
     group: "Analytics & Reports",
     items: [
       { title: "Reports Hub", href: "/reports", icon: FileSpreadsheet },
