@@ -5,7 +5,13 @@ import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import { generateNextDocumentNumber, getCurrentFiscalYear } from "@/lib/document-series";
 import { generateRentalInvoiceFromStatementSchema } from "@/lib/schemas/accounting";
-import { calculateGst, calculateRoundOff, getStateCodeFromGstin } from "@/lib/accounting/gst-engine";
+import {
+  calculateGst,
+  calculateRoundOff,
+  resolvePlaceOfSupply,
+  resolveApplicableGstRate,
+  validateAndResolveHsnSac,
+} from "@/lib/accounting/gst-engine";
 import { postJournalEntry } from "@/lib/accounting/ledger";
 import { getSystemAccount } from "@/lib/accounting/chart-of-accounts";
 
@@ -93,9 +99,23 @@ export async function POST(req: NextRequest) {
       : new Date(invoiceDate.getTime() + 15 * 24 * 60 * 60 * 1000); // 15 days default
     const fiscalYear = getCurrentFiscalYear(invoiceDate);
 
-    // Determine place of supply from customer GSTIN or site
-    const placeOfSupply = getStateCodeFromGstin(statement.customer.gstin);
-    const isInterState = placeOfSupply !== "33";
+    // Determine Place of Supply using actual construction site location / recipient rules
+    const posResult = resolvePlaceOfSupply({
+      siteStateCode: statement.customerSite?.stateCode,
+      customerStateCode: statement.customer.stateCode,
+      customerGstin: statement.customer.gstin,
+    });
+    const placeOfSupply = posResult.placeOfSupply;
+    const isInterState = posResult.isInterState;
+
+    // Resolve applicable GST rates and confirmed HSN/SAC classifications
+    const rentalGstRate = await resolveApplicableGstRate({ category: "RENTAL", transactionDate: invoiceDate });
+    const repairGstRate = await resolveApplicableGstRate({ category: "REPAIR", transactionDate: invoiceDate });
+    const replacementGstRate = await resolveApplicableGstRate({ category: "EQUIPMENT_SUPPLY", transactionDate: invoiceDate });
+
+    const rentalHsn = validateAndResolveHsnSac("9973");
+    const damageHsn = validateAndResolveHsnSac("9987");
+    const missingHsn = validateAndResolveHsnSac("7308");
 
     // 1. Build line items from Statement Items (SAC 9973 for equipment rental)
     let subtotal = new Prisma.Decimal(0);
@@ -108,7 +128,7 @@ export async function POST(req: NextRequest) {
       const taxable = new Prisma.Decimal(it.rentalAmount);
       const gst = calculateGst({
         taxableValue: taxable,
-        gstRatePercent: 18, // 18% standard GST for equipment rental (SAC 9973)
+        gstRatePercent: rentalGstRate,
         placeOfSupply,
       });
 
@@ -122,7 +142,7 @@ export async function POST(req: NextRequest) {
         materialVariantId: it.materialVariantId as string | null,
         itemType: "RENTAL",
         itemDescription: `${it.materialVariant.name} - Rental (${it.billableDays} days @ ₹${Number(it.applicableDailyRate).toFixed(2)}/day). Site: ${it.customerSite.siteName}`,
-        hsnSacCode: "9973",
+        hsnSacCode: rentalHsn.code,
         quantity: it.closingHeldQty,
         uom: it.materialVariant.uom,
         unitRate: it.applicableDailyRate,
@@ -139,10 +159,10 @@ export async function POST(req: NextRequest) {
       };
     });
 
-    // 2. Add Damage Charges if present on statement
+    // 2. Add Damage Charges if present on statement (SAC 9987 Repair & Maintenance)
     const dmgCharges = new Prisma.Decimal(statement.totalDamageCharges);
     if (dmgCharges.gt(0)) {
-      const gstDmg = calculateGst({ taxableValue: dmgCharges, gstRatePercent: 18, placeOfSupply });
+      const gstDmg = calculateGst({ taxableValue: dmgCharges, gstRatePercent: repairGstRate, placeOfSupply });
       subtotal = subtotal.plus(dmgCharges);
       totalCgst = totalCgst.plus(gstDmg.cgstAmount);
       totalSgst = totalSgst.plus(gstDmg.sgstAmount);
@@ -153,7 +173,7 @@ export async function POST(req: NextRequest) {
         materialVariantId: null,
         itemType: "DAMAGE_CHARGE",
         itemDescription: `Repair & Damage Charges as assessed in Statement ${statement.statementNumber}`,
-        hsnSacCode: "9973",
+        hsnSacCode: damageHsn.code,
         quantity: new Prisma.Decimal(1),
         uom: "Job",
         unitRate: dmgCharges,
@@ -170,10 +190,10 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 3. Add Missing Material Charges if present
+    // 3. Add Missing Material Charges if present (HSN 7308 Equipment Replacement)
     const missCharges = new Prisma.Decimal(statement.totalMissingCharges);
     if (missCharges.gt(0)) {
-      const gstMiss = calculateGst({ taxableValue: missCharges, gstRatePercent: 18, placeOfSupply });
+      const gstMiss = calculateGst({ taxableValue: missCharges, gstRatePercent: replacementGstRate, placeOfSupply });
       subtotal = subtotal.plus(missCharges);
       totalCgst = totalCgst.plus(gstMiss.cgstAmount);
       totalSgst = totalSgst.plus(gstMiss.sgstAmount);
@@ -184,7 +204,7 @@ export async function POST(req: NextRequest) {
         materialVariantId: null,
         itemType: "MISSING_CHARGE",
         itemDescription: `Replacement Value for Lost / Unreturned Material in Statement ${statement.statementNumber}`,
-        hsnSacCode: "9973",
+        hsnSacCode: missingHsn.code,
         quantity: new Prisma.Decimal(1),
         uom: "Job",
         unitRate: missCharges,
@@ -326,13 +346,68 @@ export async function POST(req: NextRequest) {
         tx
       );
 
-      // Snapshot freeze
+      // Snapshot freeze with complete statutory details and rate classifications
       const snapshotPayload = {
         frozenAt: new Date().toISOString(),
         invoiceNumber,
         statementNumber: statement.statementNumber,
-        grandTotal: roundedTotal.toString(),
-        taxableAmount: subtotal.toString(),
+        billingCycle: {
+          periodStart: statement.periodStartDate,
+          periodEnd: statement.periodEndDate,
+        },
+        placeOfSupply: {
+          stateCode: placeOfSupply,
+          isInterState,
+          ruleApplied: posResult.ruleApplied,
+          supplierStateCode: posResult.supplierStateCode,
+        },
+        taxRatesApplied: {
+          rentalGstRate,
+          repairGstRate,
+          replacementGstRate,
+          isInterState,
+        },
+        taxBreakdown: {
+          subtotal: subtotal.toString(),
+          cgstAmount: totalCgst.toString(),
+          sgstAmount: totalSgst.toString(),
+          igstAmount: totalIgst.toString(),
+          totalTaxAmount: totalTax.toString(),
+          roundOff: roundOffAmount.toString(),
+          grandTotal: roundedTotal.toString(),
+        },
+        customerDetails: {
+          id: statement.customer.id,
+          name: statement.customer.name,
+          customerCode: statement.customer.customerCode,
+          gstin: statement.customer.gstin,
+          pan: statement.customer.pan,
+          stateCode: statement.customer.stateCode,
+          billingAddress: statement.customer.billingAddress,
+        },
+        siteDetails: statement.customerSite
+          ? {
+              id: statement.customerSite.id,
+              siteName: statement.customerSite.siteName,
+              siteCode: statement.customerSite.siteCode,
+              stateCode: statement.customerSite.stateCode,
+              address: statement.customerSite.fullAddress,
+            }
+          : null,
+        lineItems: invoiceItemsData.map((item) => ({
+          itemType: item.itemType,
+          description: item.itemDescription,
+          hsnSacCode: item.hsnSacCode,
+          quantity: item.quantity.toString(),
+          uom: item.uom,
+          unitRate: item.unitRate.toString(),
+          taxableValue: item.taxableValue.toString(),
+          gstRatePercent: item.gstRatePercent,
+          cgstAmount: item.cgstAmount.toString(),
+          sgstAmount: item.sgstAmount.toString(),
+          igstAmount: item.igstAmount.toString(),
+          totalAmount: item.totalAmount.toString(),
+        })),
         journalNumber: journal.journalNumber,
       };
 

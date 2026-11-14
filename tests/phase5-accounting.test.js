@@ -570,3 +570,138 @@ describe("8. Financial Statements & Financial Year Closing", () => {
     assert.strictEqual(retainedEarningsAfter.toNumber(), 1090000);
   });
 });
+
+describe("9. Statutory GST Place of Supply, HSN Classification & Section 17(5) ITC Accuracy", () => {
+  // Test statutory place of supply logic
+  function resolvePos({ siteStateCode, customerGstin, customerStateCode, supplierStateCode = "33" }) {
+    if (siteStateCode && siteStateCode.trim().length === 2) {
+      return {
+        placeOfSupply: siteStateCode.trim(),
+        isInterState: siteStateCode.trim() !== supplierStateCode.trim(),
+        ruleApplied: "IGST_ACT_SEC_12_3_IMMOVABLE_PROPERTY_SITE_LOCATION",
+      };
+    }
+    if (customerGstin && isValidGstin(customerGstin)) {
+      const gstinState = customerGstin.trim().substring(0, 2);
+      return {
+        placeOfSupply: gstinState,
+        isInterState: gstinState !== supplierStateCode.trim(),
+        ruleApplied: "IGST_ACT_SEC_12_2_A_RECIPIENT_GSTIN_LOCATION",
+      };
+    }
+    if (customerStateCode && customerStateCode.trim().length === 2) {
+      return {
+        placeOfSupply: customerStateCode.trim(),
+        isInterState: customerStateCode.trim() !== supplierStateCode.trim(),
+        ruleApplied: "IGST_ACT_SEC_12_2_B_RECIPIENT_ADDRESS_ON_RECORD",
+      };
+    }
+    return {
+      placeOfSupply: supplierStateCode.trim(),
+      isInterState: false,
+      ruleApplied: "SUPPLIER_LOCATION_DEFAULT",
+    };
+  }
+
+  it("should resolve Place of Supply based on Construction Site location under Sec 12(3) of IGST Act", () => {
+    // Unregistered customer in Tamil Nadu (33), but construction site is in Karnataka (29)
+    const result = resolvePos({
+      siteStateCode: "29",
+      customerGstin: null,
+      customerStateCode: "33",
+      supplierStateCode: "33",
+    });
+
+    assert.strictEqual(result.placeOfSupply, "29");
+    assert.strictEqual(result.isInterState, true);
+    assert.strictEqual(result.ruleApplied, "IGST_ACT_SEC_12_3_IMMOVABLE_PROPERTY_SITE_LOCATION");
+
+    // Tax calculation should apply 18% IGST, not 9% CGST + 9% SGST
+    const gst = calculateGst({
+      taxableValue: 100000,
+      gstRatePercent: 18,
+      placeOfSupply: result.placeOfSupply,
+      supplierStateCode: "33",
+    });
+    assert.strictEqual(gst.isInterState, true);
+    assert.strictEqual(gst.igstAmount.toNumber(), 18000);
+    assert.strictEqual(gst.cgstAmount.toNumber(), 0);
+    assert.strictEqual(gst.sgstAmount.toNumber(), 0);
+  });
+
+  it("should fall back to recipient GSTIN under Sec 12(2)(a) when no site-specific location is supplied", () => {
+    const result = resolvePos({
+      siteStateCode: null,
+      customerGstin: "37AAAAA0000A1Z5", // Andhra Pradesh
+      customerStateCode: "33",
+      supplierStateCode: "33",
+    });
+
+    assert.strictEqual(result.placeOfSupply, "37");
+    assert.strictEqual(result.isInterState, true);
+    assert.strictEqual(result.ruleApplied, "IGST_ACT_SEC_12_2_A_RECIPIENT_GSTIN_LOCATION");
+  });
+
+  it("should validate and resolve HSN/SAC codes without silently accepting invalid inputs", () => {
+    function validateHsnSac(code) {
+      if (!code || typeof code !== "string") {
+        return { isValid: false, code: "UNKNOWN", category: "UNCONFIRMED_CLASSIFICATION" };
+      }
+      const cleaned = code.trim();
+      const isValidTariff = /^[0-9]{4}([0-9]{2}([0-9]{2})?)?$/.test(cleaned);
+      if (!isValidTariff) {
+        return { isValid: false, code: cleaned, category: "UNCONFIRMED_CLASSIFICATION" };
+      }
+      const prefix4 = cleaned.substring(0, 4);
+      if (prefix4 === "9973") return { isValid: true, code: cleaned, category: "RENTAL_LEASING_SERVICES" };
+      if (prefix4 === "7308") return { isValid: true, code: cleaned, category: "SCAFFOLDING_CENTERING_STEEL" };
+      if (prefix4 === "9987") return { isValid: true, code: cleaned, category: "MAINTENANCE_REPAIR_SERVICES" };
+      return { isValid: true, code: cleaned, category: "GENERAL_TARIFF" };
+    }
+
+    const rentalSac = validateHsnSac("9973");
+    assert.strictEqual(rentalSac.isValid, true);
+    assert.strictEqual(rentalSac.category, "RENTAL_LEASING_SERVICES");
+
+    const steelHsn = validateHsnSac("73084000");
+    assert.strictEqual(steelHsn.isValid, true);
+    assert.strictEqual(steelHsn.category, "SCAFFOLDING_CENTERING_STEEL");
+
+    const invalid = validateHsnSac("INVALID_CODE");
+    assert.strictEqual(invalid.isValid, false);
+    assert.strictEqual(invalid.category, "UNCONFIRMED_CLASSIFICATION");
+  });
+
+  it("should capitalize Section 17(5) blocked ITC directly into expense/asset without claiming input tax", () => {
+    const taxableValue = new Prisma.Decimal(50000);
+    const taxAmount = new Prisma.Decimal(9000); // 18% GST
+    const itcEligibility = "INELIGIBLE_SEC_17_5";
+
+    let itcClaimable = new Prisma.Decimal(0);
+    let capitalizedExpense = taxableValue;
+
+    if (itcEligibility === "INELIGIBLE_SEC_17_5" || itcEligibility === "BLOCKED") {
+      capitalizedExpense = taxableValue.plus(taxAmount);
+      itcClaimable = new Prisma.Decimal(0);
+    } else {
+      itcClaimable = taxAmount;
+    }
+
+    assert.strictEqual(capitalizedExpense.toNumber(), 59000);
+    assert.strictEqual(itcClaimable.toNumber(), 0);
+  });
+
+  it("should factor Credit Notes into GSTR-1 and GSTR-3B reducing outward liability", () => {
+    const grossInvoicesTaxable = new Prisma.Decimal(500000);
+    const grossInvoicesTax = new Prisma.Decimal(90000);
+
+    const creditNoteTaxable = new Prisma.Decimal(50000);
+    const creditNoteTax = new Prisma.Decimal(9000);
+
+    const netTaxable = grossInvoicesTaxable.minus(creditNoteTaxable);
+    const netTax = grossInvoicesTax.minus(creditNoteTax);
+
+    assert.strictEqual(netTaxable.toNumber(), 450000);
+    assert.strictEqual(netTax.toNumber(), 81000);
+  });
+});

@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     await requirePermission(session, "accounting", "view");
 
     const { searchParams } = new URL(req.url);
-    const reportType = searchParams.get("type") || "gstr1"; // "gstr1" or "gstr3b"
+    const reportType = searchParams.get("type"); // "gstr1", "gstr3b", or null for both
     const startDate = searchParams.get("startDate") || undefined;
     const endDate = searchParams.get("endDate") || undefined;
 
@@ -18,8 +18,17 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, data });
     }
 
-    const data = await getGstr1Summary(startDate, endDate);
-    return NextResponse.json({ success: true, data });
+    if (reportType === "gstr1") {
+      const data = await getGstr1Summary(startDate, endDate);
+      return NextResponse.json({ success: true, data });
+    }
+
+    const [gstr1, gstr3b] = await Promise.all([
+      getGstr1Summary(startDate, endDate),
+      getGstr3bSummary(startDate, endDate),
+    ]);
+
+    return NextResponse.json({ success: true, data: { gstr1, gstr3b } });
   } catch (error: any) {
     const status = error.message?.startsWith("UNAUTHORIZED") ? 401 : error.message?.startsWith("FORBIDDEN") ? 403 : 500;
     return NextResponse.json({ success: false, error: { message: error.message } }, { status });

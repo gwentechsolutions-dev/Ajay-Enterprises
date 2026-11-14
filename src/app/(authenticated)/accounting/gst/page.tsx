@@ -80,6 +80,14 @@ export default function GstCenterPage() {
         </div>
       </div>
 
+      {/* Statutory Return Preparation Banner */}
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex items-start gap-3">
+        <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+        <div className="text-xs text-amber-900 leading-relaxed">
+          <span className="font-semibold">Statutory Return Preparation Mode:</span> The GSTR-1 and GSTR-3B summaries below are derived directly from posted operational invoices, Credit/Debit Notes, and purchase bills with Section 17(5) blocked credit classifications. Direct live filing or payment-offset execution requires authorized GSTN portal credentials.
+        </div>
+      </div>
+
       {/* Tabs */}
       <div className="flex border-b border-slate-200 gap-6">
         <button
@@ -325,3 +333,4 @@ export default function GstCenterPage() {
     </div>
   );
 }
+

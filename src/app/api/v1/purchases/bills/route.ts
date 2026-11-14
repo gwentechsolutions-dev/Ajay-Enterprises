@@ -203,8 +203,9 @@ export async function POST(req: NextRequest) {
         },
       ];
 
-      // Dr: Input Tax Credit (if eligible)
-      if (input.itcEligibility !== "INELIGIBLE_SEC_17_5") {
+      // Dr: Input Tax Credit (if eligible under GST Sec 16; capitalize if blocked under Sec 17(5))
+      const isBlockedItc = input.itcEligibility === "INELIGIBLE_SEC_17_5" || input.itcEligibility === "BLOCKED";
+      if (!isBlockedItc) {
         if (totalCgst.gt(0)) {
           journalLines.push({
             accountId: cgstItcAcc!.id,

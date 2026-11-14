@@ -25,8 +25,14 @@ export async function getTrialBalance(asOfDate?: Date | string, fiscalYear?: str
       journalEntry: {
         status: "POSTED",
         postingDate: { lte: targetDate },
-        fiscalYear: fy,
       },
+      OR: [
+        { account: { accountCategory: { in: ["ASSET", "LIABILITY", "EQUITY"] } } },
+        { journalEntry: { fiscalYear: fy }, account: { accountCategory: { in: ["INCOME", "EXPENSE"] } } },
+      ],
+    },
+    include: {
+      account: true,
     },
   });
 
@@ -325,6 +331,7 @@ export async function getSupplierAgeing(asOfDate?: Date | string) {
 
 /**
  * 6. GSTR-1 Outward Supply Summary (Tax liability on sales & rentals)
+ * Includes outward invoices, Table 9B Credit/Debit Note adjustments, and HSN summary.
  */
 export async function getGstr1Summary(startDate?: Date | string, endDate?: Date | string) {
   const start = startDate ? new Date(startDate) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -340,6 +347,19 @@ export async function getGstr1Summary(startDate?: Date | string, endDate?: Date 
       items: true,
     },
     orderBy: { invoiceDate: "asc" },
+  });
+
+  const creditDebitNotes = await db.creditDebitNote.findMany({
+    where: {
+      status: { in: ["ISSUED", "POSTED"] },
+      noteDate: { gte: start, lte: end },
+    },
+    include: {
+      customer: true,
+      invoice: true,
+      items: true,
+    },
+    orderBy: { noteDate: "asc" },
   });
 
   const b2bInvoices: any[] = [];
@@ -413,24 +433,71 @@ export async function getGstr1Summary(startDate?: Date | string, endDate?: Date 
     }
   }
 
+  // Factor in Credit / Debit Notes (Table 9B of GSTR-1)
+  let cdnNetTaxable = new Prisma.Decimal(0);
+  let cdnNetCgst = new Prisma.Decimal(0);
+  let cdnNetSgst = new Prisma.Decimal(0);
+  let cdnNetIgst = new Prisma.Decimal(0);
+
+  const formattedCdnNotes = creditDebitNotes.map((cdn) => {
+    const isCredit = cdn.noteType.includes("CREDIT");
+    const sign = isCredit ? new Prisma.Decimal(-1) : new Prisma.Decimal(1);
+
+    cdnNetTaxable = cdnNetTaxable.plus(cdn.taxableAmount.mul(sign));
+    cdnNetCgst = cdnNetCgst.plus(cdn.cgstAmount.mul(sign));
+    cdnNetSgst = cdnNetSgst.plus(cdn.sgstAmount.mul(sign));
+    cdnNetIgst = cdnNetIgst.plus(cdn.igstAmount.mul(sign));
+
+    return {
+      noteNumber: cdn.noteNumber,
+      noteType: cdn.noteType,
+      noteDate: cdn.noteDate,
+      originalInvoiceNumber: cdn.invoice.invoiceNumber,
+      customerName: cdn.customer.name,
+      customerGstin: cdn.customer.gstin,
+      taxableAmount: cdn.taxableAmount,
+      cgstAmount: cdn.cgstAmount,
+      sgstAmount: cdn.sgstAmount,
+      igstAmount: cdn.igstAmount,
+      grandTotal: cdn.totalAmount,
+    };
+  });
+
+  const netTaxable = totalTaxable.plus(cdnNetTaxable);
+  const netCgst = totalCgst.plus(cdnNetCgst);
+  const netSgst = totalSgst.plus(cdnNetSgst);
+  const netIgst = totalIgst.plus(cdnNetIgst);
+  const netTotalTax = netCgst.plus(netSgst).plus(netIgst);
+
   return {
     periodStart: start,
     periodEnd: end,
-    totalTaxable,
-    totalCgst,
-    totalSgst,
-    totalIgst,
-    grandTotal,
+    grossTaxable: totalTaxable,
+    grossCgst: totalCgst,
+    grossSgst: totalSgst,
+    grossIgst: totalIgst,
+    grossTotal: grandTotal,
+    netTaxable,
+    netCgst,
+    netSgst,
+    netIgst,
+    netTotalTax,
     b2bCount: b2bInvoices.length,
     b2cCount: b2cInvoices.length,
     b2bInvoices,
     b2cInvoices,
+    creditDebitNotes: formattedCdnNotes,
     hsnSummary: Object.values(hsnSummaryMap),
+    filingStatus: "PREPARATION_REPORT",
+    isReturnPreparationOnly: true,
+    statutoryDisclaimer:
+      "This report is generated for GST return preparation and reconciliation. Filing must be completed directly via the authorized GSTN portal or an approved GSP.",
   };
 }
 
 /**
  * 7. GSTR-3B Summary (Net Outward Liability vs Inward ITC Available)
+ * Reconciles outward liability (less credit notes) against eligible ITC and Table 4(D) blocked credits.
  */
 export async function getGstr3bSummary(startDate?: Date | string, endDate?: Date | string) {
   const start = startDate ? new Date(startDate) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -451,12 +518,44 @@ export async function getGstr3bSummary(startDate?: Date | string, endDate?: Date
     },
   });
 
+  // Credit / Debit Notes for outward adjustments
+  const cdnNotes = await db.creditDebitNote.findMany({
+    where: {
+      status: { in: ["ISSUED", "POSTED"] },
+      noteDate: { gte: start, lte: end },
+    },
+    select: {
+      noteType: true,
+      taxableAmount: true,
+      cgstAmount: true,
+      sgstAmount: true,
+      igstAmount: true,
+      totalAmount: true,
+    },
+  });
+
+  let cdnNetTaxable = new Prisma.Decimal(0);
+  let cdnNetCgst = new Prisma.Decimal(0);
+  let cdnNetSgst = new Prisma.Decimal(0);
+  let cdnNetIgst = new Prisma.Decimal(0);
+  let cdnNetTotal = new Prisma.Decimal(0);
+
+  for (const cdn of cdnNotes) {
+    const isCredit = cdn.noteType.includes("CREDIT");
+    const sign = isCredit ? new Prisma.Decimal(-1) : new Prisma.Decimal(1);
+    cdnNetTaxable = cdnNetTaxable.plus(cdn.taxableAmount.mul(sign));
+    cdnNetCgst = cdnNetCgst.plus(cdn.cgstAmount.mul(sign));
+    cdnNetSgst = cdnNetSgst.plus(cdn.sgstAmount.mul(sign));
+    cdnNetIgst = cdnNetIgst.plus(cdn.igstAmount.mul(sign));
+    cdnNetTotal = cdnNetTotal.plus(cdn.totalAmount.mul(sign));
+  }
+
   // Inward Supplies & Eligible ITC (Purchase Bills)
-  const inward = await db.purchaseBill.aggregate({
+  const inwardEligible = await db.purchaseBill.aggregate({
     where: {
       status: { in: ["APPROVED", "POSTED"] },
       billDate: { gte: start, lte: end },
-      itcEligibility: { in: ["INPUT_GOODS", "INPUT_SERVICES", "CAPITAL_GOODS"] },
+      itcEligibility: { in: ["INPUT_GOODS", "INPUT_SERVICES", "CAPITAL_GOODS", "ELIGIBLE"] },
     },
     _sum: {
       taxableAmount: true,
@@ -467,13 +566,31 @@ export async function getGstr3bSummary(startDate?: Date | string, endDate?: Date
     },
   });
 
-  const outCgst = outward._sum.cgstAmount || new Prisma.Decimal(0);
-  const outSgst = outward._sum.sgstAmount || new Prisma.Decimal(0);
-  const outIgst = outward._sum.igstAmount || new Prisma.Decimal(0);
+  // Inward Supplies with Ineligible / Blocked ITC under Section 17(5) (Table 4(D))
+  const inwardIneligible = await db.purchaseBill.aggregate({
+    where: {
+      status: { in: ["APPROVED", "POSTED"] },
+      billDate: { gte: start, lte: end },
+      itcEligibility: { in: ["INELIGIBLE_SEC_17_5", "BLOCKED"] },
+    },
+    _sum: {
+      taxableAmount: true,
+      cgstAmount: true,
+      sgstAmount: true,
+      igstAmount: true,
+      grandTotal: true,
+    },
+  });
 
-  const inCgst = inward._sum.cgstAmount || new Prisma.Decimal(0);
-  const inSgst = inward._sum.sgstAmount || new Prisma.Decimal(0);
-  const inIgst = inward._sum.igstAmount || new Prisma.Decimal(0);
+  const outTaxable = (outward._sum.taxableAmount || new Prisma.Decimal(0)).plus(cdnNetTaxable);
+  const outCgst = (outward._sum.cgstAmount || new Prisma.Decimal(0)).plus(cdnNetCgst);
+  const outSgst = (outward._sum.sgstAmount || new Prisma.Decimal(0)).plus(cdnNetSgst);
+  const outIgst = (outward._sum.igstAmount || new Prisma.Decimal(0)).plus(cdnNetIgst);
+  const outTotal = (outward._sum.grandTotal || new Prisma.Decimal(0)).plus(cdnNetTotal);
+
+  const inCgst = inwardEligible._sum.cgstAmount || new Prisma.Decimal(0);
+  const inSgst = inwardEligible._sum.sgstAmount || new Prisma.Decimal(0);
+  const inIgst = inwardEligible._sum.igstAmount || new Prisma.Decimal(0);
 
   // Net Tax Payable
   const netCgstPayable = outCgst.minus(inCgst);
@@ -485,18 +602,25 @@ export async function getGstr3bSummary(startDate?: Date | string, endDate?: Date
     periodStart: start,
     periodEnd: end,
     outwardSupplies: {
-      taxableValue: outward._sum.taxableAmount || new Prisma.Decimal(0),
+      taxableValue: outTaxable,
       cgstAmount: outCgst,
       sgstAmount: outSgst,
       igstAmount: outIgst,
-      totalAmount: outward._sum.grandTotal || new Prisma.Decimal(0),
+      totalAmount: outTotal,
     },
     eligibleItc: {
-      taxableValue: inward._sum.taxableAmount || new Prisma.Decimal(0),
+      taxableValue: inwardEligible._sum.taxableAmount || new Prisma.Decimal(0),
       cgstAmount: inCgst,
       sgstAmount: inSgst,
       igstAmount: inIgst,
-      totalAmount: inward._sum.grandTotal || new Prisma.Decimal(0),
+      totalAmount: inwardEligible._sum.grandTotal || new Prisma.Decimal(0),
+    },
+    ineligibleItcSec17_5: {
+      taxableValue: inwardIneligible._sum.taxableAmount || new Prisma.Decimal(0),
+      cgstAmount: inwardIneligible._sum.cgstAmount || new Prisma.Decimal(0),
+      sgstAmount: inwardIneligible._sum.sgstAmount || new Prisma.Decimal(0),
+      igstAmount: inwardIneligible._sum.igstAmount || new Prisma.Decimal(0),
+      totalAmount: inwardIneligible._sum.grandTotal || new Prisma.Decimal(0),
     },
     netPayable: {
       cgst: netCgstPayable.lt(0) ? new Prisma.Decimal(0) : netCgstPayable,
@@ -509,6 +633,10 @@ export async function getGstr3bSummary(startDate?: Date | string, endDate?: Date
       sgst: netSgstPayable.lt(0) ? netSgstPayable.abs() : new Prisma.Decimal(0),
       igst: netIgstPayable.lt(0) ? netIgstPayable.abs() : new Prisma.Decimal(0),
     },
+    filingStatus: "PREPARATION_REPORT",
+    isReturnPreparationOnly: true,
+    statutoryDisclaimer:
+      "This report is generated for GST return preparation and reconciliation. Live filing requires authorized GSTN portal connectivity.",
   };
 }
 
