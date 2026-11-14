@@ -309,7 +309,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed, mobileOpen, setMobileOpen
             <div className="flex items-center justify-between text-xs text-slate-400">
               <span className="truncate">AJAY ENTERPRISES ERP</span>
               <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-500/20">
-                Phase 1 Live
+                v1.0 Live
               </span>
             </div>
           </div>
