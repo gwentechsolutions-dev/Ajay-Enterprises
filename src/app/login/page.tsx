@@ -75,8 +75,21 @@ export default function LoginPage() {
         return;
       }
 
-      toast.success("Welcome back! Redirecting to dashboard...");
-      router.push("/dashboard");
+      let destination = "/dashboard";
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        const reqTarget = params.get("redirect");
+        if (reqTarget && reqTarget.startsWith("/") && !reqTarget.startsWith("//")) {
+          destination = reqTarget;
+        }
+      }
+
+      toast.success(
+        destination !== "/dashboard"
+          ? "Welcome back! Redirecting to your page..."
+          : "Welcome back! Redirecting to dashboard..."
+      );
+      router.push(destination);
       router.refresh();
     } catch {
       setServerError("Network error. Could not connect to the server.");

@@ -46,10 +46,14 @@ export async function middleware(request: NextRequest) {
         pathname.startsWith("/api/v1/auth/forgot-password") ||
         pathname.startsWith("/api/v1/auth/reset-password");
 
-      // Redirect unauthenticated web page visits to /login
+      // Redirect unauthenticated web page visits to /login preserving intended destination
       if (!user && !isAuthPage && !isPublicApi && !pathname.startsWith("/api/")) {
         const url = request.nextUrl.clone();
         url.pathname = "/login";
+        const target = pathname + (request.nextUrl.search || "");
+        if (target !== "/" && target !== "/dashboard") {
+          url.searchParams.set("redirect", target);
+        }
         return NextResponse.redirect(url);
       }
     } catch (e) {
