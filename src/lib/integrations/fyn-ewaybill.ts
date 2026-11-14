@@ -49,6 +49,21 @@ export async function generateFYNWayBill(
   const baseUrl = process.env.FYN_BASE_URL || "https://sandbox.fyn.in/api/v1/ewaybill";
   const isSandbox = !process.env.FYN_API_KEY || baseUrl.includes("sandbox");
 
+  // Strictly isolate demo documents from live FYN/GSTN transmission
+  if (req.documentNumber?.includes("DEMO")) {
+    const ewbNumber = `3112${Date.now().toString().slice(-8)}`;
+    const validUntil = new Date(Date.now() + 48 * 3600 * 1000);
+    return {
+      success: true,
+      ewbNumber,
+      validUntil,
+      status: "ACTIVE",
+      fynReferenceId: `FYN-DEMO-SIM-${Date.now()}`,
+      message: "[DEMO SIMULATION] FYN E-Way Bill simulated successfully for demo document.",
+      rawResponse: { simulated: true, documentNumber: req.documentNumber },
+    };
+  }
+
   // Mask payload to prevent logging secrets or sensitive auth
   const maskedPayload = {
     documentNumber: req.documentNumber,

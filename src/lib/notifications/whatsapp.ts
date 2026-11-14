@@ -36,6 +36,18 @@ export async function sendWhatsAppNotification(
       return { success: false, error: "Invalid mobile number for WhatsApp delivery." };
     }
 
+    // Strictly isolate demo documents from live external delivery
+    if (
+      payload.documentNumber?.includes("DEMO") ||
+      cleanMobile.startsWith("984501111")
+    ) {
+      return {
+        success: true,
+        messageId: "SIMULATED_DEMO_WHATSAPP_MSG",
+        error: undefined,
+      };
+    }
+
     if (isIntegrationActive) {
       // Live WhatsApp Cloud API call
       const res = await fetch("https://graph.facebook.com/v18.0/messages", {

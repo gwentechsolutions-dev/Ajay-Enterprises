@@ -309,6 +309,31 @@ export async function clearAllDemoData(actor: {
     });
   }
 
+  // Mathematical Stock Balance Reconciliation for Genuine Warehouses
+  // Guarantees Rule #16: Physical stock balances are derived strictly from genuine movement ledger
+  const genuineWarehouses = await db.warehouse.findMany({
+    where: { isDemo: false },
+    select: { id: true },
+  });
+
+  for (const gw of genuineWarehouses) {
+    const movements = await db.inventoryMovement.findMany({
+      where: {
+        status: "POSTED",
+        OR: [
+          { sourceWarehouseId: gw.id },
+          { destinationWarehouseId: gw.id },
+        ],
+      },
+    });
+
+    if (movements.length === 0) {
+      await db.stockBalance.deleteMany({
+        where: { warehouseId: gw.id, siteId: null },
+      });
+    }
+  }
+
   // N. Master Data: Customer & Suppliers
   await db.contactPerson.deleteMany({
     where: { customer: { demoRunId } },

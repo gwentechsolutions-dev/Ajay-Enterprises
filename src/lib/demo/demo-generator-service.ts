@@ -117,12 +117,15 @@ export async function generateComprehensiveDemoData(actor: {
     }
 
     // Warehouses
-    let mainYard = await db.warehouse.findFirst({ where: { warehouseCode: "WH-PNY-01" } });
+    // Warehouses (Dedicated Demo Warehouses to guarantee zero collision with genuine stock)
+    let mainYard = await db.warehouse.findFirst({
+      where: { warehouseCode: "WH-DEMO-01" },
+    });
     if (!mainYard) {
       mainYard = await db.warehouse.create({
         data: {
-          warehouseCode: "WH-PNY-01",
-          name: "AJAY ENTERPRISES Main Yard - Peenya",
+          warehouseCode: "WH-DEMO-01",
+          name: "AJAY ENTERPRISES Demo Main Yard - Peenya",
           warehouseType: "MAIN_YARD",
           addressLine1: "Plot 42, 3rd Phase, Peenya Industrial Area",
           city: "Bengaluru",
@@ -137,14 +140,22 @@ export async function generateComprehensiveDemoData(actor: {
       });
       track("Warehouse", mainYard.id, mainYard.warehouseCode, "Demo Main Yard");
       counts.masterData++;
+    } else {
+      mainYard = await db.warehouse.update({
+        where: { id: mainYard.id },
+        data: { isDemo: true, demoRunId },
+      });
+      track("Warehouse", mainYard.id, mainYard.warehouseCode, "Demo Main Yard");
     }
 
-    let secondaryYard = await db.warehouse.findFirst({ where: { warehouseCode: "WH-WTF-02" } });
+    let secondaryYard = await db.warehouse.findFirst({
+      where: { warehouseCode: "WH-DEMO-02" },
+    });
     if (!secondaryYard) {
       secondaryYard = await db.warehouse.create({
         data: {
-          warehouseCode: "WH-WTF-02",
-          name: "AJAY ENTERPRISES Secondary Yard - Whitefield",
+          warehouseCode: "WH-DEMO-02",
+          name: "AJAY ENTERPRISES Demo Secondary Yard - Whitefield",
           warehouseType: "SECONDARY_YARD",
           addressLine1: "Survey 18, Hoodi Industrial Area, Whitefield",
           city: "Bengaluru",
@@ -159,6 +170,12 @@ export async function generateComprehensiveDemoData(actor: {
       });
       track("Warehouse", secondaryYard.id, secondaryYard.warehouseCode, "Demo Secondary Yard");
       counts.masterData++;
+    } else {
+      secondaryYard = await db.warehouse.update({
+        where: { id: secondaryYard.id },
+        data: { isDemo: true, demoRunId },
+      });
+      track("Warehouse", secondaryYard.id, secondaryYard.warehouseCode, "Demo Secondary Yard");
     }
 
     // Fetch existing material variants or create supplementary demo variants
@@ -2037,11 +2054,11 @@ export async function generateComprehensiveDemoData(actor: {
         lines: {
           create: [
             {
-              accountId: getAccId("5050"),
+              accountId: getAccId("5010"),
               debitAmount: new Prisma.Decimal("630000.00"),
               creditAmount: new Prisma.Decimal("0.00"),
               supplierId: sup1.id,
-              description: "Centering Props & Spans Purchases",
+              description: "Centering Props & Spans Purchases (COGS)",
             },
             {
               accountId: getAccId("1060"),
@@ -2403,10 +2420,10 @@ export async function generateComprehensiveDemoData(actor: {
               description: "Vehicle KA-01-EA-4412 Scheduled Servicing",
             },
             {
-              accountId: getAccId("5010"),
+              accountId: getAccId("5050"),
               debitAmount: new Prisma.Decimal("3400.00"),
               creditAmount: new Prisma.Decimal("0.00"),
-              description: "Prop Straightening & Welding Materials/Parts",
+              description: "Prop Straightening & Welding Materials/Parts (Maintenance)",
             },
             {
               accountId: getAccId("1070"),
