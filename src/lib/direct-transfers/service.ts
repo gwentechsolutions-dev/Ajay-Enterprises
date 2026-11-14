@@ -632,7 +632,155 @@ export async function receiveDirectTransfer(
         });
       }
 
-      // 8. Update transfer line item with reconciled quantities
+      // 8. Traceable custody workflows for Damaged, Missing, and Rejected quantities
+      // Find a warehouse for repair/loss routing
+      const targetWarehouse = input.warehouseId
+        ? await tx.warehouse.findUnique({ where: { id: input.warehouseId } })
+        : await tx.warehouse.findFirst();
+
+      if (qDamaged.gt(0)) {
+        // A. Enter Damaged/Repair Assessment workflow
+        const dlaNumber = await generateNextDocumentNumber("DLA");
+        await tx.damageLossAssessment.create({
+          data: {
+            assessmentNumber: dlaNumber,
+            customerId: transfer.sourceCustomerId,
+            customerSiteId: transfer.destinationCustomerSiteId,
+            materialVariantId: item.materialVariantId,
+            directSiteTransferId: transfer.id,
+            assessmentType: "DAMAGED_REPAIRABLE",
+            quantity: qDamaged,
+            condition: "DAMAGED",
+            status: "PENDING_APPROVAL",
+            assessedById: actor.id,
+            remarks: rec.remarks || `Damaged upon receipt of Direct Transfer ${transfer.transferNumber}. Responsible: ${input.discrepancyResponsibleParty || "UNDER_INVESTIGATION"}`,
+          },
+        });
+
+        // B. Queue Material Repair Job if warehouse exists
+        if (targetWarehouse) {
+          const repCode = await generateNextDocumentNumber("MAT_REP");
+          await tx.materialRepairJob.create({
+            data: {
+              jobCode: repCode,
+              warehouseId: targetWarehouse.id,
+              materialVariantId: item.materialVariantId,
+              ownershipType: item.ownershipType,
+              directSiteTransferId: transfer.id,
+              totalQuantity: qDamaged,
+              remainingQuantity: qDamaged,
+              damageDescription: `Damaged during direct transfer ${transfer.transferNumber} from ${transfer.sourceCustomerSite.siteName}. Awaiting repair.`,
+              status: "REPORTED",
+              priority: "MEDIUM",
+              remarks: `Direct Transfer discrepancy: ${qDamaged.toString()} units damaged`,
+            },
+          });
+        }
+
+        // C. Record damaged inventory movement so units are accounted for in ledger
+        const damMvNumber = await generateNextDocumentNumber("MV");
+        await tx.inventoryMovement.create({
+          data: {
+            movementNumber: damMvNumber,
+            materialVariantId: item.materialVariantId,
+            quantity: qDamaged,
+            uom: item.materialVariant.uom,
+            ownershipType: item.ownershipType,
+            movementType: "DAMAGE",
+            movementDate: transfer.transferDate,
+            sourceLocationType: "CUSTOMER_SITE",
+            sourceSiteId: transfer.sourceCustomerSiteId,
+            destinationLocationType: targetWarehouse ? "WAREHOUSE" : "CUSTOMER_SITE",
+            destinationWarehouseId: targetWarehouse?.id || null,
+            destinationSiteId: targetWarehouse ? null : transfer.destinationCustomerSiteId,
+            customerId: transfer.sourceCustomerId,
+            referenceDocumentType: "DIRECT_SITE_TRANSFER",
+            referenceDocumentId: transfer.id,
+            condition: "DAMAGED",
+            responsibleUserId: actor.id,
+            status: "POSTED",
+            postedAt: new Date(),
+            notes: `Damaged in Direct Transfer ${transfer.transferNumber}. Routed to repair workflow.`,
+          },
+        });
+      }
+
+      if (qMissing.gt(0)) {
+        // Enter Loss Investigation and Assessment workflow
+        const dlaMissingNumber = await generateNextDocumentNumber("DLA");
+        await tx.damageLossAssessment.create({
+          data: {
+            assessmentNumber: dlaMissingNumber,
+            customerId: transfer.sourceCustomerId,
+            customerSiteId: transfer.destinationCustomerSiteId,
+            materialVariantId: item.materialVariantId,
+            directSiteTransferId: transfer.id,
+            assessmentType: "MISSING",
+            quantity: qMissing,
+            condition: "MISSING",
+            status: "PENDING_APPROVAL",
+            assessedById: actor.id,
+            remarks: rec.remarks || `Missing equipment during Direct Transfer ${transfer.transferNumber}. Responsible: ${input.discrepancyResponsibleParty || "UNDER_INVESTIGATION"}`,
+          },
+        });
+
+        // Record loss tracking movement
+        const misMvNumber = await generateNextDocumentNumber("MV");
+        await tx.inventoryMovement.create({
+          data: {
+            movementNumber: misMvNumber,
+            materialVariantId: item.materialVariantId,
+            quantity: qMissing,
+            uom: item.materialVariant.uom,
+            ownershipType: item.ownershipType,
+            movementType: "DAMAGE",
+            movementDate: transfer.transferDate,
+            sourceLocationType: "CUSTOMER_SITE",
+            sourceSiteId: transfer.sourceCustomerSiteId,
+            destinationLocationType: "CUSTOMER_SITE",
+            destinationSiteId: null,
+            customerId: transfer.sourceCustomerId,
+            referenceDocumentType: "DIRECT_SITE_TRANSFER",
+            referenceDocumentId: transfer.id,
+            condition: "DAMAGED",
+            responsibleUserId: actor.id,
+            status: "POSTED",
+            postedAt: new Date(),
+            notes: `Missing units in Direct Transfer ${transfer.transferNumber}. Under loss investigation.`,
+          },
+        });
+      }
+
+      if (qRejected.gt(0)) {
+        // Record rejected custody disposition
+        const rejMvNumber = await generateNextDocumentNumber("MV");
+        await tx.inventoryMovement.create({
+          data: {
+            movementNumber: rejMvNumber,
+            materialVariantId: item.materialVariantId,
+            quantity: qRejected,
+            uom: item.materialVariant.uom,
+            ownershipType: item.ownershipType,
+            movementType: "INTERNAL_TRANSFER",
+            movementDate: transfer.transferDate,
+            sourceLocationType: "CUSTOMER_SITE",
+            sourceSiteId: transfer.sourceCustomerSiteId,
+            destinationLocationType: targetWarehouse ? "WAREHOUSE" : "CUSTOMER_SITE",
+            destinationWarehouseId: targetWarehouse?.id || null,
+            destinationSiteId: null,
+            customerId: transfer.sourceCustomerId,
+            referenceDocumentType: "DIRECT_SITE_TRANSFER",
+            referenceDocumentId: transfer.id,
+            condition: "REJECTED",
+            responsibleUserId: actor.id,
+            status: "POSTED",
+            postedAt: new Date(),
+            notes: `Rejected in Direct Transfer ${transfer.transferNumber}. Disposition: ${input.rejectedDisposition || "RETURN_TO_WAREHOUSE"}`,
+          },
+        });
+      }
+
+      // 9. Update transfer line item with reconciled quantities
       await tx.directSiteTransferItem.update({
         where: { id: item.id },
         data: {
@@ -646,7 +794,7 @@ export async function receiveDirectTransfer(
       });
     }
 
-    // 9. Update transfer note status and destination evidence
+    // 10. Update transfer note status, destination evidence, and discrepancy governance
     const finalStatus = hasDiscrepancy ? "PARTIALLY_RECEIVED" : "COMPLETED";
 
     const completedTransfer = await tx.directSiteTransferNote.update({
@@ -660,6 +808,8 @@ export async function receiveDirectTransfer(
         destGpsLng: input.destGpsLng !== undefined && input.destGpsLng !== null ? new Prisma.Decimal(input.destGpsLng) : null,
         destPhotoUrl: input.destPhotoUrl || null,
         discrepancyNotes: input.discrepancyNotes || null,
+        discrepancyResponsibleParty: input.discrepancyResponsibleParty || (hasDiscrepancy ? "UNDER_INVESTIGATION" : null),
+        rejectedDisposition: input.rejectedDisposition || (hasDiscrepancy ? "RETURN_TO_WAREHOUSE" : null),
         receivedAt: new Date(),
         receivedById: actor.id,
         status: finalStatus,

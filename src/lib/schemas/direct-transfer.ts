@@ -67,6 +67,15 @@ export const receiveDirectTransferSchema = z.object({
   destGpsLng: z.coerce.number().optional().nullable(),
   destPhotoUrl: z.string().optional().nullable(),
   discrepancyNotes: z.string().optional().nullable(),
+  discrepancyResponsibleParty: z
+    .enum(["SOURCE_CUSTOMER", "TRANSPORTER", "DESTINATION_CUSTOMER", "UNDER_INVESTIGATION"])
+    .default("UNDER_INVESTIGATION")
+    .optional(),
+  rejectedDisposition: z
+    .enum(["RETURN_TO_WAREHOUSE", "HELD_IN_TRANSIT", "RETURNED_TO_SOURCE"])
+    .default("RETURN_TO_WAREHOUSE")
+    .optional(),
+  warehouseId: z.string().uuid().optional().nullable(),
   items: z.array(receiveTransferItemSchema).min(1, "At least one item must be reconciled"),
 });
 

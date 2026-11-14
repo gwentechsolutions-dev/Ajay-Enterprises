@@ -1489,6 +1489,8 @@ model DirectSiteTransferNote {
   transportCharges             Decimal                   @default(0) @db.Decimal(15, 2)
   notes                        String?
   discrepancyNotes             String?
+  discrepancyResponsibleParty  String?                   @default("UNDER_INVESTIGATION") // SOURCE_CUSTOMER, TRANSPORTER, DESTINATION_CUSTOMER, UNDER_INVESTIGATION
+  rejectedDisposition          String?                   @default("RETURN_TO_WAREHOUSE") // RETURN_TO_WAREHOUSE, HELD_IN_TRANSIT, RETURNED_TO_SOURCE
   createdById                  String?                   @db.Uuid
   approvedById                 String?                   @db.Uuid
   approvedAt                   DateTime?
@@ -1508,6 +1510,8 @@ model DirectSiteTransferNote {
   items                        DirectSiteTransferItem[]
   rentalBatches                RentalBatch[]             @relation("DestBatchTransfer")
   returnAllocations            RentalReturnAllocation[]  @relation("TransferReturnAllocations")
+  damageAssessments            DamageLossAssessment[]
+  materialRepairJobs           MaterialRepairJob[]
 
   @@index([sourceCustomerId])
   @@index([sourceCustomerSiteId])
@@ -1669,6 +1673,7 @@ model DamageLossAssessment {
   materialReturnNoteId String?             @db.Uuid
   materialVariantId    String              @db.Uuid
   statementId          String?             @db.Uuid
+  directSiteTransferId String?             @db.Uuid
   assessmentType       String              // DAMAGED_REPAIRABLE, DAMAGED_SCRAP, MISSING
   quantity             Decimal             @db.Decimal(12, 3)
   condition            String              @default("DAMAGED")
@@ -1688,6 +1693,7 @@ model DamageLossAssessment {
   materialReturnNote   MaterialReturnNote? @relation(fields: [materialReturnNoteId], references: [id], onDelete: SetNull)
   materialVariant      MaterialVariant     @relation(fields: [materialVariantId], references: [id], onDelete: Restrict)
   statement            RentalStatement?    @relation(fields: [statementId], references: [id], onDelete: SetNull)
+  directSiteTransfer   DirectSiteTransferNote? @relation(fields: [directSiteTransferId], references: [id], onDelete: SetNull)
 
   @@index([assessmentNumber])
   @@index([customerId])
@@ -1695,6 +1701,7 @@ model DamageLossAssessment {
   @@index([materialReturnNoteId])
   @@index([materialVariantId])
   @@index([statementId])
+  @@index([directSiteTransferId])
   @@index([status])
 }
 
@@ -2722,6 +2729,7 @@ model MaterialRepairJob {
   ownershipType        String              @default("OWNED") // OWNED, HIRED_IN
   mrnId                String?             @db.Uuid
   rentalBatchId        String?             @db.Uuid
+  directSiteTransferId String?             @db.Uuid
   totalQuantity        Decimal             @db.Decimal(12, 3)
   repairedQuantity     Decimal             @default(0) @db.Decimal(12, 3)
   scrappedQuantity     Decimal             @default(0) @db.Decimal(12, 3)
@@ -2751,12 +2759,14 @@ model MaterialRepairJob {
   materialVariant      MaterialVariant     @relation(fields: [materialVariantId], references: [id], onDelete: Restrict)
   materialReturnNote   MaterialReturnNote? @relation(fields: [mrnId], references: [id], onDelete: SetNull)
   rentalBatch          RentalBatch?        @relation(fields: [rentalBatchId], references: [id], onDelete: SetNull)
+  directSiteTransfer   DirectSiteTransferNote? @relation(fields: [directSiteTransferId], references: [id], onDelete: SetNull)
   assignedTechnician   LabourWorker?       @relation("AssignedTechnician", fields: [assignedTechnicianId], references: [id], onDelete: SetNull)
   journalEntry         JournalEntry?       @relation(fields: [journalEntryId], references: [id], onDelete: SetNull)
   logs                 MaterialRepairLog[]
 
   @@index([warehouseId])
   @@index([materialVariantId])
+  @@index([directSiteTransferId])
   @@index([status])
   @@index([ownershipType])
 }

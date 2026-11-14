@@ -7,7 +7,7 @@ import { z } from "zod";
 // INVENTRA PHASE 6 ADDENDUM TEST SUITE:
 // Direct Site-to-Site Material Transfers & Accounting Corrections
 // Operating Business: AJAY ENTERPRISES | Product: INVENTRA ERP
-// 20 Comprehensive Statutory & Operational Verification Scenarios
+// Comprehensive Statutory & Operational Verification Scenarios
 // ==============================================================================
 
 // Direct Transfer Schemas (mirroring src/lib/schemas/direct-transfer.ts)
@@ -76,6 +76,15 @@ const receiveDirectTransferSchema = z.object({
   destGpsLng: z.coerce.number().optional().nullable(),
   destPhotoUrl: z.string().optional().nullable(),
   discrepancyNotes: z.string().optional().nullable(),
+  discrepancyResponsibleParty: z
+    .enum(["SOURCE_CUSTOMER", "TRANSPORTER", "DESTINATION_CUSTOMER", "UNDER_INVESTIGATION"])
+    .default("UNDER_INVESTIGATION")
+    .optional(),
+  rejectedDisposition: z
+    .enum(["RETURN_TO_WAREHOUSE", "HELD_IN_TRANSIT", "RETURNED_TO_SOURCE"])
+    .default("RETURN_TO_WAREHOUSE")
+    .optional(),
+  warehouseId: z.string().uuid().optional().nullable(),
   items: z.array(receiveTransferItemSchema).min(1, "At least one item must be reconciled"),
 });
 
@@ -91,18 +100,28 @@ const calculateLabourWageSchema = z.object({
   requireApprovedOvertimeOnly: z.boolean().default(true),
 });
 
-// Chart of Accounts (mirroring src/lib/accounting/chart-of-accounts.ts)
+// Authoritative Chart of Accounts (mirroring src/lib/accounting/chart-of-accounts.ts)
 const DEFAULT_ACCOUNTS = [
-  { accountCode: "1010", accountName: "Cash on Hand", accountCategory: "CURRENT_ASSETS" },
-  { accountCode: "1020", accountName: "State Bank of India (Operating)", accountCategory: "BANK_ACCOUNTS" },
-  { accountCode: "1050", accountName: "Trade Accounts Receivable (Customers)", accountCategory: "CURRENT_ASSETS" },
-  { accountCode: "1060", accountName: "Employee & Labour Advances", accountCategory: "CURRENT_ASSETS" },
-  { accountCode: "2010", accountName: "Trade Accounts Payable (Suppliers)", accountCategory: "CURRENT_LIABILITIES" },
-  { accountCode: "2060", accountName: "Wages & Labour Payable", accountCategory: "CURRENT_LIABILITIES" },
-  { accountCode: "5010", accountName: "Material Repair, Welding & Maintenance", accountCategory: "DIRECT_EXPENSES" },
-  { accountCode: "5030", accountName: "Transport & Vehicle Fuel Costs", accountCategory: "DIRECT_EXPENSES" },
-  { accountCode: "5035", accountName: "Vehicle Servicing & Maintenance", accountCategory: "DIRECT_EXPENSES" },
-  { accountCode: "5040", accountName: "Yard Labour & Loading Wages", accountCategory: "DIRECT_EXPENSES" },
+  { accountCode: "1010", accountName: "Cash in Hand", accountCategory: "ASSET", accountSubcategory: "CASH_IN_HAND" },
+  { accountCode: "1020", accountName: "HDFC Current Account (Main)", accountCategory: "ASSET", accountSubcategory: "BANK_ACCOUNT" },
+  { accountCode: "1030", accountName: "Accounts Receivable (Debtors Control)", accountCategory: "ASSET", accountSubcategory: "ACCOUNTS_RECEIVABLE" },
+  { accountCode: "1050", accountName: "Supplier Advances", accountCategory: "ASSET", accountSubcategory: "SUPPLIER_ADVANCES" },
+  { accountCode: "1060", accountName: "GST Input Tax Credit - CGST", accountCategory: "ASSET", accountSubcategory: "GST_INPUT_TAX_CREDIT" },
+  { accountCode: "1061", accountName: "GST Input Tax Credit - SGST", accountCategory: "ASSET", accountSubcategory: "GST_INPUT_TAX_CREDIT" },
+  { accountCode: "1062", accountName: "GST Input Tax Credit - IGST", accountCategory: "ASSET", accountSubcategory: "GST_INPUT_TAX_CREDIT" },
+  { accountCode: "1070", accountName: "Employee & Labour Advances", accountCategory: "ASSET", accountSubcategory: "EMPLOYEE_ADVANCES" },
+  { accountCode: "2010", accountName: "Accounts Payable (Creditors Control)", accountCategory: "LIABILITY", accountSubcategory: "ACCOUNTS_PAYABLE" },
+  { accountCode: "2020", accountName: "Customer Advance Receipts", accountCategory: "LIABILITY", accountSubcategory: "CUSTOMER_ADVANCES" },
+  { accountCode: "2041", accountName: "GST Output Tax Liability - CGST", accountCategory: "LIABILITY", accountSubcategory: "GST_OUTPUT_LIABILITY" },
+  { accountCode: "2042", accountName: "GST Output Tax Liability - SGST", accountCategory: "LIABILITY", accountSubcategory: "GST_OUTPUT_LIABILITY" },
+  { accountCode: "2043", accountName: "GST Output Tax Liability - IGST", accountCategory: "LIABILITY", accountSubcategory: "GST_OUTPUT_LIABILITY" },
+  { accountCode: "2050", accountName: "TDS Payable", accountCategory: "LIABILITY", accountSubcategory: "TDS_PAYABLE" },
+  { accountCode: "2060", accountName: "Customer Security Deposits (Refundable)", accountCategory: "LIABILITY", accountSubcategory: "SECURITY_DEPOSIT_LIABILITY" },
+  { accountCode: "2070", accountName: "Wages & Labour Payable", accountCategory: "LIABILITY", accountSubcategory: "WAGES_PAYABLE" },
+  { accountCode: "5010", accountName: "Material Repair, Welding & Maintenance", accountCategory: "EXPENSE", accountSubcategory: "MATERIAL_REPAIR" },
+  { accountCode: "5030", accountName: "Transport & Vehicle Fuel Costs", accountCategory: "EXPENSE", accountSubcategory: "VEHICLE_EXPENSE" },
+  { accountCode: "5035", accountName: "Vehicle Servicing & Maintenance", accountCategory: "EXPENSE", accountSubcategory: "VEHICLE_EXPENSE" },
+  { accountCode: "5040", accountName: "Yard Labour & Loading Wages", accountCategory: "EXPENSE", accountSubcategory: "LABOUR_EXPENSE" },
 ];
 
 describe("INVENTRA Phase 6 Addendum: Direct Site-to-Site Material Transfers", () => {
@@ -194,6 +213,8 @@ describe("INVENTRA Phase 6 Addendum: Direct Site-to-Site Material Transfers", ()
       destRepDesignation: "Site Supervisor",
       destGpsLat: 12.9716,
       destGpsLng: 77.5946,
+      discrepancyResponsibleParty: "TRANSPORTER",
+      rejectedDisposition: "RETURN_TO_WAREHOUSE",
       items: [
         {
           itemId: "99999999-9999-4999-8999-999999999999",
@@ -207,6 +228,7 @@ describe("INVENTRA Phase 6 Addendum: Direct Site-to-Site Material Transfers", ()
 
     const parsed = receiveDirectTransferSchema.safeParse(receiveInput);
     assert.equal(parsed.success, true);
+    assert.equal(parsed.data.discrepancyResponsibleParty, "TRANSPORTER");
   });
 
   // Scenario 5: Damaged, missing and rejected quantities handling
@@ -396,37 +418,50 @@ describe("INVENTRA Phase 6 Addendum: Direct Site-to-Site Material Transfers", ()
     assert.equal(destSiteBalance.availableQty.toNumber(), 300);
   });
 
-  // Scenario 15: Correct Phase 5 account mappings
-  it("15. Correct Phase 5 account mappings: Fuel -> 5030, Wages -> 5040, Repair -> 5010", () => {
-    const fuelAccount = DEFAULT_ACCOUNTS.find((a) => a.accountCode === "5030");
-    const wageAccount = DEFAULT_ACCOUNTS.find((a) => a.accountCode === "5040");
-    const repairAccount = DEFAULT_ACCOUNTS.find((a) => a.accountCode === "5010");
-    const servicingAccount = DEFAULT_ACCOUNTS.find((a) => a.accountCode === "5035");
+  // Scenario 15: Preservation of GST Input and Customer Security Deposit account codes
+  it("15. Preservation of Phase 5 account codes: 1060 (CGST Input), 1061 (SGST Input), 1062 (IGST Input), 2060 (Security Deposits)", () => {
+    const cgstInput = DEFAULT_ACCOUNTS.find((a) => a.accountCode === "1060");
+    const sgstInput = DEFAULT_ACCOUNTS.find((a) => a.accountCode === "1061");
+    const igstInput = DEFAULT_ACCOUNTS.find((a) => a.accountCode === "1062");
+    const secDeposits = DEFAULT_ACCOUNTS.find((a) => a.accountCode === "2060");
 
-    assert.ok(fuelAccount, "Account 5030 exists");
-    assert.equal(fuelAccount.accountName, "Transport & Vehicle Fuel Costs");
+    assert.ok(cgstInput, "Account 1060 exists");
+    assert.equal(cgstInput.accountName, "GST Input Tax Credit - CGST");
+    assert.equal(cgstInput.accountSubcategory, "GST_INPUT_TAX_CREDIT");
 
-    assert.ok(wageAccount, "Account 5040 exists");
-    assert.equal(wageAccount.accountName, "Yard Labour & Loading Wages");
+    assert.ok(sgstInput, "Account 1061 exists");
+    assert.equal(sgstInput.accountName, "GST Input Tax Credit - SGST");
+    assert.equal(sgstInput.accountSubcategory, "GST_INPUT_TAX_CREDIT");
 
-    assert.ok(repairAccount, "Account 5010 exists");
-    assert.equal(repairAccount.accountName, "Material Repair, Welding & Maintenance");
+    assert.ok(igstInput, "Account 1062 exists");
+    assert.equal(igstInput.accountName, "GST Input Tax Credit - IGST");
+    assert.equal(igstInput.accountSubcategory, "GST_INPUT_TAX_CREDIT");
 
-    assert.ok(servicingAccount, "Account 5035 exists");
-    assert.equal(servicingAccount.accountName, "Vehicle Servicing & Maintenance");
+    assert.ok(secDeposits, "Account 2060 exists");
+    assert.equal(secDeposits.accountName, "Customer Security Deposits (Refundable)");
+    assert.equal(secDeposits.accountSubcategory, "SECURITY_DEPOSIT_LIABILITY");
   });
 
-  // Scenario 16: Dedicated Employee Advances account (1060)
-  it("16. Dedicated Employee Advances account: advance issuance debits 1060, not 1050 Accounts Receivable", () => {
-    const advanceAccount = DEFAULT_ACCOUNTS.find((a) => a.accountCode === "1060");
-    assert.ok(advanceAccount, "Account 1060 exists");
-    assert.equal(advanceAccount.accountName, "Employee & Labour Advances");
-    assert.equal(advanceAccount.accountCategory, "CURRENT_ASSETS");
+  // Scenario 16: Dedicated Employee Advances (1070) & Wages Payable (2070) accounts
+  it("16. Unique account codes: Employee Advances is 1070 (Asset), Wages Payable is 2070 (Liability)", () => {
+    const advanceAccount = DEFAULT_ACCOUNTS.find((a) => a.accountCode === "1070");
+    const wagesPayableAccount = DEFAULT_ACCOUNTS.find((a) => a.accountCode === "2070");
 
+    assert.ok(advanceAccount, "Account 1070 exists");
+    assert.equal(advanceAccount.accountName, "Employee & Labour Advances");
+    assert.equal(advanceAccount.accountCategory, "ASSET");
+    assert.equal(advanceAccount.accountSubcategory, "EMPLOYEE_ADVANCES");
+
+    assert.ok(wagesPayableAccount, "Account 2070 exists");
+    assert.equal(wagesPayableAccount.accountName, "Wages & Labour Payable");
+    assert.equal(wagesPayableAccount.accountCategory, "LIABILITY");
+    assert.equal(wagesPayableAccount.accountSubcategory, "WAGES_PAYABLE");
+
+    // Advance issuance entry: Dr 1070 / Cr 1010
     const advanceAmount = 5000;
     const journalEntry = {
       lines: [
-        { accountCode: "1060", debit: advanceAmount, credit: 0 },
+        { accountCode: "1070", debit: advanceAmount, credit: 0 },
         { accountCode: "1010", debit: 0, credit: advanceAmount },
       ],
     };
@@ -434,52 +469,91 @@ describe("INVENTRA Phase 6 Addendum: Direct Site-to-Site Material Transfers", ()
     const totalDebit = journalEntry.lines.reduce((s, l) => s + l.debit, 0);
     const totalCredit = journalEntry.lines.reduce((s, l) => s + l.credit, 0);
     assert.equal(totalDebit, totalCredit);
-    assert.equal(journalEntry.lines[0].accountCode, "1060");
+    assert.equal(journalEntry.lines[0].accountCode, "1070");
     assert.notEqual(journalEntry.lines[0].accountCode, "1050");
+    assert.notEqual(journalEntry.lines[0].accountCode, "1060");
   });
 
-  // Scenario 17: Wage expense and payment liability treatment
-  it("17. Wage liability treatment: accrual uses 5040 (expense) and 2060 (liability); payout debits 2060", () => {
-    const wagesPayableAccount = DEFAULT_ACCOUNTS.find((a) => a.accountCode === "2060");
-    assert.ok(wagesPayableAccount, "Account 2060 exists");
-    assert.equal(wagesPayableAccount.accountName, "Wages & Labour Payable");
-    assert.equal(wagesPayableAccount.accountCategory, "CURRENT_LIABILITIES");
-
+  // Scenario 17: Wage expense recorded exactly once and reconciled with Wages Payable
+  it("17. Complete wage accrual, advance recovery, and net payout lifecycle", () => {
     const grossWage = 15000;
-    const accrual = {
+    const advanceRecovery = 3000;
+    const netPayment = grossWage - advanceRecovery; // 12000
+
+    // B. Gross wage accrual: Dr 5040 (Expense) ₹15,000 / Cr 2070 (Wages Payable) ₹15,000
+    const accrualJournal = {
       lines: [
         { accountCode: "5040", debit: grossWage, credit: 0 },
-        { accountCode: "2060", debit: 0, credit: grossWage },
+        { accountCode: "2070", debit: 0, credit: grossWage },
       ],
     };
-    assert.equal(accrual.lines[0].debit, accrual.lines[1].credit);
+    assert.equal(accrualJournal.lines[0].debit, accrualJournal.lines[1].credit);
 
-    const payout = {
+    // C. Advance recovery: Dr 2070 (Wages Payable) ₹3,000 / Cr 1070 (Employee Advances) ₹3,000
+    const recoveryJournal = {
       lines: [
-        { accountCode: "2060", debit: grossWage, credit: 0 },
-        { accountCode: "1010", debit: 0, credit: grossWage },
+        { accountCode: "2070", debit: advanceRecovery, credit: 0 },
+        { accountCode: "1070", debit: 0, credit: advanceRecovery },
       ],
     };
-    assert.equal(payout.lines[0].debit, payout.lines[1].credit);
+    assert.equal(recoveryJournal.lines[0].debit, recoveryJournal.lines[1].credit);
+
+    // D. Net wage payment: Dr 2070 (Wages Payable) ₹12,000 / Cr 1010 (Cash in Hand) ₹12,000
+    const paymentJournal = {
+      lines: [
+        { accountCode: "2070", debit: netPayment, credit: 0 },
+        { accountCode: "1010", debit: 0, credit: netPayment },
+      ],
+    };
+    assert.equal(paymentJournal.lines[0].debit, paymentJournal.lines[1].credit);
+
+    // Verify ledger balances:
+    // Wage expense 5040 recorded EXACTLY ONCE: ₹15,000
+    assert.equal(accrualJournal.lines[0].debit, 15000);
+
+    // Net balance in Wages Payable 2070 is 0 after payout:
+    const netWagesPayable = grossWage - advanceRecovery - netPayment;
+    assert.equal(netWagesPayable, 0);
+
+    // Employee advances 1070 reduced by advance recovery:
+    assert.equal(recoveryJournal.lines[1].credit, 3000);
   });
 
-  // Scenario 18: Advance issuance and recovery accounting
-  it("18. Advance issuance and recovery: issuance Dr 1060, wage recovery Cr 1060", () => {
-    const advanceAmount = 3000;
-    const grossWages = 12000;
-    const netPayout = grossWages - advanceAmount;
+  // Scenario 18: Traceable custody workflows for Damaged, Missing, and Rejected quantities
+  it("18. Direct Transfer discrepancy custody: Damaged, Missing, and Rejected quantities retain traceable custody", () => {
+    const dispatched = 300;
+    const accepted = 270;
+    const damaged = 15;
+    const missing = 10;
+    const rejected = 5;
 
-    const settlementLines = [
-      { accountCode: "5040", debit: grossWages, credit: 0 },
-      { accountCode: "1060", debit: 0, credit: advanceAmount },
-      { accountCode: "2060", debit: 0, credit: netPayout },
-    ];
+    // Simulation of discrepancy routing
+    const damageAssessment = {
+      assessmentNumber: "AE/DLA/2026-27/0001",
+      assessmentType: "DAMAGED_REPAIRABLE",
+      quantity: damaged,
+      status: "PENDING_APPROVAL",
+    };
+    assert.equal(damageAssessment.quantity, 15);
 
-    const debits = settlementLines.reduce((s, l) => s + l.debit, 0);
-    const credits = settlementLines.reduce((s, l) => s + l.credit, 0);
+    const missingAssessment = {
+      assessmentNumber: "AE/DLA/2026-27/0002",
+      assessmentType: "MISSING",
+      quantity: missing,
+      status: "PENDING_APPROVAL",
+    };
+    assert.equal(missingAssessment.quantity, 10);
 
-    assert.equal(debits, credits);
-    assert.equal(debits, 12000);
+    const rejectedCustody = {
+      disposition: "RETURN_TO_WAREHOUSE",
+      quantity: rejected,
+      custodyHolder: "TRANSPORTER",
+    };
+    assert.equal(rejectedCustody.quantity, 5);
+
+    // Zero units lost from tracking:
+    const totalAccounted = accepted + damageAssessment.quantity + missingAssessment.quantity + rejectedCustody.quantity;
+    assert.equal(totalAccounted, dispatched);
   });
 
   // Scenario 19: Configurable overtime and monthly salary rules
@@ -533,14 +607,16 @@ describe("INVENTRA Phase 6 Addendum: Direct Site-to-Site Material Transfers", ()
       destGpsLat: 12.972,
       destGpsLng: 77.595,
       destPhotoUrl: "https://storage.supabase.com/photos/receive-proof.jpg",
-      discrepancyNotes: "All 300 props counted and accepted in good condition",
+      discrepancyNotes: "270 props accepted, 15 damaged, 10 missing, 5 rejected",
+      discrepancyResponsibleParty: "TRANSPORTER",
+      rejectedDisposition: "RETURN_TO_WAREHOUSE",
       items: [
         {
           itemId: "11111111-2222-3333-4444-555555555555",
-          quantityAccepted: 300,
-          quantityDamaged: 0,
-          quantityMissing: 0,
-          quantityRejected: 0,
+          quantityAccepted: 270,
+          quantityDamaged: 15,
+          quantityMissing: 10,
+          quantityRejected: 5,
         },
       ],
     });

@@ -56,11 +56,11 @@ export async function POST(req: NextRequest) {
         throw new Error(`Worker '${input.workerId}' not found.`);
       }
 
-      // Accounting Journal Entry: Debit Wages Payable (2060) or Labour Expense (5040), Credit Cash/Bank
+      // Accounting Journal Entry: Debit Wages Payable (2070) or Labour Expense (5040), Credit Cash/Bank
       let journalId: string | null = null;
       if (input.postToAccounts) {
         const debitAccount = input.wageSettlementId
-          ? (await getSystemAccount("2060", tx)) || (await getSystemAccount("5040", tx))
+          ? (await getSystemAccount("2070", tx)) || (await getSystemAccount("5040", tx))
           : await getSystemAccount("5040", tx);
         const paymentAccount = input.paidFromAccountId
           ? await tx.chartOfAccount.findUnique({ where: { id: input.paidFromAccountId } })

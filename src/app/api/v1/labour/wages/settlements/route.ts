@@ -128,12 +128,11 @@ export async function POST(req: NextRequest) {
       let journalId: string | null = null;
       if (input.postToAccounts && calc.grossAmount.gt(0)) {
         const wageExpenseAccount = await getSystemAccount("5040", tx); // Yard Labour Wages (Expense)
-        const advanceAccount = await getSystemAccount("1060", tx); // Employee & Labour Advances (Asset)
-        const paymentAccount = input.paidFromAccountId
-          ? await tx.chartOfAccount.findUnique({ where: { id: input.paidFromAccountId } })
-          : await getSystemAccount("1010", tx); // Default cash
+        const wagesPayableAccount = await getSystemAccount("2070", tx); // Wages & Labour Payable (Liability)
+        const advanceAccount = await getSystemAccount("1070", tx); // Employee & Labour Advances (Asset)
 
-        if (wageExpenseAccount && paymentAccount) {
+        if (wageExpenseAccount && wagesPayableAccount) {
+          // B. Gross wage accrual: Dr Wage Expense (5040), Cr Wages Payable (2070)
           const lines = [
             {
               accountId: wageExpenseAccount.id,
@@ -141,9 +140,22 @@ export async function POST(req: NextRequest) {
               debitAmount: calc.grossAmount,
               creditAmount: new Prisma.Decimal(0),
             },
+            {
+              accountId: wagesPayableAccount.id,
+              description: `Gross Wages Accrual for ${calc.workerName}`,
+              debitAmount: new Prisma.Decimal(0),
+              creditAmount: calc.grossAmount,
+            },
           ];
 
+          // C. Advance recovery: Dr Wages Payable (2070), Cr Employee Advances (1070)
           if (calc.advanceDeduction.gt(0) && advanceAccount) {
+            lines.push({
+              accountId: wagesPayableAccount.id,
+              description: `Advance recovery deduction for ${calc.workerName}`,
+              debitAmount: calc.advanceDeduction,
+              creditAmount: new Prisma.Decimal(0),
+            });
             lines.push({
               accountId: advanceAccount.id,
               description: `Advance recovery from ${calc.workerName}`,
@@ -152,21 +164,12 @@ export async function POST(req: NextRequest) {
             });
           }
 
-          if (calc.netPayable.gt(0)) {
-            lines.push({
-              accountId: paymentAccount.id,
-              description: `Net Wage Payment to ${calc.workerName} for ${settlementNumber}`,
-              debitAmount: new Prisma.Decimal(0),
-              creditAmount: calc.netPayable,
-            });
-          }
-
           const journal = await postJournalEntry(
             {
-              journalType: "PAYMENT",
+              journalType: "ADJUSTMENT",
               postingDate: new Date(),
               fiscalYear: getCurrentFiscalYear(),
-              narration: `Wage settlement for ${calc.workerName} (${calc.workerCode}) for period ${periodStart.toISOString().slice(0, 10)} to ${periodEnd.toISOString().slice(0, 10)}`,
+              narration: `Wage accrual & advance recovery for ${calc.workerName} (${calc.workerCode}) for period ${periodStart.toISOString().slice(0, 10)} to ${periodEnd.toISOString().slice(0, 10)}`,
               referenceDocumentType: "WAGE_SETTLEMENT",
               referenceDocumentId: settlementNumber,
               referenceNumber: settlementNumber,
