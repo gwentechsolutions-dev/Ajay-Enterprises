@@ -129,10 +129,25 @@ const NAVIGATION: NavGroup[] = [
     ],
   },
   {
-    group: "Upcoming (Phase 6+)",
+    group: "Company Fleet & Logistics",
     items: [
-      { title: "Company Fleet Ops", href: "/fleet", icon: Truck, disabled: true, badge: "Phase 6" },
-      { title: "Labour Attendance", href: "/labour", icon: HardHat, disabled: true, badge: "Phase 6" },
+      { title: "Fleet Overview", href: "/fleet", icon: Truck },
+      { title: "Company Vehicles", href: "/fleet/vehicles", icon: Truck },
+      { title: "Drivers Master", href: "/fleet/drivers", icon: Users },
+      { title: "Vehicle Trips", href: "/fleet/trips", icon: Compass },
+      { title: "Fuel Management", href: "/fleet/fuel", icon: Repeat },
+      { title: "Vehicle Maintenance", href: "/fleet/maintenance", icon: AlertTriangle },
+    ],
+  },
+  {
+    group: "Labour & Material Reconditioning",
+    items: [
+      { title: "Labour Overview", href: "/labour", icon: HardHat },
+      { title: "Workforce Register", href: "/labour/workers", icon: Users2 },
+      { title: "Daily Attendance", href: "/labour/attendance", icon: ClipboardCheck },
+      { title: "Wage Settlements", href: "/labour/wages", icon: Calculator },
+      { title: "Labour Advances", href: "/labour/advances", icon: DollarSign },
+      { title: "Centering Material Repairs", href: "/material-maintenance", icon: Layers },
     ],
   },
 ];

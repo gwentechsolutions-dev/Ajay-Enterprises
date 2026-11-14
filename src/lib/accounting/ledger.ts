@@ -2,7 +2,9 @@ import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { generateNextDocumentNumber, getCurrentFiscalYear } from "@/lib/document-series";
 import { logAuditEvent } from "@/lib/audit";
-import { seedDefaultChartOfAccounts } from "./chart-of-accounts";
+import { seedDefaultChartOfAccounts, getSystemAccount } from "./chart-of-accounts";
+
+export { getSystemAccount };
 
 // ==============================================================================
 // INVENTRA: DOUBLE-ENTRY GENERAL LEDGER POSTING ENGINE
@@ -24,6 +26,7 @@ export interface PostJournalInput {
   journalNumber?: string;
   journalType?: "GENERAL" | "SALES" | "PURCHASE" | "RECEIPT" | "PAYMENT" | "CONTRA" | "ADJUSTMENT" | "REVERSAL" | "YEAR_END_CLOSING";
   postingDate?: Date | string;
+  fiscalYear?: string;
   narration: string;
   referenceDocumentType?: string | null;
   referenceDocumentId?: string | null;

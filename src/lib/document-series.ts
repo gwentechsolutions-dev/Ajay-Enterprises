@@ -34,6 +34,16 @@ export const DOCUMENT_TYPES = [
   { id: "SUP", label: "Supplier ID", defaultPrefix: "SUP-" },
   { id: "MV", label: "Inventory Movement Reference", defaultPrefix: "MV-" },
   { id: "AUD", label: "Physical Stock Audit Reference", defaultPrefix: "AUD-" },
+  { id: "TRIP", label: "Vehicle Trip", defaultPrefix: "AE/TRIP/" },
+  { id: "FUEL", label: "Vehicle Fuel Log", defaultPrefix: "FUEL-" },
+  { id: "VMR", label: "Vehicle Maintenance Record", defaultPrefix: "VMR-" },
+  { id: "VEH_EXP", label: "Vehicle Expense Voucher", defaultPrefix: "AE/VEXP/" },
+  { id: "DRV", label: "Driver Code", defaultPrefix: "DRV-" },
+  { id: "WRK", label: "Labour Worker Code", defaultPrefix: "WRK-" },
+  { id: "LAB_ADV", label: "Labour Advance Voucher", defaultPrefix: "AE/LADV/" },
+  { id: "LAB_WAGE", label: "Labour Wage Settlement", defaultPrefix: "AE/LWAGE/" },
+  { id: "LAB_PAY", label: "Labour Payment Voucher", defaultPrefix: "AE/LPAY/" },
+  { id: "MAT_REP", label: "Material Repair Job", defaultPrefix: "AE/REP/" },
 ] as const;
 
 export type DocumentTypeId = (typeof DOCUMENT_TYPES)[number]["id"];

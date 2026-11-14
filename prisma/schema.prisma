@@ -212,6 +212,9 @@ model Branch {
   warehouses    Warehouse[]
   users         User[]
   purchaseOrders PurchaseOrder[]
+  vehicles      Vehicle[]
+  labourWorkers LabourWorker[]
+  labourAttendances LabourAttendance[]
 
   @@index([branchCode])
 }
@@ -251,6 +254,8 @@ model Warehouse {
   destinationTransferNotes StockTransferNote[] @relation("DestinationWarehouseSTN")
   hiringDeliveryWarehouses HiringDeliveryNote[]
   hiringReturnWarehouses   HiringReturnNote[]
+  originTrips              VehicleTrip[]        @relation("TripOriginWarehouse")
+  materialRepairJobs       MaterialRepairJob[]
 
   @@index([warehouseCode])
   @@index([branchId])
@@ -329,6 +334,7 @@ model MaterialVariant {
   damageAssessments        DamageLossAssessment[]
   invoiceItems             InvoiceItem[]
   purchaseBillItems        PurchaseBillItem[]
+  materialRepairJobs       MaterialRepairJob[]
 
   @@index([materialCode])
   @@index([materialTypeId])
@@ -452,6 +458,8 @@ model CustomerSite {
   siteSettlements      SiteClosureSettlement[]
   invoices             Invoice[]
   journalLines         JournalEntryLine[]
+  destinationTrips     VehicleTrip[]        @relation("TripDestinationSite")
+  labourAttendances    LabourAttendance[]
 
   @@index([siteCode])
   @@index([customerId])
@@ -550,6 +558,7 @@ model Supplier {
   purchaseBills        PurchaseBill[]
   supplierPayments     SupplierPayment[]
   journalLines         JournalEntryLine[]
+  vehicleExpenses      VehicleExpense[]
 
   @@index([supplierCode])
   @@index([primaryMobile])
@@ -980,6 +989,7 @@ model DeliveryNote {
   eWayBills             EWayBill[]
   returnNotes           MaterialReturnNote[]
   rentalBatches         RentalBatch[]
+  tripDeliveryNotes     VehicleTripDeliveryNote[]
 
   @@index([dnNumber])
   @@index([customerId])
@@ -1046,6 +1056,7 @@ model MaterialReturnNote {
   evidences               MovementEvidence[]
   returnAllocations       RentalReturnAllocation[]
   damageAssessments       DamageLossAssessment[]
+  materialRepairJobs      MaterialRepairJob[]
 
   @@index([mrnNumber])
   @@index([customerId])
@@ -1381,6 +1392,7 @@ model RentalBatch {
   returnAllocations    RentalReturnAllocation[]
   statementItems       RentalStatementItem[]
   dayDetails           RentalStatementDayDetail[]
+  materialRepairJobs   MaterialRepairJob[]
 
   @@index([customerId])
   @@index([customerSiteId])
@@ -1742,6 +1754,13 @@ model JournalEntry {
   purchaseBills         PurchaseBill[]
   receipts              PaymentReceipt[]
   payments              SupplierPayment[]
+  vehicleFuelLogs            VehicleFuelLog[]
+  vehicleMaintenanceRecords  VehicleMaintenanceRecord[]
+  vehicleExpenses            VehicleExpense[]
+  labourAdvances             LabourAdvance[]
+  labourWageSettlements      LabourWageSettlement[]
+  labourPayments             LabourPayment[]
+  materialRepairJobs         MaterialRepairJob[]
 
   @@index([journalNumber])
   @@index([journalType])
@@ -2177,4 +2196,461 @@ model HsnSacMaster {
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+}
+
+// ==============================================================================
+// 35. Fleet Management (Vehicles, Drivers, Trips, Fuel, Maintenance, Expenses)
+// Exclusively for AJAY ENTERPRISES Company-Owned Fleet
+// ==============================================================================
+
+model Vehicle {
+  id                    String                      @id @default(uuid()) @db.Uuid
+  vehicleNumber         String                      @unique // e.g. "TN-01-AB-1234"
+  category              String                      @default("TRUCK") // TWO_WHEELER, CAR, VAN, PICKUP, TRUCK, TRACTOR, OTHER
+  make                  String                      // e.g. "Tata", "Ashok Leyland", "Mahindra"
+  model                 String                      // e.g. "407", "Dost", "Bolero"
+  variant               String?
+  fuelType              String                      @default("DIESEL") // PETROL, DIESEL, CNG, ELECTRIC, HYBRID
+  chassisNumber         String?
+  engineNumber          String?
+  purchaseDate          DateTime?
+  purchaseValue         Decimal?                    @db.Decimal(15, 2)
+  insuranceProvider     String?
+  insurancePolicyNumber String?
+  insuranceStartDate    DateTime?
+  insuranceExpiryDate   DateTime?
+  fitnessExpiryDate     DateTime?
+  pollutionExpiryDate   DateTime?
+  permitExpiryDate      DateTime?
+  rcDocumentUrl         String?
+  insuranceDocumentUrl  String?
+  permitDocumentUrl     String?
+  photoUrl              String?
+  branchId              String?                     @db.Uuid
+  defaultDriverId       String?                     @db.Uuid
+  currentOdometer       Decimal                     @default(0) @db.Decimal(10, 2)
+  status                String                      @default("ACTIVE") // ACTIVE, INACTIVE, UNDER_MAINTENANCE, SOLD, RETIRED
+  notes                 String?
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+
+  branch                Branch?                     @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  defaultDriver         Driver?                     @relation("DefaultDriver", fields: [defaultDriverId], references: [id], onDelete: SetNull)
+  driverAssignments     DriverVehicleAssignment[]
+  trips                 VehicleTrip[]
+  fuelLogs              VehicleFuelLog[]
+  maintenanceRecords    VehicleMaintenanceRecord[]
+  expenses              VehicleExpense[]
+
+  @@index([status])
+  @@index([branchId])
+}
+
+model Driver {
+  id                 String                    @id @default(uuid()) @db.Uuid
+  driverCode         String                    @unique // e.g. "DRV-0001"
+  name               String
+  mobileNumber       String
+  address            String?
+  emergencyContact   String?
+  licenseNumber      String                    @unique
+  licenseClass       String?                   // LMV, HMV, TRANS
+  licenseExpiryDate  DateTime
+  joiningDate        DateTime                  @default(now())
+  assignedVehicleId  String?                   @db.Uuid
+  salaryType         String                    @default("MONTHLY") // MONTHLY, DAILY, TRIP_BASED
+  salaryAmount       Decimal                   @default(0) @db.Decimal(15, 2)
+  status             String                    @default("ACTIVE") // ACTIVE, INACTIVE
+  licenseDocumentUrl String?
+  idDocumentUrl      String?
+  notes              String?
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+
+  defaultForVehicles Vehicle[]                 @relation("DefaultDriver")
+  vehicleAssignments DriverVehicleAssignment[]
+  trips              VehicleTrip[]
+  fuelLogs           VehicleFuelLog[]
+
+  @@index([status])
+  @@index([mobileNumber])
+}
+
+model DriverVehicleAssignment {
+  id           String    @id @default(uuid()) @db.Uuid
+  driverId     String    @db.Uuid
+  vehicleId    String    @db.Uuid
+  assignedFrom DateTime  @default(now())
+  assignedTo   DateTime?
+  reason       String?
+  remarks      String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  driver       Driver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle      Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([driverId])
+  @@index([vehicleId])
+}
+
+model VehicleTrip {
+  id                 String                    @id @default(uuid()) @db.Uuid
+  tripNumber         String                    @unique // e.g. "AE/TRIP/2026-27/0001"
+  vehicleId          String                    @db.Uuid
+  driverId           String?                   @db.Uuid
+  originWarehouseId  String?                   @db.Uuid
+  originAddress      String?
+  destinationSiteId  String?                   @db.Uuid
+  destinationAddress String?
+  tripDate           DateTime                  @default(now())
+  departureTime      DateTime?
+  arrivalTime        DateTime?
+  startOdometer      Decimal                   @db.Decimal(10, 2)
+  endOdometer        Decimal?                  @db.Decimal(10, 2)
+  distanceKm         Decimal?                  @db.Decimal(10, 2)
+  tripPurpose        String                    @default("DELIVERY") // DELIVERY, RETURN_PICKUP, SITE_TRANSFER, MAINTENANCE, OTHER
+  status             String                    @default("PLANNED") // PLANNED, IN_TRANSIT, COMPLETED, CANCELLED
+  fuelUsedLitres     Decimal?                  @db.Decimal(8, 2)
+  tripExpenses       Decimal                   @default(0) @db.Decimal(15, 2)
+  remarks            String?
+  createdById        String?                   @db.Uuid
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+
+  vehicle            Vehicle                   @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  driver             Driver?                   @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  originWarehouse    Warehouse?                @relation("TripOriginWarehouse", fields: [originWarehouseId], references: [id], onDelete: SetNull)
+  destinationSite    CustomerSite?             @relation("TripDestinationSite", fields: [destinationSiteId], references: [id], onDelete: SetNull)
+  deliveryNotes      VehicleTripDeliveryNote[]
+  expenses           VehicleExpense[]
+
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([status])
+  @@index([tripDate])
+}
+
+model VehicleTripDeliveryNote {
+  id             String       @id @default(uuid()) @db.Uuid
+  tripId         String       @db.Uuid
+  deliveryNoteId String       @db.Uuid
+  createdAt      DateTime     @default(now())
+
+  trip           VehicleTrip  @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  deliveryNote   DeliveryNote @relation(fields: [deliveryNoteId], references: [id], onDelete: Restrict)
+
+  @@unique([tripId, deliveryNoteId])
+}
+
+model VehicleFuelLog {
+  id                 String        @id @default(uuid()) @db.Uuid
+  logNumber          String        @unique // e.g. "FUEL-2026-0001"
+  vehicleId          String        @db.Uuid
+  driverId           String?       @db.Uuid
+  fuelDate           DateTime      @default(now())
+  fuelType           String        @default("DIESEL") // PETROL, DIESEL, CNG, ELECTRIC
+  fuelStation        String?
+  quantityLitres     Decimal       @db.Decimal(10, 2) // Litres or kWh
+  pricePerUnit       Decimal       @db.Decimal(10, 2)
+  totalCost          Decimal       @db.Decimal(15, 2)
+  odometerReading    Decimal       @db.Decimal(10, 2)
+  isFullTank         Boolean       @default(true)
+  distanceSinceLast  Decimal?      @db.Decimal(10, 2)
+  mileageKmPerLitre  Decimal?      @db.Decimal(8, 2)
+  costPerKm          Decimal?      @db.Decimal(10, 2)
+  receiptDocumentUrl String?
+  remarks            String?
+  journalEntryId     String?       @db.Uuid
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  vehicle            Vehicle       @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  driver             Driver?       @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  journalEntry       JournalEntry? @relation(fields: [journalEntryId], references: [id], onDelete: SetNull)
+
+  @@index([vehicleId])
+  @@index([fuelDate])
+}
+
+model VehicleMaintenanceRecord {
+  id                  String        @id @default(uuid()) @db.Uuid
+  recordNumber        String        @unique // e.g. "VMR-2026-0001"
+  vehicleId           String        @db.Uuid
+  serviceCategory     String        @default("REGULAR_SERVICE") // REGULAR_SERVICE, ENGINE_REPAIR, TYRES, BATTERY, BRAKE_SYSTEM, ELECTRICAL, BODYWORK, INSURANCE_REPAIR, OTHER
+  serviceDate         DateTime      @default(now())
+  odometerReading     Decimal       @db.Decimal(10, 2)
+  serviceProvider     String?
+  descriptionOfWork   String
+  partsCost           Decimal       @default(0) @db.Decimal(15, 2)
+  labourCost          Decimal       @default(0) @db.Decimal(15, 2)
+  taxAmount           Decimal       @default(0) @db.Decimal(15, 2)
+  totalCost           Decimal       @default(0) @db.Decimal(15, 2)
+  invoiceDocumentUrl  String?
+  nextServiceDate     DateTime?
+  nextServiceOdometer Decimal?      @db.Decimal(10, 2)
+  remarks             String?
+  status              String        @default("COMPLETED") // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
+  journalEntryId      String?       @db.Uuid
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  vehicle             Vehicle       @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  journalEntry        JournalEntry? @relation(fields: [journalEntryId], references: [id], onDelete: SetNull)
+
+  @@index([vehicleId])
+  @@index([serviceDate])
+}
+
+model VehicleExpense {
+  id                 String        @id @default(uuid()) @db.Uuid
+  expenseNumber      String        @unique // e.g. "AE/VEXP/2026-27/0001"
+  vehicleId          String        @db.Uuid
+  tripId             String?       @db.Uuid
+  expenseCategory    String        @default("OTHER") // FUEL, REPAIR_MAINTENANCE, INSURANCE, ROAD_TAX_PERMIT, TOLL, PARKING, DRIVER_ALLOWANCE, OTHER
+  expenseDate        DateTime      @default(now())
+  amount             Decimal       @db.Decimal(15, 2)
+  taxAmount          Decimal       @default(0) @db.Decimal(15, 2)
+  totalAmount        Decimal       @db.Decimal(15, 2)
+  paymentMode        String        @default("CASH") // CASH, BANK_TRANSFER, UPI, CHEQUE
+  paymentReference   String?
+  paidFromAccountId  String?       @db.Uuid
+  supplierId         String?       @db.Uuid
+  itcEligibility     String        @default("INELIGIBLE_SEC_17_5") // Fleet expenses are typically Sec 17(5) unless transport business
+  receiptDocumentUrl String?
+  description        String
+  status             String        @default("POSTED") // DRAFT, APPROVED, POSTED, CANCELLED
+  journalEntryId     String?       @db.Uuid
+  postedById         String?       @db.Uuid
+  postedAt           DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  vehicle            Vehicle       @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  trip               VehicleTrip?  @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  supplier           Supplier?     @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  journalEntry       JournalEntry? @relation(fields: [journalEntryId], references: [id], onDelete: SetNull)
+
+  @@index([vehicleId])
+  @@index([expenseDate])
+  @@index([status])
+}
+
+// ==============================================================================
+// 36. Labour & Workforce Management
+// ==============================================================================
+
+model LabourWorker {
+  id                   String                 @id @default(uuid()) @db.Uuid
+  workerCode           String                 @unique // e.g. "WRK-0001"
+  name                 String
+  mobileNumber         String
+  address              String?
+  emergencyContact     String?
+  category             String                 @default("GENERAL_LABOUR") // LOADING_UNLOADING, WAREHOUSE_LABOUR, DRIVERS, MATERIAL_HANDLING, REPAIR_MAINTENANCE, GENERAL_LABOUR, SKILLED, SUPERVISOR, OTHER
+  skillTrade           String?                // Welder, Fitter, Loader, Driver, Mason
+  joiningDate          DateTime               @default(now())
+  wageType             String                 @default("DAILY") // DAILY, MONTHLY
+  dailyWage            Decimal                @default(0) @db.Decimal(15, 2)
+  monthlySalary        Decimal                @default(0) @db.Decimal(15, 2)
+  paymentFrequency     String                 @default("MONTHLY") // DAILY, WEEKLY, MONTHLY
+  assignedSupervisorId String?                @db.Uuid
+  branchId             String?                @db.Uuid
+  idDocumentUrl        String?
+  status               String                 @default("ACTIVE") // ACTIVE, INACTIVE
+  notes                String?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  branch               Branch?                @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  attendances          LabourAttendance[]
+  wageSettlements      LabourWageSettlement[]
+  advances             LabourAdvance[]
+  payments             LabourPayment[]
+  assignedRepairJobs   MaterialRepairJob[]    @relation("AssignedTechnician")
+
+  @@index([status])
+  @@index([branchId])
+}
+
+model LabourAttendance {
+  id                 String        @id @default(uuid()) @db.Uuid
+  workerId           String        @db.Uuid
+  attendanceDate     DateTime      @db.Date
+  branchId           String?       @db.Uuid
+  customerSiteId     String?       @db.Uuid
+  status             String        @default("PRESENT") // PRESENT, ABSENT, HALF_DAY, PAID_LEAVE, UNPAID_LEAVE, HOLIDAY
+  checkInTime        DateTime?
+  checkOutTime       DateTime?
+  overtimeHours      Decimal       @default(0) @db.Decimal(5, 2)
+  supervisorRemarks  String?
+  recordedById       String?       @db.Uuid
+  approvedById       String?       @db.Uuid
+  isApproved         Boolean       @default(false)
+  approvedAt         DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  worker             LabourWorker  @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  branch             Branch?       @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  customerSite       CustomerSite? @relation(fields: [customerSiteId], references: [id], onDelete: SetNull)
+
+  @@unique([workerId, attendanceDate])
+  @@index([attendanceDate])
+  @@index([status])
+}
+
+model LabourAdvance {
+  id                String        @id @default(uuid()) @db.Uuid
+  advanceNumber     String        @unique // e.g. "AE/LADV/2026-27/0001"
+  workerId          String        @db.Uuid
+  advanceDate       DateTime      @default(now())
+  amount            Decimal       @db.Decimal(15, 2)
+  paymentMode       String        @default("CASH") // CASH, BANK_TRANSFER, UPI
+  paymentReference  String?
+  paidFromAccountId String?       @db.Uuid
+  purpose           String?
+  status            String        @default("APPROVED") // PENDING, APPROVED, RECOVERED, PARTIALLY_RECOVERED, CANCELLED
+  recoveredAmount   Decimal       @default(0) @db.Decimal(15, 2)
+  outstandingAmount Decimal       @db.Decimal(15, 2)
+  approvedById      String?       @db.Uuid
+  journalEntryId    String?       @db.Uuid
+  remarks           String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  worker            LabourWorker  @relation(fields: [workerId], references: [id], onDelete: Restrict)
+  journalEntry      JournalEntry? @relation(fields: [journalEntryId], references: [id], onDelete: SetNull)
+
+  @@index([workerId])
+  @@index([advanceDate])
+  @@index([status])
+}
+
+model LabourWageSettlement {
+  id               String          @id @default(uuid()) @db.Uuid
+  settlementNumber String          @unique // e.g. "AE/LWAGE/2026-27/0001"
+  workerId         String          @db.Uuid
+  periodStart      DateTime        @db.Date
+  periodEnd        DateTime        @db.Date
+  daysPresent      Decimal         @default(0) @db.Decimal(5, 2)
+  halfDays         Decimal         @default(0) @db.Decimal(5, 2)
+  daysLeave        Decimal         @default(0) @db.Decimal(5, 2)
+  overtimeHours    Decimal         @default(0) @db.Decimal(6, 2)
+  baseWageAmount   Decimal         @default(0) @db.Decimal(15, 2)
+  overtimeAmount   Decimal         @default(0) @db.Decimal(15, 2)
+  bonusAmount      Decimal         @default(0) @db.Decimal(15, 2)
+  grossAmount      Decimal         @default(0) @db.Decimal(15, 2)
+  advanceDeduction Decimal         @default(0) @db.Decimal(15, 2)
+  otherDeductions  Decimal         @default(0) @db.Decimal(15, 2)
+  netPayable       Decimal         @default(0) @db.Decimal(15, 2)
+  paidAmount       Decimal         @default(0) @db.Decimal(15, 2)
+  status           String          @default("DRAFT") // DRAFT, APPROVED, PAID, CANCELLED
+  approvedById     String?         @db.Uuid
+  approvedAt       DateTime?
+  journalEntryId   String?         @db.Uuid
+  remarks          String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  worker           LabourWorker    @relation(fields: [workerId], references: [id], onDelete: Restrict)
+  journalEntry     JournalEntry?   @relation(fields: [journalEntryId], references: [id], onDelete: SetNull)
+  payments         LabourPayment[]
+
+  @@index([workerId])
+  @@index([periodStart, periodEnd])
+  @@index([status])
+}
+
+model LabourPayment {
+  id                 String                @id @default(uuid()) @db.Uuid
+  paymentNumber      String                @unique // e.g. "AE/LPAY/2026-27/0001"
+  workerId           String                @db.Uuid
+  wageSettlementId   String?               @db.Uuid
+  paymentDate        DateTime              @default(now())
+  amount             Decimal               @db.Decimal(15, 2)
+  paymentMode        String                @default("CASH") // CASH, BANK_TRANSFER, UPI
+  paymentReference   String?
+  paidFromAccountId  String?               @db.Uuid
+  receiptDocumentUrl String?
+  journalEntryId     String?               @db.Uuid
+  status             String                @default("POSTED") // POSTED, CANCELLED
+  remarks            String?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  worker             LabourWorker          @relation(fields: [workerId], references: [id], onDelete: Restrict)
+  wageSettlement     LabourWageSettlement? @relation(fields: [wageSettlementId], references: [id], onDelete: SetNull)
+  journalEntry       JournalEntry?         @relation(fields: [journalEntryId], references: [id], onDelete: SetNull)
+
+  @@index([workerId])
+  @@index([paymentDate])
+}
+
+// ==============================================================================
+// 37. Centering Material Repair & Maintenance Management
+// Exclusively for AJAY ENTERPRISES Scaffolding & Centering Material Reconditioning
+// ==============================================================================
+
+model MaterialRepairJob {
+  id                   String              @id @default(uuid()) @db.Uuid
+  jobCode              String              @unique // e.g. "AE/REP/2026-27/0001"
+  warehouseId          String              @db.Uuid
+  materialVariantId    String              @db.Uuid
+  ownershipType        String              @default("OWNED") // OWNED, HIRED_IN
+  mrnId                String?             @db.Uuid
+  rentalBatchId        String?             @db.Uuid
+  totalQuantity        Decimal             @db.Decimal(12, 3)
+  repairedQuantity     Decimal             @default(0) @db.Decimal(12, 3)
+  scrappedQuantity     Decimal             @default(0) @db.Decimal(12, 3)
+  remainingQuantity    Decimal             @db.Decimal(12, 3)
+  damageDescription    String
+  damagePhotoUrl       String?
+  priority             String              @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  assignedTechnicianId String?             @db.Uuid
+  startDate            DateTime?
+  targetDate           DateTime?
+  completedDate        DateTime?
+  partsCost            Decimal             @default(0) @db.Decimal(15, 2)
+  labourCost           Decimal             @default(0) @db.Decimal(15, 2)
+  externalVendorCost   Decimal             @default(0) @db.Decimal(15, 2)
+  totalCost            Decimal             @default(0) @db.Decimal(15, 2)
+  repairVendor         String?
+  status               String              @default("REPORTED") 
+  // REPORTED, UNDER_INSPECTION, APPROVED_FOR_REPAIR, IN_REPAIR, AWAITING_PARTS, REPAIR_COMPLETED, QUALITY_CHECK, RETURNED_TO_AVAILABLE_STOCK, WRITTEN_OFF
+  qualityApprovedById  String?             @db.Uuid
+  qualityApprovedAt    DateTime?
+  journalEntryId       String?             @db.Uuid
+  remarks              String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  warehouse            Warehouse           @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  materialVariant      MaterialVariant     @relation(fields: [materialVariantId], references: [id], onDelete: Restrict)
+  materialReturnNote   MaterialReturnNote? @relation(fields: [mrnId], references: [id], onDelete: SetNull)
+  rentalBatch          RentalBatch?        @relation(fields: [rentalBatchId], references: [id], onDelete: SetNull)
+  assignedTechnician   LabourWorker?       @relation("AssignedTechnician", fields: [assignedTechnicianId], references: [id], onDelete: SetNull)
+  journalEntry         JournalEntry?       @relation(fields: [journalEntryId], references: [id], onDelete: SetNull)
+  logs                 MaterialRepairLog[]
+
+  @@index([warehouseId])
+  @@index([materialVariantId])
+  @@index([status])
+  @@index([ownershipType])
+}
+
+model MaterialRepairLog {
+  id             String            @id @default(uuid()) @db.Uuid
+  repairJobId    String            @db.Uuid
+  logDate        DateTime          @default(now())
+  action         String            // INSPECTED, STARTED_WORK, PARTS_REPLACED, WELDING_DONE, QUALITY_CHECKED, RELEASED_TO_STOCK, SCRAPPED
+  notes          String
+  technicianName String?
+  partsUsed      String?
+  cost           Decimal           @default(0) @db.Decimal(15, 2)
+  createdAt      DateTime          @default(now())
+
+  repairJob      MaterialRepairJob @relation(fields: [repairJobId], references: [id], onDelete: Cascade)
+
+  @@index([repairJobId])
 }
