@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 const ROLE_ICONS: Record<string, React.ElementType> = {
+  OWNER: ShieldCheck,
   ADMINISTRATOR: ShieldCheck,
   ACCOUNTANT: Calculator,
   WAREHOUSE_MANAGER: WarehouseIcon,

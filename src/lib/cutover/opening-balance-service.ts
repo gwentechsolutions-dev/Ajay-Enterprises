@@ -91,6 +91,7 @@ export interface OpeningTrialBalanceReport {
     customerAdvancesTotal: string;
     customerDepositsTotal: string;
     supplierPayablesTotal: string;
+    supplierAdvancesTotal: string;
     employeeAdvancesTotal: string;
     wagesPayableTotal: string;
     cashAndBankTotal: string;
@@ -438,6 +439,7 @@ export async function getOpeningTrialBalanceReport(batchId?: string): Promise<Op
         customerAdvancesTotal: "0.00",
         customerDepositsTotal: "0.00",
         supplierPayablesTotal: "0.00",
+        supplierAdvancesTotal: "0.00",
         employeeAdvancesTotal: "0.00",
         wagesPayableTotal: "0.00",
         cashAndBankTotal: "0.00",
@@ -461,6 +463,7 @@ export async function getOpeningTrialBalanceReport(batchId?: string): Promise<Op
   let custAdvances = new Prisma.Decimal(0);
   let custDeposits = new Prisma.Decimal(0);
   let suppPayables = new Prisma.Decimal(0);
+  let suppAdvances = new Prisma.Decimal(0);
   let empAdvances = new Prisma.Decimal(0);
   let wagesPayable = new Prisma.Decimal(0);
   let cashAndBank = new Prisma.Decimal(0);
@@ -486,11 +489,12 @@ export async function getOpeningTrialBalanceReport(batchId?: string): Promise<Op
 
     accountMap.set(acc.accountCode, existing);
 
-    // Subledger totals
-    if (["1030", "1050"].includes(acc.accountCode) && it.customerId) custReceivables = custReceivables.plus(it.debitAmount);
+    // Subledger totals - strictly decoupled account codes
+    if (acc.accountCode === "1030" && it.customerId) custReceivables = custReceivables.plus(it.debitAmount);
+    if (acc.accountCode === "1050" && it.supplierId) suppAdvances = suppAdvances.plus(it.debitAmount);
     if (acc.accountCode === "2020") custAdvances = custAdvances.plus(it.creditAmount);
     if (acc.accountCode === "2060") custDeposits = custDeposits.plus(it.creditAmount);
-    if (["2010"].includes(acc.accountCode) && it.supplierId) suppPayables = suppPayables.plus(it.creditAmount);
+    if (acc.accountCode === "2010" && it.supplierId) suppPayables = suppPayables.plus(it.creditAmount);
     if (acc.accountCode === "1070") empAdvances = empAdvances.plus(it.debitAmount);
     if (acc.accountCode === "2070") wagesPayable = wagesPayable.plus(it.creditAmount);
     if (["1010", "1020", "1021", "1025"].includes(acc.accountCode)) cashAndBank = cashAndBank.plus(it.debitAmount.minus(it.creditAmount));
@@ -524,6 +528,7 @@ export async function getOpeningTrialBalanceReport(batchId?: string): Promise<Op
       customerAdvancesTotal: custAdvances.toFixed(2),
       customerDepositsTotal: custDeposits.toFixed(2),
       supplierPayablesTotal: suppPayables.toFixed(2),
+      supplierAdvancesTotal: suppAdvances.toFixed(2),
       employeeAdvancesTotal: empAdvances.toFixed(2),
       wagesPayableTotal: wagesPayable.toFixed(2),
       cashAndBankTotal: cashAndBank.toFixed(2),

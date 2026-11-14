@@ -83,7 +83,6 @@ export const SYSTEM_ACCOUNT_REGISTRY: Record<SystemAccountRole, AccountRoleConfi
   ACCOUNTS_RECEIVABLE: {
     role: "ACCOUNTS_RECEIVABLE",
     primaryCode: "1030",
-    alternateCodes: ["1050"],
     expectedSubcategory: "ACCOUNTS_RECEIVABLE",
     expectedCategory: "ASSET",
     label: "Accounts Receivable (Debtors Control)",

@@ -16,6 +16,40 @@ export interface RoleTrainingCurriculum {
 }
 
 export const ROLE_CURRICULA: Record<string, { roleTitle: string; description: string; coreResponsibilities: string[]; modules: Array<{ code: string; title: string; desc: string; steps: string[] }> }> = {
+  OWNER: {
+    roleTitle: "Business Owner / Executive",
+    description: "Executive business control, liquid funds surveillance, cutover authorization, and company management.",
+    coreResponsibilities: [
+      "Monitor executive dashboard, liquid funds, and debtor ageing",
+      "Oversee monthly P&L, balance sheet, and statutory GST compliance",
+      "Review and authorize opening balance cutovers and pilot milestones",
+      "Authorize production go-live and review immutable system audit trails",
+    ],
+    modules: [
+      {
+        code: "TRN_OWN_01",
+        title: "Executive Dashboard & Liquid Funds Oversight",
+        desc: "Monitoring daily business cash position, bank balances, and customer receivable aging.",
+        steps: [
+          "Navigate to Executive Dashboard",
+          "Inspect Total Cash & Bank Balances across HDFC (1020) and SBI (1021)",
+          "Review Customer Ageing summary for overdue rental accounts (30/60/90+ days)",
+          "Inspect month-to-date rental revenue vs fleet and labour operational costs",
+        ],
+      },
+      {
+        code: "TRN_OWN_02",
+        title: "Cutover Authorization & Go-Live Control",
+        desc: "Verifying mathematical reconciliation and formally authorizing operational go-live.",
+        steps: [
+          "Navigate to Cutover Dashboard (/cutover)",
+          "Verify that Trial Balance difference is strictly Rs. 0.00 with zero tolerance",
+          "Verify that physical stock movements match StockBalance ledger and equipment asset ledger",
+          "Execute final owner sign-off and authorize production go-live",
+        ],
+      },
+    ],
+  },
   ADMINISTRATOR: {
     roleTitle: "System Administrator",
     description: "Operational management of branches, users, document series, and security parameters.",

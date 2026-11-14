@@ -166,7 +166,7 @@ export async function getCutoverReconciliationSummary(): Promise<CutoverDashboar
   });
 
   // 4. Customer Receivables Subledger vs Accounts Receivable GL (1030)
-  const arRow = trialBalance.rows.find((r) => ["1030", "1050"].includes(r.accountCode) && r.category === "ASSET");
+  const arRow = trialBalance.rows.find((r) => r.accountCode === "1030" && r.category === "ASSET");
   const arLedger = arRow ? arRow.debit.minus(arRow.credit) : new Prisma.Decimal(0);
   const arSubledger = new Prisma.Decimal(trialBalance.subledgerSummary.customerReceivablesTotal);
   const arDiff = arLedger.minus(arSubledger).abs();
@@ -184,7 +184,7 @@ export async function getCutoverReconciliationSummary(): Promise<CutoverDashboar
     subledgerFigure: `Party Sum: Rs. ${arSubledger.toFixed(2)}`,
     ledgerFigure: `GL Balance: Rs. ${arLedger.toFixed(2)}`,
     difference: `Rs. ${arDiff.toFixed(2)}`,
-    details: `Verifies individual customer debtor balances reconcile with Accounts Receivable control account.`,
+    details: `Verifies individual customer debtor balances reconcile with Accounts Receivable control account (1030).`,
     isMandatoryBlocker: true,
   });
 
