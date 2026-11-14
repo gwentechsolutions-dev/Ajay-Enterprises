@@ -45,6 +45,7 @@ export const MODULES = [
   { id: "labour", label: "Labour & Attendance" },
   { id: "material_maintenance", label: "Centering Material Maintenance & Repair" },
   { id: "direct_transfers", label: "Direct Site-to-Site Material Transfers" },
+  { id: "reports", label: "Business Analytics & Reports" },
 ] as const;
 
 export type ModuleType = (typeof MODULES)[number]["id"];
@@ -85,6 +86,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     labour: ["view", "create", "edit", "approve", "post", "cancel", "export"],
     material_maintenance: ["view", "create", "edit", "approve", "post", "cancel", "export"],
     direct_transfers: ["view", "create", "edit", "approve", "post", "cancel", "export"],
+    reports: ["view", "create", "edit", "approve", "post", "cancel", "export"],
   },
   ADMINISTRATOR: {
     dashboard: ["view", "export"],
@@ -113,6 +115,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     fleet: ["view", "create", "edit", "approve", "export"],
     labour: ["view", "create", "edit", "approve", "export"],
     material_maintenance: ["view", "create", "edit", "approve", "export"],
+    reports: ["view", "export"],
   },
   ADMIN: {
     dashboard: ["view", "export"],
@@ -141,6 +144,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     fleet: ["view", "create", "edit", "approve", "export"],
     labour: ["view", "create", "edit", "approve", "export"],
     material_maintenance: ["view", "create", "edit", "approve", "export"],
+    reports: ["view", "export"],
   },
   ACCOUNTANT: {
     dashboard: ["view"],
@@ -168,6 +172,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     accounting: ["view", "create", "edit", "approve", "post", "cancel", "export"],
     fleet: ["view"],
     labour: ["view", "export"],
+    reports: ["view", "export"],
   },
   WAREHOUSE_MANAGER: {
     dashboard: ["view"],
@@ -195,6 +200,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     fleet: ["view"],
     labour: ["view", "create", "edit"],
     material_maintenance: ["view", "create", "edit", "approve", "post", "export"],
+    reports: ["view", "export"],
   },
   WAREHOUSE_STAFF: {
     dashboard: ["view"],
@@ -222,6 +228,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     fleet: [],
     labour: [],
     material_maintenance: ["view", "create", "edit"],
+    reports: ["view"],
   },
   DELIVERY_MANAGER: {
     dashboard: ["view"],
@@ -249,6 +256,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     fleet: ["view", "create", "edit", "approve", "export"],
     labour: [],
     material_maintenance: ["view"],
+    reports: ["view", "export"],
   },
   DELIVERY_PERSONNEL: {
     dashboard: ["view"],
@@ -276,6 +284,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     fleet: ["view", "create"],
     labour: [],
     material_maintenance: [],
+    reports: ["view"],
   },
   LABOUR_SUPERVISOR: {
     dashboard: ["view"],
@@ -296,6 +305,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     fleet: [],
     labour: ["view", "create", "edit", "approve", "export"],
     material_maintenance: ["view"],
+    reports: ["view"],
   },
   AUDITOR: {
     dashboard: ["view"],
@@ -324,6 +334,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     fleet: ["view", "export"],
     labour: ["view", "export"],
     material_maintenance: ["view", "export"],
+    reports: ["view", "export"],
   },
   READ_ONLY: {
     dashboard: ["view"],
@@ -351,6 +362,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     accounting: ["view", "export"],
     fleet: ["view"],
     labour: ["view"],
+    reports: ["view", "export"],
   },
 };
 

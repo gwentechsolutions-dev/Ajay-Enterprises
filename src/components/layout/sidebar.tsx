@@ -64,6 +64,19 @@ const NAVIGATION: NavGroup[] = [
     ],
   },
   {
+    group: "Analytics & Reports",
+    items: [
+      { title: "Reports Hub", href: "/reports", icon: FileSpreadsheet },
+      { title: "Rental Analytics", href: "/reports/rentals", icon: Receipt },
+      { title: "Customer Receivables", href: "/reports/customers", icon: Users2 },
+      { title: "Inventory Custody", href: "/reports/inventory", icon: Boxes },
+      { title: "Financial Statements", href: "/reports/financial", icon: Scale },
+      { title: "Fleet & Mileage", href: "/reports/fleet", icon: Truck },
+      { title: "Labour & Wages", href: "/reports/labour", icon: HardHat },
+      { title: "Material Repairs", href: "/reports/maintenance", icon: Layers },
+    ],
+  },
+  {
     group: "Operations & Movement",
     items: [
       { title: "Delivery Notes (DN)", href: "/delivery-notes", icon: Truck },
