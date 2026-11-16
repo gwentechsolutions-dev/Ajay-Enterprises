@@ -7,6 +7,29 @@
 import { GenerateEwbRequest } from "../../types";
 import { validateAndResolveHsnSac } from "@/lib/accounting/gst-engine";
 
+/**
+ * Statutory movement classification constants
+ * Note: Subject to statutory review; marked PENDING GST ADVISOR CONFIRMATION
+ */
+export const STATUTORY_CLASSIFICATION = {
+  RENTAL_DISPATCH: {
+    docType: "CHL" as const,
+    supplyType: "O" as const,
+    subSupplyType: "8", // Others
+    subSupplyDesc: "Centering Rental", // 16 chars (max 20)
+    statutoryBasis: "Custody transfer under rental agreement (not a sale or job work); monthly rental billed separately.",
+    status: "PENDING GST ADVISOR CONFIRMATION",
+  },
+  STOCK_TRANSFER: {
+    docType: "CHL" as const,
+    supplyType: "O" as const,
+    subSupplyType: "5", // For Own Use
+    subSupplyDesc: " ",
+    statutoryBasis: "Inter-warehouse stock transfer between company-owned yards.",
+    status: "PENDING GST ADVISOR CONFIRMATION",
+  },
+};
+
 export interface WhiteBooksItemPayload {
   productName: string;
   productDesc: string;
@@ -185,8 +208,8 @@ export function mapInventraToWhiteBooksPayload(req: GenerateEwbRequest): WhiteBo
   const isStockTransfer = req.documentType === "TRANSFER_NOTE";
   const docType = req.docType || "CHL";
   const supplyType = req.supplyType || "O";
-  const subSupplyType = req.subSupplyType || (isStockTransfer ? "5" : "8");
-  const subSupplyDesc = subSupplyType === "8" ? (req.subSupplyDesc || "Centering Material Rental").slice(0, 20) : " ";
+  const subSupplyType = req.subSupplyType || (isStockTransfer ? STATUTORY_CLASSIFICATION.STOCK_TRANSFER.subSupplyType : STATUTORY_CLASSIFICATION.RENTAL_DISPATCH.subSupplyType);
+  const subSupplyDesc = subSupplyType === "8" ? (req.subSupplyDesc || STATUTORY_CLASSIFICATION.RENTAL_DISPATCH.subSupplyDesc).slice(0, 20) : " ";
 
   // 6. Validate GSTINs
   const fromGstin = req.fromGstin.trim().toUpperCase();

@@ -16,12 +16,11 @@ import {
   EwbProviderName,
 } from "./types";
 import { getProvider, getProviderForEwbNumber } from "./factory";
+import { getSystemEwbConfig } from "./config";
 import {
-  acquireGenerationLock,
+  acquireDatabaseGenerationLock,
   releaseGenerationLock,
-  findActiveEwbForDocument,
   generateIdempotencyKey,
-  recordOperationStart,
   recordOperationFinish,
 } from "./idempotency";
 import { logEwbAuditEvent } from "./audit";
@@ -29,7 +28,7 @@ import { ewbLogger, sanitizePayload } from "./logger";
 
 export class EWayBillService {
   /**
-   * Generates a statutory E-Way Bill with idempotency and duplicate protection
+   * Generates a statutory E-Way Bill with database-backed idempotency and duplicate protection
    */
   async generateEWayBill(
     req: GenerateEwbRequest,
@@ -37,49 +36,109 @@ export class EWayBillService {
     overrideProvider?: EwbProviderName
   ): Promise<GenerateEwbResponse> {
     const { documentType, documentId, documentNumber } = req;
+    const provider = getProvider(overrideProvider);
+    const systemConfig = getSystemEwbConfig();
+    const envUpper = systemConfig.whitebooks.environment;
+    const idempotencyKey = req.idempotencyKey || generateIdempotencyKey(documentType, documentId, "GENERATE");
 
-    // 1. Concurrency Mutex Lock
-    const lockAcquired = acquireGenerationLock(documentId);
-    if (!lockAcquired) {
-      throw new Error(
-        `Another E-Way Bill generation operation is currently in progress for document '${documentNumber}'. Please wait.`
-      );
-    }
+    // 1. Acquire Database-Backed Concurrency Lock (coordinates across all Vercel serverless instances)
+    const lockResult = await acquireDatabaseGenerationLock({
+      documentType,
+      documentId,
+      documentNumber,
+      provider: provider.name,
+      environment: envUpper,
+      idempotencyKey,
+      requestPayload: req,
+      actor,
+    });
 
-    try {
-      // 2. Check for existing active E-Way Bill (Statutory Duplicate Guard)
-      const existingActiveEwb = await findActiveEwbForDocument(documentType, documentId);
-      if (existingActiveEwb) {
-        throw new Error(
-          `Document '${documentNumber}' already has an active E-Way Bill (${existingActiveEwb.ewbNumber}). Duplicate generation is blocked by statutory rules.`
-        );
+    if (!lockResult.acquired) {
+      // Safe reuse if already active (prevents duplicate statutory submission)
+      if (lockResult.reason === "ALREADY_ACTIVE" && lockResult.existingEwb) {
+        const ewb = lockResult.existingEwb;
+        return {
+          success: true,
+          ewbNumber: ewb.ewbNumber,
+          status: "ACTIVE",
+          validUntil: ewb.validUntil || undefined,
+          ewbDate: ewb.createdAt,
+          environment: ewb.environment as any,
+          provider: ewb.provider as any,
+          referenceId: ewb.providerReferenceId || ewb.fynReferenceId || undefined,
+          message: lockResult.message || `Active E-Way Bill ${ewb.ewbNumber} already exists for ${documentNumber}. Safely reusing record.`,
+          rawResponse: ewb.responsePayload,
+        };
       }
 
-      // 3. Resolve Provider
-      const provider = getProvider(overrideProvider);
-      const idempotencyKey = req.idempotencyKey || generateIdempotencyKey(documentType, documentId, "GENERATE");
+      // Blocked due to IN_PROGRESS or RECONCILIATION_REQUIRED
+      throw new Error(lockResult.message || `Cannot generate E-Way Bill for ${documentNumber}.`);
+    }
 
-      ewbLogger.info(`Starting E-Way Bill generation for ${documentType} ${documentNumber} via ${provider.name}`, {
-        idempotencyKey,
-        provider: provider.name,
-      });
+    const opId = lockResult.operationId;
 
-      // 4. Record Operation Start
-      const opId = await recordOperationStart({
-        documentType,
-        documentId,
-        provider: provider.name,
-        environment: "SANDBOX",
-        operationType: "GENERATE",
-        idempotencyKey,
-        requestPayload: req,
-        actor,
-      });
+    ewbLogger.info(`Starting E-Way Bill generation for ${documentType} ${documentNumber} via ${provider.name}`, {
+      idempotencyKey,
+      provider: provider.name,
+      operationId: opId,
+    });
 
-      // 5. Execute Provider API Call
-      const result = await provider.generateEWayBill(req, actor);
+    try {
+      // 2. Execute Provider API Call
+      let result: GenerateEwbResponse;
+      try {
+        result = await provider.generateEWayBill(req, actor);
+      } catch (callErr: any) {
+        // Categorize timeout / ambiguous response
+        const isTimeout =
+          callErr.name === "AbortError" ||
+          callErr.message?.toLowerCase().includes("timeout") ||
+          callErr.message?.toLowerCase().includes("aborted") ||
+          callErr.parsed?.category === "NETWORK_TIMEOUT";
 
-      // 6. Handle Uncertain / Timeout Outcome
+        if (isTimeout) {
+          // Statutory guard: network timed out AFTER request was sent
+          // Must be marked UNKNOWN and NEVER auto-failover to FYN
+          await recordOperationFinish({
+            operationId: opId,
+            status: "UNKNOWN",
+            errorMessage: `Statutory request timed out after submission to ${provider.name}. Outcome is UNKNOWN; reconciliation required.`,
+            responsePayload: { error: callErr.message },
+          });
+
+          await logEwbAuditEvent({
+            actor,
+            action: "CREATE",
+            entityId: documentId,
+            operationType: "GENERATE",
+            provider: provider.name,
+            notes: `E-Way Bill generation for ${documentNumber} timed out. Marked UNKNOWN for statutory reconciliation.`,
+          });
+
+          return {
+            success: false,
+            status: "UNKNOWN",
+            requiresReconciliation: true,
+            environment: envUpper,
+            provider: provider.name,
+            message: `Generation request timed out after submission to ${provider.name}. Marked UNKNOWN to prevent duplicate issuance. Please verify with tax portal before retrying.`,
+            rawResponse: { error: callErr.message },
+          };
+        }
+
+        // Definitive local or pre-submission error
+        await recordOperationFinish({
+          operationId: opId,
+          status: "FAILED",
+          errorMessage: callErr.message,
+          errorCode: callErr.parsed?.code || callErr.code,
+          responsePayload: { error: callErr.message },
+        });
+
+        throw callErr;
+      }
+
+      // 3. Handle Uncertain / Timeout Outcome from Provider
       if (result.status === "UNKNOWN" || result.requiresReconciliation) {
         await recordOperationFinish({
           operationId: opId,
@@ -100,19 +159,20 @@ export class EWayBillService {
         return result;
       }
 
-      // 7. Handle Provider Rejection
+      // 4. Handle Provider Validation Rejection
       if (!result.success || !result.ewbNumber) {
         await recordOperationFinish({
           operationId: opId,
           status: "FAILED",
           errorMessage: result.message,
+          errorCode: result.errorCode,
           responsePayload: result.rawResponse,
         });
 
         return result;
       }
 
-      // 8. Persist Statutory Record in Database
+      // 5. Persist Statutory Record in Database
       const ewbRecord = await db.eWayBill.create({
         data: {
           ewbNumber: result.ewbNumber,
@@ -136,7 +196,7 @@ export class EWayBillService {
         },
       });
 
-      // 9. Update Underlying Movement Document
+      // 6. Update Underlying Movement Document
       if (req.documentType === "DELIVERY_NOTE") {
         await db.deliveryNote.update({
           where: { id: req.documentId },
@@ -149,7 +209,7 @@ export class EWayBillService {
         });
       }
 
-      // 10. Complete Operation History & Audit Log
+      // 7. Complete Operation History & Audit Log
       await recordOperationFinish({
         operationId: opId,
         status: "SUCCESS",

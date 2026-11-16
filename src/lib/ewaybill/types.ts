@@ -96,6 +96,7 @@ export interface GenerateEwbResponse {
   provider: EwbProviderName;
   environment: EwbEnvironment;
   referenceId?: string;
+  errorCode?: string;
   message: string;
   rawResponse?: any;
   requiresReconciliation?: boolean;

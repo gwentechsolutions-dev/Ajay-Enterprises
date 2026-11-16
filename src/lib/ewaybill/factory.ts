@@ -37,7 +37,7 @@ export function getProvider(name?: EwbProviderName): EWayBillProvider {
 export async function getProviderForEwbNumber(ewbNumber: string): Promise<EWayBillProvider> {
   const ewb = await db.eWayBill.findUnique({
     where: { ewbNumber },
-    select: { provider: true, fynReferenceId: true },
+    select: { provider: true, fynReferenceId: true, providerReferenceId: true },
   });
 
   if (!ewb) {
@@ -45,8 +45,8 @@ export async function getProviderForEwbNumber(ewbNumber: string): Promise<EWayBi
     return getProvider();
   }
 
-  // If explicitly tagged as FYN or has fynReferenceId without WHITEBOOKS provider tag
-  if (ewb.provider === "FYN" || (ewb.fynReferenceId && ewb.provider !== "WHITEBOOKS")) {
+  // If explicitly tagged as FYN or has a historical FYN reference without a WhiteBooks reference
+  if (ewb.provider === "FYN" || (ewb.fynReferenceId && !ewb.providerReferenceId)) {
     return getProvider("FYN");
   }
 

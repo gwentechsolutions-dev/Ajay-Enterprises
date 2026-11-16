@@ -12,6 +12,13 @@ export async function executeWhiteBooksGenerate(
   client: WhiteBooksClient,
   req: GenerateEwbRequest
 ): Promise<GenerateEwbResponse> {
+  // Statutory Production Safety Lock:
+  if (client.config.environment === "PRODUCTION" && process.env.ALLOW_PRODUCTION_EWAYBILL !== "true") {
+    throw new Error(
+      "STATUTORY SAFETY BLOCK: Production E-Way Bill generation is strictly locked. Phase 6 is in SANDBOX testing mode."
+    );
+  }
+
   // Map INVENTRA input into WhiteBooks payload
   const payload = mapInventraToWhiteBooksPayload(req);
 

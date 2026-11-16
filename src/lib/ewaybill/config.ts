@@ -32,7 +32,11 @@ export interface EWayBillSystemConfig {
 
 export function getWhiteBooksConfig(): WhiteBooksConfig {
   const envRaw = (process.env.WHITEBOOKS_EWAY_ENV || "sandbox").toLowerCase();
-  const environment: EwbEnvironment = envRaw === "production" ? "PRODUCTION" : "SANDBOX";
+  
+  // STATUTORY PRODUCTION SAFETY LOCK:
+  // Production E-Way Bill generation is strictly blocked until Phase 7 production cutover is authorized.
+  const isProductionAuthorized = process.env.ALLOW_PRODUCTION_EWAYBILL === "true";
+  const environment: EwbEnvironment = (envRaw === "production" && isProductionAuthorized) ? "PRODUCTION" : "SANDBOX";
 
   // Enforce sandbox if production is not explicitly authorized
   const baseUrl = environment === "PRODUCTION"
