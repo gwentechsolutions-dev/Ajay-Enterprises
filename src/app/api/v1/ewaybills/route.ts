@@ -11,11 +11,12 @@ export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams;
     const documentType = searchParams.get("documentType") || undefined;
     const documentId = searchParams.get("documentId") || undefined;
+    const isDocUuid = documentId ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(documentId) : false;
 
     const ewbs = await db.eWayBill.findMany({
       where: {
         documentType: documentType ? (documentType as any) : undefined,
-        documentId: documentId || undefined,
+        documentId: isDocUuid ? documentId : undefined,
       },
       include: {
         deliveryNote: { select: { id: true, dnNumber: true } },

@@ -16,10 +16,11 @@ export async function GET(
     const url = new URL(req.url);
     const refresh = url.searchParams.get("refresh") === "true";
 
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     const ewb = await db.eWayBill.findFirst({
-      where: {
-        OR: [{ id }, { ewbNumber: id }],
-      },
+      where: isUuid
+        ? { OR: [{ id }, { ewbNumber: id }] }
+        : { ewbNumber: id },
       include: {
         deliveryNote: {
           select: {

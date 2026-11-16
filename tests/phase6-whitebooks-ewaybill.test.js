@@ -422,4 +422,113 @@ describe("7. Serverless Concurrency, UNKNOWN State Reconciliation & Production S
     assert.equal(checkProductionAllowed("SANDBOX", false), true);
     assert.equal(checkProductionAllowed("PRODUCTION", true), true);
   });
+
+  it("T24: should safely resolve E-Way Bill query by either 12-digit statutory EWB number or UUID without format errors", () => {
+    const resolveWhereClause = (paramId) => {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(paramId);
+      return isUuid ? { OR: [{ id: paramId }, { ewbNumber: paramId }] } : { ewbNumber: paramId };
+    };
+
+    // Case A: 12-digit statutory E-Way Bill Number (like 292779600930 from WhiteBooks sandbox)
+    const ewbNumber = "292779600930";
+    const whereA = resolveWhereClause(ewbNumber);
+    assert.deepEqual(whereA, { ewbNumber: "292779600930" });
+    assert.equal("id" in whereA, false, "Must not query id column when identifier is not a UUID");
+
+    // Case B: Standard database UUID
+    const dbUuid = "c1ab4226-e9aa-4a67-bacf-e5d08104b000";
+    const whereB = resolveWhereClause(dbUuid);
+    assert.deepEqual(whereB, {
+      OR: [{ id: "c1ab4226-e9aa-4a67-bacf-e5d08104b000" }, { ewbNumber: "c1ab4226-e9aa-4a67-bacf-e5d08104b000" }],
+    });
+  });
+});
+
+describe("7. Serverless Concurrency, UNKNOWN State Reconciliation & Production Safety", () => {
+  it("T20: should safely reuse existing active E-Way Bill on duplicate request without calling provider", () => {
+    const existingActiveEwb = {
+      ewbNumber: "331234567890",
+      status: "ACTIVE",
+      validUntil: new Date("2026-11-20T23:59:59Z"),
+      createdAt: new Date("2026-11-16T10:00:00Z"),
+      environment: "SANDBOX",
+      provider: "WHITEBOOKS",
+      providerReferenceId: "WB-331234567890",
+      responsePayload: { success: true, ewbNo: "331234567890" },
+    };
+
+    // Idempotent handler check
+    const isIdempotentReuse = (existing) => {
+      if (existing && existing.status === "ACTIVE") {
+        return {
+          reused: true,
+          ewbNumber: existing.ewbNumber,
+          message: `Active E-Way Bill ${existing.ewbNumber} already exists. Safely reusing record.`,
+        };
+      }
+      return { reused: false };
+    };
+
+    const res = isIdempotentReuse(existingActiveEwb);
+    assert.equal(res.reused, true);
+    assert.equal(res.ewbNumber, "331234567890");
+    assert.ok(res.message.includes("Safely reusing record"));
+  });
+
+  it("T21: should block concurrent generation across serverless instances within the lock window", () => {
+    const now = Date.now();
+    const lockWindowMs = 90_000;
+    const activeProcessingOp = {
+      id: "op-1234",
+      status: "PROCESSING",
+      createdAt: new Date(now - 15_000), // 15 seconds ago (within window)
+    };
+
+    const isLocked = (op) => {
+      if (op && op.status === "PROCESSING" && (now - op.createdAt.getTime()) < lockWindowMs) {
+        return true;
+      }
+      return false;
+    };
+
+    assert.equal(isLocked(activeProcessingOp), true);
+
+    const expiredProcessingOp = {
+      id: "op-5678",
+      status: "PROCESSING",
+      createdAt: new Date(now - 120_000), // 120 seconds ago (expired)
+    };
+    assert.equal(isLocked(expiredProcessingOp), false);
+  });
+
+  it("T22: should require reconciliation and block automatic retry/failover when an operation is UNKNOWN", () => {
+    const operations = [
+      { id: "op-unknown-1", status: "UNKNOWN", operationType: "GENERATE" },
+    ];
+
+    const canProceedWithGeneration = (ops) => {
+      const hasUnknown = ops.some((o) => o.status === "UNKNOWN" && o.operationType === "GENERATE");
+      if (hasUnknown) {
+        throw new Error(
+          "Statutory reconciliation is required before retrying or switching providers to prevent duplicate E-Way Bill issuance."
+        );
+      }
+      return true;
+    };
+
+    assert.throws(() => canProceedWithGeneration(operations), /Statutory reconciliation is required/);
+  });
+
+  it("T23: should enforce production lock and block generation when production environment is not authorized", () => {
+    const checkProductionAllowed = (env, isAuthorized) => {
+      if (env === "PRODUCTION" && !isAuthorized) {
+        throw new Error("STATUTORY SAFETY BLOCK: Production E-Way Bill generation is strictly locked.");
+      }
+      return true;
+    };
+
+    assert.throws(() => checkProductionAllowed("PRODUCTION", false), /STATUTORY SAFETY BLOCK/);
+    assert.equal(checkProductionAllowed("SANDBOX", false), true);
+    assert.equal(checkProductionAllowed("PRODUCTION", true), true);
+  });
 });

@@ -23,10 +23,11 @@ export async function POST(
       );
     }
 
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     const ewb = await db.eWayBill.findFirst({
-      where: {
-        OR: [{ id }, { ewbNumber: id }],
-      },
+      where: isUuid
+        ? { OR: [{ id }, { ewbNumber: id }] }
+        : { ewbNumber: id },
     });
 
     if (!ewb) {

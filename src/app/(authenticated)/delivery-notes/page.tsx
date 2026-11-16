@@ -524,7 +524,8 @@ export default function DeliveryNotesPage() {
 
     try {
       setSubmitting(true);
-      const res = await fetch(`/api/v1/ewaybills/${selectedDN.eWayBillNumber}/update-vehicle`, {
+      const targetId = selectedDN.eWayBills?.[0]?.id || selectedDN.eWayBillNumber;
+      const res = await fetch(`/api/v1/ewaybills/${targetId}/update-vehicle`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updateVehicleForm),
@@ -551,7 +552,8 @@ export default function DeliveryNotesPage() {
 
     try {
       setSubmitting(true);
-      const res = await fetch(`/api/v1/ewaybills/${selectedDN.eWayBillNumber}/cancel`, {
+      const targetId = selectedDN.eWayBills?.[0]?.id || selectedDN.eWayBillNumber;
+      const res = await fetch(`/api/v1/ewaybills/${targetId}/cancel`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(cancelEwbForm),
@@ -576,7 +578,8 @@ export default function DeliveryNotesPage() {
     if (!selectedDN?.eWayBillNumber) return;
     try {
       setRefreshingEwb(true);
-      const res = await fetch(`/api/v1/ewaybills/${selectedDN.eWayBillNumber}?refresh=true`);
+      const targetId = selectedDN.eWayBills?.[0]?.id || selectedDN.eWayBillNumber;
+      const res = await fetch(`/api/v1/ewaybills/${targetId}?refresh=true`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || "Failed to refresh E-Way Bill details");
       toast.success("E-Way Bill details refreshed from statutory provider.");
