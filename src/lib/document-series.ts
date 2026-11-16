@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { db } from "./db";
 
 export const DOCUMENT_TYPES = [
@@ -89,9 +90,10 @@ export function formatDocumentNumber(
  */
 export async function generateNextDocumentNumber(
   documentType: DocumentTypeId | string,
-  fiscalYear: string = getCurrentFiscalYear()
+  fiscalYear: string = getCurrentFiscalYear(),
+  externalTx?: Prisma.TransactionClient
 ): Promise<string> {
-  return await db.$transaction(async (tx) => {
+  const runner = async (tx: Prisma.TransactionClient) => {
     let series = await tx.documentSeries.findUnique({
       where: {
         documentType_fiscalYear: {
@@ -131,6 +133,11 @@ export async function generateNextDocumentNumber(
     });
 
     return formatDocumentNumber(series.prefix, nextCounter, series.padding, series.suffix || "");
-  });
+  };
+
+  if (externalTx) {
+    return await runner(externalTx);
+  }
+  return await db.$transaction(runner, { maxWait: 15000, timeout: 30000 });
 }
 

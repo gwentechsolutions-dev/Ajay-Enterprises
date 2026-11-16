@@ -66,7 +66,7 @@ export async function syncRentalBatchesFromDelivery(
       rate = new Prisma.Decimal(item.materialVariant.defaultRentalRate || 0);
     }
 
-    const batchNumber = await generateNextDocumentNumber("RB");
+    const batchNumber = await generateNextDocumentNumber("RB", undefined, externalTx);
 
     await runner.rentalBatch.create({
       data: {

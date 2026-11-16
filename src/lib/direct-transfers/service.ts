@@ -557,7 +557,7 @@ export async function receiveDirectTransfer(
 
       // 5. Destination RentalBatch Creation (strictly for accepted quantity)
       if (qAccepted.gt(0)) {
-        const destBatchNumber = await generateNextDocumentNumber("RB");
+        const destBatchNumber = await generateNextDocumentNumber("RB", undefined, tx);
 
         // Independent delivery date rule:
         // If Customer A paid on transfer day (includeCutoffDate = true), Customer B starts billing next day (includeDeliveryDate = false)
@@ -607,7 +607,7 @@ export async function receiveDirectTransfer(
 
       // 7. Create immutable Inventory Movement record for accepted units (SITE_TO_SITE_TRANSFER)
       if (qAccepted.gt(0)) {
-        const movementNumber = await generateNextDocumentNumber("MV");
+        const movementNumber = await generateNextDocumentNumber("MV", undefined, tx);
         await tx.inventoryMovement.create({
           data: {
             movementNumber,
@@ -640,7 +640,7 @@ export async function receiveDirectTransfer(
 
       if (qDamaged.gt(0)) {
         // A. Enter Damaged/Repair Assessment workflow
-        const dlaNumber = await generateNextDocumentNumber("DLA");
+        const dlaNumber = await generateNextDocumentNumber("DLA", undefined, tx);
         await tx.damageLossAssessment.create({
           data: {
             assessmentNumber: dlaNumber,
@@ -659,7 +659,7 @@ export async function receiveDirectTransfer(
 
         // B. Queue Material Repair Job if warehouse exists
         if (targetWarehouse) {
-          const repCode = await generateNextDocumentNumber("MAT_REP");
+          const repCode = await generateNextDocumentNumber("MAT_REP", undefined, tx);
           await tx.materialRepairJob.create({
             data: {
               jobCode: repCode,
@@ -678,7 +678,7 @@ export async function receiveDirectTransfer(
         }
 
         // C. Record damaged inventory movement so units are accounted for in ledger
-        const damMvNumber = await generateNextDocumentNumber("MV");
+        const damMvNumber = await generateNextDocumentNumber("MV", undefined, tx);
         await tx.inventoryMovement.create({
           data: {
             movementNumber: damMvNumber,
@@ -707,7 +707,7 @@ export async function receiveDirectTransfer(
 
       if (qMissing.gt(0)) {
         // Enter Loss Investigation and Assessment workflow
-        const dlaMissingNumber = await generateNextDocumentNumber("DLA");
+        const dlaMissingNumber = await generateNextDocumentNumber("DLA", undefined, tx);
         await tx.damageLossAssessment.create({
           data: {
             assessmentNumber: dlaMissingNumber,
@@ -725,7 +725,7 @@ export async function receiveDirectTransfer(
         });
 
         // Record loss tracking movement
-        const misMvNumber = await generateNextDocumentNumber("MV");
+        const misMvNumber = await generateNextDocumentNumber("MV", undefined, tx);
         await tx.inventoryMovement.create({
           data: {
             movementNumber: misMvNumber,
@@ -753,7 +753,7 @@ export async function receiveDirectTransfer(
 
       if (qRejected.gt(0)) {
         // Record rejected custody disposition
-        const rejMvNumber = await generateNextDocumentNumber("MV");
+        const rejMvNumber = await generateNextDocumentNumber("MV", undefined, tx);
         await tx.inventoryMovement.create({
           data: {
             movementNumber: rejMvNumber,
@@ -827,25 +827,28 @@ export async function receiveDirectTransfer(
       },
     });
 
-    await logAuditEvent({
-      userId: actor.id,
-      userName: actor.name,
-      userRole: actor.role,
-      ipAddress: actor.ipAddress,
-      action: "RECEIVE",
-      module: "DIRECT_TRANSFERS",
-      entityType: "DirectSiteTransferNote",
-      entityId: completedTransfer.id,
-      afterState: {
-        transferNumber: completedTransfer.transferNumber,
-        status: finalStatus,
-        hasDiscrepancy,
+    await logAuditEvent(
+      {
+        userId: actor.id,
+        userName: actor.name,
+        userRole: actor.role,
+        ipAddress: actor.ipAddress,
+        action: "RECEIVE",
+        module: "DIRECT_TRANSFERS",
+        entityType: "DirectSiteTransferNote",
+        entityId: completedTransfer.id,
+        afterState: {
+          transferNumber: completedTransfer.transferNumber,
+          status: finalStatus,
+          hasDiscrepancy,
+        },
+        notes: `Received & completed Direct Site Transfer ${completedTransfer.transferNumber} with status ${finalStatus}`,
       },
-      notes: `Received & completed Direct Site Transfer ${completedTransfer.transferNumber} with status ${finalStatus}`,
-    });
+      tx
+    );
 
     return completedTransfer;
-  });
+  }, { maxWait: 15000, timeout: 30000 });
 }
 
 /**

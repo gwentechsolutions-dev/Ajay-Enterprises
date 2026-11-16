@@ -18,17 +18,18 @@ export interface PostMovementResult {
  */
 export async function postInventoryMovement(
   input: CreateMovementInput,
-  actor: { id: string; name: string; role: string; ipAddress?: string }
+  actor: { id: string; name: string; role: string; ipAddress?: string },
+  externalTx?: Prisma.TransactionClient
 ): Promise<PostMovementResult> {
   const qty = new Prisma.Decimal(input.quantity);
   if (qty.lte(0)) {
     throw new Error("Movement quantity must be greater than zero.");
   }
 
-  return await db.$transaction(async (tx) => {
+  const runner = async (tx: Prisma.TransactionClient) => {
     // 1. Generate unique human-readable movement number if not provided
     const movementNumber =
-      input.movementNumber || (await generateNextDocumentNumber("MV"));
+      input.movementNumber || (await generateNextDocumentNumber("MV", undefined, tx));
 
     // 2. Validate Material Variant exists and is active
     const variant = await tx.materialVariant.findUnique({
@@ -136,23 +137,26 @@ export async function postInventoryMovement(
     });
 
     // 6. Audit Logging
-    await logAuditEvent({
-      userId: actor.id,
-      userName: actor.name,
-      userRole: actor.role,
-      ipAddress: actor.ipAddress,
-      action: "POST",
-      module: "MOVEMENTS",
-      entityType: "InventoryMovement",
-      entityId: movement.id,
-      afterState: {
-        movementNumber,
-        type: input.movementType,
-        quantity: qty.toString(),
-        variant: variant.name,
+    await logAuditEvent(
+      {
+        userId: actor.id,
+        userName: actor.name,
+        userRole: actor.role,
+        ipAddress: actor.ipAddress,
+        action: "POST",
+        module: "MOVEMENTS",
+        entityType: "InventoryMovement",
+        entityId: movement.id,
+        afterState: {
+          movementNumber,
+          type: input.movementType,
+          quantity: qty.toString(),
+          variant: variant.name,
+        },
+        notes: `Posted movement ${movementNumber} (${input.movementType}): ${qty.toString()} ${variant.uom}`,
       },
-      notes: `Posted movement ${movementNumber} (${input.movementType}): ${qty.toString()} ${variant.uom}`,
-    });
+      tx
+    );
 
     return {
       success: true,
@@ -160,7 +164,12 @@ export async function postInventoryMovement(
       movementNumber,
       message: `Movement ${movementNumber} posted successfully.`,
     };
-  });
+  };
+
+  if (externalTx) {
+    return await runner(externalTx);
+  }
+  return await db.$transaction(runner, { maxWait: 15000, timeout: 30000 });
 }
 
 /**
@@ -169,9 +178,10 @@ export async function postInventoryMovement(
 export async function reverseInventoryMovement(
   movementId: string,
   reversalReason: string,
-  actor: { id: string; name: string; role: string; ipAddress?: string }
+  actor: { id: string; name: string; role: string; ipAddress?: string },
+  externalTx?: Prisma.TransactionClient
 ): Promise<PostMovementResult> {
-  return await db.$transaction(async (tx) => {
+  const runner = async (tx: Prisma.TransactionClient) => {
     const original = await tx.inventoryMovement.findUnique({
       where: { id: movementId },
       include: { materialVariant: true },
@@ -185,7 +195,7 @@ export async function reverseInventoryMovement(
       throw new Error(`Movement '${original.movementNumber}' has already been reversed.`);
     }
 
-    const reversalNumber = await generateNextDocumentNumber("MV");
+    const reversalNumber = await generateNextDocumentNumber("MV", undefined, tx);
     const qty = new Prisma.Decimal(original.quantity);
 
     // Create the reversal movement record
@@ -247,17 +257,20 @@ export async function reverseInventoryMovement(
     });
 
     // Audit Event
-    await logAuditEvent({
-      userId: actor.id,
-      userName: actor.name,
-      userRole: actor.role,
-      ipAddress: actor.ipAddress,
-      action: "REVERSE",
-      module: "MOVEMENTS",
-      entityType: "InventoryMovement",
-      entityId: reversal.id,
-      notes: `Reversed movement ${original.movementNumber} with reversal entry ${reversalNumber}. Reason: ${reversalReason}`,
-    });
+    await logAuditEvent(
+      {
+        userId: actor.id,
+        userName: actor.name,
+        userRole: actor.role,
+        ipAddress: actor.ipAddress,
+        action: "REVERSE",
+        module: "MOVEMENTS",
+        entityType: "InventoryMovement",
+        entityId: reversal.id,
+        notes: `Reversed movement ${original.movementNumber} with reversal entry ${reversalNumber}. Reason: ${reversalReason}`,
+      },
+      tx
+    );
 
     return {
       success: true,
@@ -265,7 +278,12 @@ export async function reverseInventoryMovement(
       movementNumber: reversalNumber,
       message: `Movement ${original.movementNumber} reversed successfully by ${reversalNumber}.`,
     };
-  });
+  };
+
+  if (externalTx) {
+    return await runner(externalTx);
+  }
+  return await db.$transaction(runner, { maxWait: 15000, timeout: 30000 });
 }
 
 /**

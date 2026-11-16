@@ -70,10 +70,11 @@ export async function POST(req: NextRequest) {
       ipAddress: req.headers.get("x-forwarded-for") || undefined,
     };
 
-    const result = await db.$transaction(async (tx) => {
-      const mrnNumber = input.mrnNumber || (await generateNextDocumentNumber("MRN"));
+    const result = await db.$transaction(
+      async (tx) => {
+        const mrnNumber = input.mrnNumber || (await generateNextDocumentNumber("MRN", undefined, tx));
 
-      // 1. Create MRN Header
+        // 1. Create MRN Header
       const mrn = await tx.materialReturnNote.create({
         data: {
           mrnNumber,
@@ -164,7 +165,8 @@ export async function POST(req: NextRequest) {
               condition: "GOOD",
               notes: `MRN ${mrnNumber}: Accepted ${acceptedQty.toString()} good units into warehouse.`,
             },
-            actor
+            actor,
+            tx
           );
         }
 
@@ -187,7 +189,8 @@ export async function POST(req: NextRequest) {
               condition: "DAMAGED",
               notes: `MRN ${mrnNumber}: Received ${damagedQty.toString()} damaged units from customer site.`,
             },
-            actor
+            actor,
+            tx
           );
         }
 
@@ -209,7 +212,8 @@ export async function POST(req: NextRequest) {
               condition: "SCRAP",
               notes: `MRN ${mrnNumber}: Shortage/Missing ${missingQty.toString()} units on customer return.`,
             },
-            actor
+            actor,
+            tx
           );
         }
       }
@@ -237,20 +241,25 @@ export async function POST(req: NextRequest) {
       await allocateReturnToBatches(mrn.id, tx);
 
       // 8. Audit log
-      await logAuditEvent({
-        userId: actor.id,
-        userName: actor.name,
-        userRole: actor.role,
-        ipAddress: actor.ipAddress,
-        action: "POST",
-        module: "MATERIAL_RETURNS",
-        entityType: "MaterialReturnNote",
-        entityId: mrn.id,
-        notes: `Posted Material Return Note ${mrnNumber} from customer site.`,
-      });
+      await logAuditEvent(
+        {
+          userId: actor.id,
+          userName: actor.name,
+          userRole: actor.role,
+          ipAddress: actor.ipAddress,
+          action: "POST",
+          module: "MATERIAL_RETURNS",
+          entityType: "MaterialReturnNote",
+          entityId: mrn.id,
+          notes: `Posted Material Return Note ${mrnNumber} from customer site.`,
+        },
+        tx
+      );
 
       return mrn;
-    });
+    },
+    { maxWait: 15000, timeout: 30000 }
+  );
 
     // Notify customer via WhatsApp
     const customer = await db.customer.findUnique({ where: { id: input.customerId } });

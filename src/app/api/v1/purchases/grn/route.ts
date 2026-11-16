@@ -69,8 +69,9 @@ export async function POST(req: NextRequest) {
     };
 
     // Execute atomic GRN creation, stock balance update, and PO progress update
-    const result = await db.$transaction(async (tx) => {
-      const grnNumber = input.grnNumber || (await generateNextDocumentNumber("GRN"));
+    const result = await db.$transaction(
+      async (tx) => {
+        const grnNumber = input.grnNumber || (await generateNextDocumentNumber("GRN", undefined, tx));
 
       // 1. If PO is linked, validate PO exists and is approved
       let poRecord = null;
@@ -155,7 +156,8 @@ export async function POST(req: NextRequest) {
               unitCost: item.unitCost,
               notes: `GRN ${grnNumber} receipt: Accepted ${acceptedQty.toString()} units.`,
             },
-            actor
+            actor,
+            tx
           );
         }
 
@@ -178,7 +180,8 @@ export async function POST(req: NextRequest) {
               unitCost: item.unitCost,
               notes: `GRN ${grnNumber} receipt: Damaged on arrival ${damagedQty.toString()} units.`,
             },
-            actor
+            actor,
+            tx
           );
         }
 
@@ -213,20 +216,25 @@ export async function POST(req: NextRequest) {
       }
 
       // 5. Audit Logging
-      await logAuditEvent({
-        userId: actor.id,
-        userName: actor.name,
-        userRole: actor.role,
-        ipAddress: actor.ipAddress,
-        action: "POST",
-        module: "PURCHASES",
-        entityType: "GoodsReceiptNote",
-        entityId: grn.id,
-        notes: `Posted GRN ${grnNumber} with ${input.items.length} material lines.`,
-      });
+      await logAuditEvent(
+        {
+          userId: actor.id,
+          userName: actor.name,
+          userRole: actor.role,
+          ipAddress: actor.ipAddress,
+          action: "POST",
+          module: "PURCHASES",
+          entityType: "GoodsReceiptNote",
+          entityId: grn.id,
+          notes: `Posted GRN ${grnNumber} with ${input.items.length} material lines.`,
+        },
+        tx
+      );
 
       return grn;
-    });
+    },
+    { maxWait: 15000, timeout: 30000 }
+  );
 
     // Notify supplier via WhatsApp (non-blocking)
     const supplier = await db.supplier.findUnique({ where: { id: input.supplierId } });

@@ -63,74 +63,81 @@ export async function POST(req: NextRequest) {
       ipAddress: req.headers.get("x-forwarded-for") || undefined,
     };
 
-    const result = await db.$transaction(async (tx) => {
-      const hdnNumber = input.hdnNumber || (await generateNextDocumentNumber("HDN"));
+    const result = await db.$transaction(
+      async (tx) => {
+        const hdnNumber = input.hdnNumber || (await generateNextDocumentNumber("HDN", undefined, tx));
 
-      const hdn = await tx.hiringDeliveryNote.create({
-        data: {
-          hdnNumber,
-          supplierId: input.supplierId,
-          receivingWarehouseId: input.receivingWarehouseId,
-          receiptDate: input.receiptDate ? new Date(input.receiptDate) : new Date(),
-          supplierReference: input.supplierReference,
-          effectiveDate: input.effectiveDate ? new Date(input.effectiveDate) : new Date(),
-          status: "POSTED",
-          postedById: actor.id,
-          postedAt: new Date(),
-          notes: input.notes,
-          items: {
-            create: input.items.map((item) => ({
-              materialVariantId: item.materialVariantId,
-              quantity: new Prisma.Decimal(item.quantity),
-              dailyHiringRate: new Prisma.Decimal(item.dailyHiringRate),
-              condition: item.condition,
-              remarks: item.remarks,
-            })),
-          },
-        },
-        include: {
-          items: { include: { materialVariant: true } },
-          supplier: true,
-          receivingWarehouse: true,
-        },
-      });
-
-      // Update inventory movement ledger and StockBalance for HIRED_IN pool
-      for (const item of input.items) {
-        await postInventoryMovement(
-          {
-            materialVariantId: item.materialVariantId,
-            quantity: item.quantity,
-            uom: "Nos.",
-            ownershipType: "HIRED_IN",
-            movementType: "STOCK_RECEIPT",
-            sourceLocationType: "SUPPLIER",
-            destinationLocationType: "WAREHOUSE",
-            destinationWarehouseId: input.receivingWarehouseId,
+        const hdn = await tx.hiringDeliveryNote.create({
+          data: {
+            hdnNumber,
             supplierId: input.supplierId,
-            referenceDocumentType: "HIRING_DELIVERY_NOTE",
-            referenceDocumentId: hdn.id,
-            condition: (item.condition as "GOOD" | "FAIR" | "DAMAGED") || "GOOD",
-            notes: `Hired material received from ${hdn.supplier.name} under ${hdn.hdnNumber}`,
+            receivingWarehouseId: input.receivingWarehouseId,
+            receiptDate: input.receiptDate ? new Date(input.receiptDate) : new Date(),
+            supplierReference: input.supplierReference,
+            effectiveDate: input.effectiveDate ? new Date(input.effectiveDate) : new Date(),
+            status: "POSTED",
+            postedById: actor.id,
+            postedAt: new Date(),
+            notes: input.notes,
+            items: {
+              create: input.items.map((item) => ({
+                materialVariantId: item.materialVariantId,
+                quantity: new Prisma.Decimal(item.quantity),
+                dailyHiringRate: new Prisma.Decimal(item.dailyHiringRate),
+                condition: item.condition,
+                remarks: item.remarks,
+              })),
+            },
           },
-          actor
+          include: {
+            items: { include: { materialVariant: true } },
+            supplier: true,
+            receivingWarehouse: true,
+          },
+        });
+
+        // Update inventory movement ledger and StockBalance for HIRED_IN pool
+        for (const item of input.items) {
+          await postInventoryMovement(
+            {
+              materialVariantId: item.materialVariantId,
+              quantity: item.quantity,
+              uom: "Nos.",
+              ownershipType: "HIRED_IN",
+              movementType: "STOCK_RECEIPT",
+              sourceLocationType: "SUPPLIER",
+              destinationLocationType: "WAREHOUSE",
+              destinationWarehouseId: input.receivingWarehouseId,
+              supplierId: input.supplierId,
+              referenceDocumentType: "HIRING_DELIVERY_NOTE",
+              referenceDocumentId: hdn.id,
+              condition: (item.condition as "GOOD" | "FAIR" | "DAMAGED") || "GOOD",
+              notes: `Hired material received from ${hdn.supplier.name} under ${hdn.hdnNumber}`,
+            },
+            actor,
+            tx
+          );
+        }
+
+        await logAuditEvent(
+          {
+            userId: actor.id,
+            userName: actor.name,
+            userRole: actor.role,
+            action: "CREATE",
+            module: "HIRING_NOTE",
+            entityType: "HiringDeliveryNote",
+            entityId: hdn.id,
+            ipAddress: actor.ipAddress,
+            notes: `Posted Hiring Delivery Note ${hdn.hdnNumber} from ${hdn.supplier.name} to ${hdn.receivingWarehouse.name}`,
+          },
+          tx
         );
-      }
 
-      await logAuditEvent({
-        userId: actor.id,
-        userName: actor.name,
-        userRole: actor.role,
-        action: "CREATE",
-        module: "HIRING_NOTE",
-        entityType: "HiringDeliveryNote",
-        entityId: hdn.id,
-        ipAddress: actor.ipAddress,
-        notes: `Posted Hiring Delivery Note ${hdn.hdnNumber} from ${hdn.supplier.name} to ${hdn.receivingWarehouse.name}`,
-      });
-
-      return hdn;
-    });
+        return hdn;
+      },
+      { maxWait: 15000, timeout: 30000 }
+    );
 
     return NextResponse.json({ success: true, data: result }, { status: 201 });
   } catch (error: any) {

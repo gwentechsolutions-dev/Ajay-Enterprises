@@ -132,7 +132,7 @@ export async function postJournalEntry(
   }
 
   // 4. Generate Document Series Number if not provided
-  const journalNumber = input.journalNumber || (await generateNextDocumentNumber("JOURNAL"));
+  const journalNumber = input.journalNumber || (await generateNextDocumentNumber("JOURNAL", fiscalYear, tx));
 
   // 5. Insert Journal Header and Lines atomically
   const journal = await runner.journalEntry.create({

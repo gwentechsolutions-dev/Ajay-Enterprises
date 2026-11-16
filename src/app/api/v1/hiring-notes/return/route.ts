@@ -64,91 +64,98 @@ export async function POST(req: NextRequest) {
       ipAddress: req.headers.get("x-forwarded-for") || undefined,
     };
 
-    const result = await db.$transaction(async (tx) => {
-      // 1. Stock availability check in HIRED_IN pool at the warehouse
-      for (const item of input.items) {
-        const stock = await tx.stockBalance.findFirst({
-          where: {
-            materialVariantId: item.materialVariantId,
-            ownershipType: "HIRED_IN",
-            warehouseId: input.sourceWarehouseId,
+    const result = await db.$transaction(
+      async (tx) => {
+        // 1. Stock availability check in HIRED_IN pool at the warehouse
+        for (const item of input.items) {
+          const stock = await tx.stockBalance.findFirst({
+            where: {
+              materialVariantId: item.materialVariantId,
+              ownershipType: "HIRED_IN",
+              warehouseId: input.sourceWarehouseId,
+            },
+          });
+
+          const available = stock ? Number(stock.availableQty) : 0;
+          if (available < item.quantity) {
+            const variant = await tx.materialVariant.findUnique({ where: { id: item.materialVariantId } });
+            throw new Error(
+              `Insufficient HIRED_IN stock for ${variant?.name || item.materialVariantId}. Required: ${item.quantity}, Available: ${available}`
+            );
+          }
+        }
+
+        const hrnNumber = input.hrnNumber || (await generateNextDocumentNumber("HRN", undefined, tx));
+
+        const hrn = await tx.hiringReturnNote.create({
+          data: {
+            hrnNumber,
+            supplierId: input.supplierId,
+            sourceWarehouseId: input.sourceWarehouseId,
+            referenceHdnId: input.referenceHdnId || null,
+            returnDate: input.returnDate ? new Date(input.returnDate) : new Date(),
+            status: "POSTED",
+            postedById: actor.id,
+            postedAt: new Date(),
+            notes: input.notes,
+            items: {
+              create: input.items.map((item) => ({
+                materialVariantId: item.materialVariantId,
+                quantity: new Prisma.Decimal(item.quantity),
+                condition: item.condition,
+                remarks: item.remarks,
+              })),
+            },
+          },
+          include: {
+            items: { include: { materialVariant: true } },
+            supplier: true,
+            sourceWarehouse: true,
           },
         });
 
-        const available = stock ? Number(stock.availableQty) : 0;
-        if (available < item.quantity) {
-          const variant = await tx.materialVariant.findUnique({ where: { id: item.materialVariantId } });
-          throw new Error(
-            `Insufficient HIRED_IN stock for ${variant?.name || item.materialVariantId}. Required: ${item.quantity}, Available: ${available}`
+        // Deduct from HIRED_IN stock pool at warehouse
+        for (const item of input.items) {
+          await postInventoryMovement(
+            {
+              materialVariantId: item.materialVariantId,
+              quantity: item.quantity,
+              uom: "Nos.",
+              ownershipType: "HIRED_IN",
+              movementType: "SCRAP", // Deducts available stock from warehouse without destination site
+              sourceLocationType: "WAREHOUSE",
+              sourceWarehouseId: input.sourceWarehouseId,
+              destinationLocationType: "SUPPLIER",
+              supplierId: input.supplierId,
+              referenceDocumentType: "HIRING_RETURN_NOTE",
+              referenceDocumentId: hrn.id,
+              condition: (item.condition as "GOOD" | "FAIR" | "DAMAGED") || "GOOD",
+              notes: `Hired material returned to ${hrn.supplier.name} under ${hrn.hrnNumber}`,
+            },
+            actor,
+            tx
           );
         }
-      }
 
-      const hrnNumber = input.hrnNumber || (await generateNextDocumentNumber("HRN"));
-
-      const hrn = await tx.hiringReturnNote.create({
-        data: {
-          hrnNumber,
-          supplierId: input.supplierId,
-          sourceWarehouseId: input.sourceWarehouseId,
-          referenceHdnId: input.referenceHdnId || null,
-          returnDate: input.returnDate ? new Date(input.returnDate) : new Date(),
-          status: "POSTED",
-          postedById: actor.id,
-          postedAt: new Date(),
-          notes: input.notes,
-          items: {
-            create: input.items.map((item) => ({
-              materialVariantId: item.materialVariantId,
-              quantity: new Prisma.Decimal(item.quantity),
-              condition: item.condition,
-              remarks: item.remarks,
-            })),
-          },
-        },
-        include: {
-          items: { include: { materialVariant: true } },
-          supplier: true,
-          sourceWarehouse: true,
-        },
-      });
-
-      // Deduct from HIRED_IN stock pool at warehouse
-      for (const item of input.items) {
-        await postInventoryMovement(
+        await logAuditEvent(
           {
-            materialVariantId: item.materialVariantId,
-            quantity: item.quantity,
-            uom: "Nos.",
-            ownershipType: "HIRED_IN",
-            movementType: "SCRAP", // Deducts available stock from warehouse without destination site
-            sourceLocationType: "WAREHOUSE",
-            sourceWarehouseId: input.sourceWarehouseId,
-            destinationLocationType: "SUPPLIER",
-            supplierId: input.supplierId,
-            referenceDocumentType: "HIRING_RETURN_NOTE",
-            referenceDocumentId: hrn.id,
-            condition: (item.condition as "GOOD" | "FAIR" | "DAMAGED") || "GOOD",
-            notes: `Hired material returned to ${hrn.supplier.name} under ${hrn.hrnNumber}`,
+            userId: actor.id,
+            userName: actor.name,
+            userRole: actor.role,
+            action: "CREATE",
+            module: "HIRING_NOTE",
+            entityType: "HiringReturnNote",
+            entityId: hrn.id,
+            ipAddress: actor.ipAddress,
+            notes: `Posted Hiring Return Note ${hrn.hrnNumber} returning materials to ${hrn.supplier.name}`,
           },
-          actor
+          tx
         );
-      }
 
-      await logAuditEvent({
-        userId: actor.id,
-        userName: actor.name,
-        userRole: actor.role,
-        action: "CREATE",
-        module: "HIRING_NOTE",
-        entityType: "HiringReturnNote",
-        entityId: hrn.id,
-        ipAddress: actor.ipAddress,
-        notes: `Posted Hiring Return Note ${hrn.hrnNumber} returning materials to ${hrn.supplier.name}`,
-      });
-
-      return hrn;
-    });
+        return hrn;
+      },
+      { maxWait: 15000, timeout: 30000 }
+    );
 
     return NextResponse.json({ success: true, data: result }, { status: 201 });
   } catch (error: any) {

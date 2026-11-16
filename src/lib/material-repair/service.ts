@@ -151,7 +151,8 @@ export async function completeMaterialRepair(
           referenceDocumentId: job.id,
           notes: `Repair completion: ${qtyToComplete.toString()} units restored to warehouse stock. Job: ${job.jobCode}`,
         },
-        actor
+        actor,
+        tx
       );
     }
 
@@ -220,20 +221,23 @@ export async function completeMaterialRepair(
       },
     });
 
-    await logAuditEvent({
-      userId: actor.id,
-      userName: actor.name,
-      userRole: actor.role,
-      action: "UPDATE",
-      module: "material_maintenance",
-      entityType: "MaterialRepairJob",
-      entityId: job.id,
-      afterState: updated,
-      ipAddress: actor.ipAddress,
-    });
+    await logAuditEvent(
+      {
+        userId: actor.id,
+        userName: actor.name,
+        userRole: actor.role,
+        action: "UPDATE",
+        module: "material_maintenance",
+        entityType: "MaterialRepairJob",
+        entityId: job.id,
+        afterState: updated,
+        ipAddress: actor.ipAddress,
+      },
+      tx
+    );
 
     return updated;
-  });
+  }, { maxWait: 15000, timeout: 30000 });
 }
 
 /**
@@ -299,7 +303,8 @@ export async function scrapMaterialRepair(
           referenceDocumentId: job.id,
           notes: `Scrap write-off: ${qtyToScrap.toString()} units written off. Reason: ${input.reason}`,
         },
-        actor
+        actor,
+        tx
       );
     }
 
@@ -319,19 +324,22 @@ export async function scrapMaterialRepair(
       },
     });
 
-    await logAuditEvent({
-      userId: actor.id,
-      userName: actor.name,
-      userRole: actor.role,
-      action: "UPDATE",
-      module: "material_maintenance",
-      entityType: "MaterialRepairJob",
-      entityId: job.id,
-      afterState: updated,
-      ipAddress: actor.ipAddress,
-    });
+    await logAuditEvent(
+      {
+        userId: actor.id,
+        userName: actor.name,
+        userRole: actor.role,
+        action: "UPDATE",
+        module: "material_maintenance",
+        entityType: "MaterialRepairJob",
+        entityId: job.id,
+        afterState: updated,
+        ipAddress: actor.ipAddress,
+      },
+      tx
+    );
 
     return updated;
-  });
+  }, { maxWait: 15000, timeout: 30000 });
 }
 

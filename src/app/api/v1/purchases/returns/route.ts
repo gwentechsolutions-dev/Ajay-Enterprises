@@ -56,8 +56,9 @@ export async function POST(req: NextRequest) {
       ipAddress: req.headers.get("x-forwarded-for") || undefined,
     };
 
-    const result = await db.$transaction(async (tx) => {
-      const prNumber = input.prNumber || (await generateNextDocumentNumber("PR"));
+    const result = await db.$transaction(
+      async (tx) => {
+        const prNumber = input.prNumber || (await generateNextDocumentNumber("PR", undefined, tx));
 
       // 1. Create Purchase Return Header
       const pr = await tx.purchaseReturn.create({
@@ -125,24 +126,30 @@ export async function POST(req: NextRequest) {
             condition: "GOOD",
             notes: `Purchase Return ${prNumber} to supplier: ${input.reason}`,
           },
-          actor
+          actor,
+          tx
         );
       }
 
-      await logAuditEvent({
-        userId: actor.id,
-        userName: actor.name,
-        userRole: actor.role,
-        ipAddress: actor.ipAddress,
-        action: "POST",
-        module: "PURCHASES",
-        entityType: "PurchaseReturn",
-        entityId: pr.id,
-        notes: `Posted Purchase Return ${prNumber} with ${input.items.length} items. Reason: ${input.reason}`,
-      });
+      await logAuditEvent(
+        {
+          userId: actor.id,
+          userName: actor.name,
+          userRole: actor.role,
+          ipAddress: actor.ipAddress,
+          action: "POST",
+          module: "PURCHASES",
+          entityType: "PurchaseReturn",
+          entityId: pr.id,
+          notes: `Posted Purchase Return ${prNumber} with ${input.items.length} items. Reason: ${input.reason}`,
+        },
+        tx
+      );
 
       return pr;
-    });
+    },
+    { maxWait: 15000, timeout: 30000 }
+  );
 
     return NextResponse.json({ success: true, data: result, message: `Purchase Return ${result.prNumber} posted.` }, { status: 201 });
   } catch (error: any) {

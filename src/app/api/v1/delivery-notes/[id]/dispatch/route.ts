@@ -43,58 +43,65 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     };
 
     // Execute atomic dispatch posting
-    const updated = await db.$transaction(async (tx) => {
-      // 1. Post inventory movements for each line item (which strictly checks availability per ownership pool)
-      for (const item of dn.items) {
-        await postInventoryMovement(
-          {
-            materialVariantId: item.materialVariantId,
-            quantity: item.quantity.toNumber(),
-            uom: item.materialVariant.uom,
-            ownershipType: item.ownershipType as "OWNED" | "HIRED_IN",
-            movementType: "DELIVERY_TO_CUSTOMER",
-            sourceLocationType: "WAREHOUSE",
-            sourceWarehouseId: dn.sourceWarehouseId,
-            destinationLocationType: "CUSTOMER_SITE",
-            destinationSiteId: dn.customerSiteId,
-            customerId: dn.customerId,
-            referenceDocumentType: "DELIVERY_NOTE",
-            referenceDocumentId: dn.id,
-            condition: (item.condition as "GOOD" | "FAIR" | "DAMAGED" | "REPAIRABLE" | "SCRAP") || "GOOD",
-            notes: `Delivery Note ${dn.dnNumber} dispatched to ${dn.customerSite.siteName}`,
+    const updated = await db.$transaction(
+      async (tx) => {
+        // 1. Post inventory movements for each line item (which strictly checks availability per ownership pool)
+        for (const item of dn.items) {
+          await postInventoryMovement(
+            {
+              materialVariantId: item.materialVariantId,
+              quantity: item.quantity.toNumber(),
+              uom: item.materialVariant.uom,
+              ownershipType: item.ownershipType as "OWNED" | "HIRED_IN",
+              movementType: "DELIVERY_TO_CUSTOMER",
+              sourceLocationType: "WAREHOUSE",
+              sourceWarehouseId: dn.sourceWarehouseId,
+              destinationLocationType: "CUSTOMER_SITE",
+              destinationSiteId: dn.customerSiteId,
+              customerId: dn.customerId,
+              referenceDocumentType: "DELIVERY_NOTE",
+              referenceDocumentId: dn.id,
+              condition: (item.condition as "GOOD" | "FAIR" | "DAMAGED" | "REPAIRABLE" | "SCRAP") || "GOOD",
+              notes: `Delivery Note ${dn.dnNumber} dispatched to ${dn.customerSite.siteName}`,
+            },
+            actor,
+            tx
+          );
+        }
+
+        // 2. Mark Delivery Note as DISPATCHED
+        const result = await tx.deliveryNote.update({
+          where: { id },
+          data: {
+            status: "DISPATCHED",
+            dispatchedById: actor.id,
+            dispatchedAt: new Date(),
           },
-          actor
+        });
+
+        // 3. Sync Rental Batches for tracking & daily billing accrual
+        await syncRentalBatchesFromDelivery(dn.id, tx);
+
+        // 4. Audit Logging
+        await logAuditEvent(
+          {
+            userId: actor.id,
+            userName: actor.name,
+            userRole: actor.role,
+            ipAddress: actor.ipAddress,
+            action: "POST",
+            module: "DELIVERY_NOTES",
+            entityType: "DeliveryNote",
+            entityId: dn.id,
+            notes: `Dispatched Delivery Note ${dn.dnNumber} to ${dn.customerSite.siteName} (${dn.items.length} material lines).`,
+          },
+          tx
         );
-      }
 
-      // 2. Mark Delivery Note as DISPATCHED
-      const result = await tx.deliveryNote.update({
-        where: { id },
-        data: {
-          status: "DISPATCHED",
-          dispatchedById: actor.id,
-          dispatchedAt: new Date(),
-        },
-      });
-
-      // 3. Sync Rental Batches for tracking & daily billing accrual
-      await syncRentalBatchesFromDelivery(dn.id, tx);
-
-      // 4. Audit Logging
-      await logAuditEvent({
-        userId: actor.id,
-        userName: actor.name,
-        userRole: actor.role,
-        ipAddress: actor.ipAddress,
-        action: "POST",
-        module: "DELIVERY_NOTES",
-        entityType: "DeliveryNote",
-        entityId: dn.id,
-        notes: `Dispatched Delivery Note ${dn.dnNumber} to ${dn.customerSite.siteName} (${dn.items.length} material lines).`,
-      });
-
-      return result;
-    });
+        return result;
+      },
+      { maxWait: 15000, timeout: 30000 }
+    );
 
     // Notify customer site contact via WhatsApp (non-blocking)
     const targetMobile = dn.contactPerson?.mobile || dn.customer.primaryMobile;

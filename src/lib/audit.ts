@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { db } from "./db";
 
 export interface LogAuditParams {
@@ -49,9 +50,13 @@ function sanitizeState(obj: Record<string, any> | null | undefined): string | nu
   return JSON.stringify(clone);
 }
 
-export async function logAuditEvent(params: LogAuditParams): Promise<void> {
+export async function logAuditEvent(
+  params: LogAuditParams,
+  externalTx?: Prisma.TransactionClient
+): Promise<void> {
   try {
-    await db.auditEvent.create({
+    const client = externalTx || db;
+    await client.auditEvent.create({
       data: {
         userId: params.userId || null,
         userName: params.userName || null,
