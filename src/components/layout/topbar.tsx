@@ -24,6 +24,10 @@ import {
   Loader2,
   X,
   FileDigit,
+  AlertTriangle,
+  Clock,
+  Info,
+  CheckCheck,
 } from "lucide-react";
 import { SessionUser } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -39,12 +43,96 @@ interface TopbarProps {
   onMenuToggle: () => void;
 }
 
+interface NotificationItem {
+  id: string;
+  type: string;
+  title: string;
+  description: string;
+  severity: "CRITICAL" | "WARNING" | "INFO";
+  href: string;
+  timestamp?: string;
+}
+
 export function Topbar({ user, onMenuToggle }: TopbarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [profileOpen, setProfileOpen] = React.useState(false);
   const [signingOut, setSigningOut] = React.useState(false);
   const profileRef = React.useRef<HTMLDivElement>(null);
+
+  // Notifications State & Persistence
+  const [notificationsOpen, setNotificationsOpen] = React.useState(false);
+  const [notifications, setNotifications] = React.useState<NotificationItem[]>([]);
+  const [readIds, setReadIds] = React.useState<Set<string>>(new Set());
+  const [loadingNotifications, setLoadingNotifications] = React.useState(false);
+  const notificationsRef = React.useRef<HTMLDivElement>(null);
+
+  // Load read notifications from localStorage
+  React.useEffect(() => {
+    try {
+      const stored = localStorage.getItem("inventra_read_notifications");
+      if (stored) {
+        setReadIds(new Set(JSON.parse(stored)));
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const fetchNotifications = React.useCallback(async () => {
+    try {
+      setLoadingNotifications(true);
+      const res = await fetch("/api/v1/notifications");
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data?.notifications) {
+          setNotifications(json.data.notifications);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load notifications", e);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  }, []);
+
+  // Fetch notifications on mount and set polling interval (60s)
+  React.useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
+
+  const markAsRead = React.useCallback((id: string) => {
+    setReadIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      try {
+        localStorage.setItem("inventra_read_notifications", JSON.stringify(Array.from(next)));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }, []);
+
+  const markAllAsRead = React.useCallback(() => {
+    const allIds = new Set(notifications.map((n) => n.id));
+    setReadIds((prev) => {
+      const next = new Set([...Array.from(prev), ...Array.from(allIds)]);
+      try {
+        localStorage.setItem("inventra_read_notifications", JSON.stringify(Array.from(next)));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+    toast.success("All notifications marked as read");
+  }, [notifications]);
+
+  const unreadCount = React.useMemo(() => {
+    return notifications.filter((n) => !readIds.has(n.id)).length;
+  }, [notifications, readIds]);
 
   // Search Palette State & Client-Side Cache
   const [searchOpen, setSearchOpen] = React.useState(false);
@@ -55,11 +143,14 @@ export function Topbar({ user, onMenuToggle }: TopbarProps) {
   const searchCacheRef = React.useRef<Map<string, any[]>>(new Map());
   const abortControllerRef = React.useRef<AbortController | null>(null);
 
-  // Close profile dropdown on outside click
+  // Close profile & notifications dropdown on outside click
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
         setProfileOpen(false);
+      }
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
+        setNotificationsOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -365,15 +456,159 @@ export function Topbar({ user, onMenuToggle }: TopbarProps) {
 
       {/* Right: Notifications & User Profile */}
       <div className="flex items-center gap-3">
-        {/* Notifications Icon */}
-        <button
-          type="button"
-          title="System Notifications"
-          className="relative flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-        >
-          <Bell className="h-4 w-4" />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-accent-500" />
-        </button>
+        {/* Notifications Dropdown */}
+        <div ref={notificationsRef} className="relative">
+          <button
+            type="button"
+            onClick={() => {
+              setNotificationsOpen(!notificationsOpen);
+              if (!notificationsOpen && notifications.length === 0) {
+                fetchNotifications();
+              }
+            }}
+            title={unreadCount > 0 ? `${unreadCount} unread notifications` : "System Notifications"}
+            className={`relative flex h-9 w-9 items-center justify-center rounded-lg transition-colors cursor-pointer ${
+              notificationsOpen
+                ? "bg-slate-100 text-slate-800"
+                : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+            }`}
+          >
+            <Bell className="h-4 w-4" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#F26522]" />
+              </span>
+            )}
+          </button>
+
+          {/* Notifications Dropdown Panel */}
+          {notificationsOpen && (
+            <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-xl border border-slate-200 bg-white shadow-xl animate-in fade-in-50 zoom-in-95 z-50 overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/70">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-xs text-slate-900">Notifications</span>
+                  {unreadCount > 0 ? (
+                    <Badge className="bg-[#F26522] hover:bg-[#EA580C] text-white text-[10px] px-1.5 py-0 h-4 font-bold border-0">
+                      {unreadCount} new
+                    </Badge>
+                  ) : (
+                    <span className="text-[11px] text-slate-400">All read</span>
+                  )}
+                </div>
+                {unreadCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={markAllAsRead}
+                    className="text-[11px] font-medium text-slate-500 hover:text-[#0B1E36] transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <CheckCheck className="h-3.5 w-3.5 text-[#F26522]" />
+                    <span>Mark all read</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Notification List */}
+              <div className="max-h-[380px] overflow-y-auto divide-y divide-slate-100">
+                {loadingNotifications && notifications.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <Loader2 className="h-5 w-5 animate-spin text-slate-400 mx-auto mb-2" />
+                    <p className="text-xs text-slate-500">Checking for alerts...</p>
+                  </div>
+                ) : notifications.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto mb-2 opacity-80" />
+                    <p className="text-xs font-semibold text-slate-800">All caught up!</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      No active business alerts or pending dispatches.
+                    </p>
+                  </div>
+                ) : (
+                  notifications.map((item) => {
+                    const isUnread = !readIds.has(item.id);
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => {
+                          markAsRead(item.id);
+                          setNotificationsOpen(false);
+                          router.push(item.href);
+                        }}
+                        className={`p-3 text-left transition-colors flex items-start gap-3 hover:bg-slate-50 cursor-pointer ${
+                          isUnread ? "bg-orange-50/30" : ""
+                        }`}
+                      >
+                        {/* Severity Icon */}
+                        <div
+                          className={`mt-0.5 flex-shrink-0 flex h-7 w-7 items-center justify-center rounded-lg ${
+                            item.severity === "CRITICAL"
+                              ? "bg-red-50 text-red-600 border border-red-100"
+                              : item.severity === "WARNING"
+                              ? "bg-amber-50 text-amber-600 border border-amber-100"
+                              : "bg-blue-50 text-blue-600 border border-blue-100"
+                          }`}
+                        >
+                          {item.severity === "CRITICAL" ? (
+                            <AlertTriangle className="h-3.5 w-3.5" />
+                          ) : item.severity === "WARNING" ? (
+                            <Clock className="h-3.5 w-3.5" />
+                          ) : (
+                            <Info className="h-3.5 w-3.5" />
+                          )}
+                        </div>
+
+                        {/* Text Details */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1 mb-0.5">
+                            <p
+                              className={`text-xs truncate ${
+                                isUnread ? "font-bold text-slate-900" : "font-medium text-slate-700"
+                              }`}
+                            >
+                              {item.title}
+                            </p>
+                            {isUnread && (
+                              <span className="flex-shrink-0 h-1.5 w-1.5 rounded-full bg-[#F26522]" />
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
+                            {item.description}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="border-t border-slate-100 bg-slate-50 px-3.5 py-2 flex items-center justify-between text-[11px]">
+                <Link
+                  href="/dashboard"
+                  onClick={() => setNotificationsOpen(false)}
+                  className="text-[#0B1E36] font-semibold hover:underline flex items-center gap-1"
+                >
+                  <span>Executive Dashboard</span>
+                  <ArrowRight className="h-3 w-3" />
+                </Link>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    fetchNotifications();
+                  }}
+                  disabled={loadingNotifications}
+                  className="text-slate-400 hover:text-slate-600 transition-colors flex items-center gap-1 cursor-pointer"
+                  title="Refresh alerts"
+                >
+                  <RotateCcw className={`h-3 w-3 ${loadingNotifications ? "animate-spin" : ""}`} />
+                  <span>Refresh</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* User Profile Menu */}
         <div ref={profileRef} className="relative">

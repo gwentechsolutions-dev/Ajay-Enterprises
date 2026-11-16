@@ -454,7 +454,7 @@ async function getMonthlyTrendHistory(monthsCount = 6) {
   return trends;
 }
 
-async function fetchBusinessAlerts() {
+export async function fetchBusinessAlerts() {
   const now = new Date();
   const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
