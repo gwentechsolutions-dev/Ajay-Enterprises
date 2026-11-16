@@ -8,7 +8,12 @@ import { createVehicleSchema } from "@/lib/schemas/fleet";
 export async function GET(req: NextRequest) {
   try {
     const session = await getSession();
-    await requirePermission(session, "fleet", "view");
+    // Allow either fleet view or delivery_notes view so staff creating delivery notes / EWBs can list vehicles
+    try {
+      await requirePermission(session, "fleet", "view");
+    } catch {
+      await requirePermission(session, "delivery_notes", "view");
+    }
 
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status") || undefined;

@@ -62,6 +62,11 @@ export default function DeliveryNotesPage() {
   const [submitting, setSubmitting] = React.useState(false);
   const [editingDnId, setEditingDnId] = React.useState<string | null>(null);
 
+  // Fleet vehicles state for registered company vehicles
+  const [fleetVehicles, setFleetVehicles] = React.useState<any[]>([]);
+  const [isCustomEwbVehicle, setIsCustomEwbVehicle] = React.useState(false);
+  const [isCustomUpdateVehicle, setIsCustomUpdateVehicle] = React.useState(false);
+
   // Dispatch stock check state
   const [dispatchYardId, setDispatchYardId] = React.useState("");
   const [stockBalances, setStockBalances] = React.useState<any[]>([]);
@@ -113,7 +118,7 @@ export default function DeliveryNotesPage() {
 
   const loadData = React.useCallback(async (forceRefresh = false) => {
     try {
-      const [dnData, custData, whData, varData] = await Promise.all([
+      const [dnData, custData, whData, varData, vehData] = await Promise.all([
         fetchWithClientCache("/api/v1/delivery-notes", {
           forceRefresh,
           onBackgroundUpdate: (fresh) => setDeliveryNotes(Array.isArray(fresh) ? fresh : []),
@@ -132,6 +137,13 @@ export default function DeliveryNotesPage() {
           ttlMs: 60_000,
           onBackgroundUpdate: (fresh) => setVariants(Array.isArray(fresh) ? fresh : []),
         }),
+        fetchWithClientCache("/api/v1/fleet/vehicles", {
+          forceRefresh,
+          ttlMs: 60_000,
+          onBackgroundUpdate: (fresh) => {
+            if (Array.isArray(fresh)) setFleetVehicles(fresh);
+          },
+        }).catch(() => null),
       ]);
 
       if (dnData) setDeliveryNotes(Array.isArray(dnData) ? dnData : []);
@@ -145,6 +157,7 @@ export default function DeliveryNotesPage() {
         });
       }
       if (varData) setVariants(Array.isArray(varData) ? varData : []);
+      if (vehData && Array.isArray(vehData)) setFleetVehicles(vehData);
     } catch {
       toast.error("Failed to load delivery notes.");
     } finally {
@@ -461,15 +474,25 @@ export default function DeliveryNotesPage() {
     const latestEwb = dn.eWayBills?.[0];
     const sourceYard = warehouses.find((w: any) => w.id === dn.sourceWarehouseId);
 
+    const targetVehNo = latestEwb?.vehicleNumber || dn.vehicleNumber || "";
+    const cleanTarget = targetVehNo.replace(/[\s\-_]/g, "").toUpperCase();
+    const matchedVehicle = fleetVehicles.find(
+      (v: any) => v.vehicleNumber.replace(/[\s\-_]/g, "").toUpperCase() === cleanTarget
+    );
+    const finalVehNo = matchedVehicle?.vehicleNumber || targetVehNo || fleetVehicles[0]?.vehicleNumber || "KA-01-EA-4412";
+    const isFleet = fleetVehicles.some((v: any) => v.vehicleNumber === finalVehNo);
+    setIsCustomEwbVehicle(!isFleet && !!finalVehNo && fleetVehicles.length > 0);
+    setIsCustomUpdateVehicle(false);
+
     setEwbForm({
-      vehicleNumber: latestEwb?.vehicleNumber || dn.vehicleNumber || "KA-01-AB-1234",
+      vehicleNumber: finalVehNo,
       fromPincode: latestEwb?.fromPincode || sourceYard?.pincode || "560058",
       toPincode: latestEwb?.toPincode || dn.customerSite?.pincode || "560068",
       distanceKm: latestEwb?.distanceKm || 30,
     });
 
     setUpdateVehicleForm({
-      newVehicleNumber: latestEwb?.vehicleNumber || dn.vehicleNumber || "",
+      newVehicleNumber: finalVehNo,
       fromPlace: sourceYard?.city || "Bengaluru",
       fromStateCode: parseInt(sourceYard?.stateCode || "33", 10) || 33,
       reasonCode: "3",
@@ -948,12 +971,36 @@ export default function DeliveryNotesPage() {
 
               <div>
                 <Label className="text-xs font-semibold">Company Vehicle No. *</Label>
-                <Input
-                  placeholder="KA-01-AB-1234"
-                  value={dnForm.vehicleNumber}
-                  onChange={(e) => setDnForm({ ...dnForm, vehicleNumber: e.target.value })}
-                  required
-                />
+                {fleetVehicles.length > 0 ? (
+                  <SearchableCombobox
+                    options={fleetVehicles.map((v) => ({
+                      value: v.vehicleNumber,
+                      label: v.vehicleNumber,
+                      sublabel: `${v.make || ""} ${v.model || ""}`.trim() || undefined,
+                      badge: v.status || "ACTIVE",
+                    }))}
+                    value={dnForm.vehicleNumber}
+                    onChange={(val) => {
+                      const veh = fleetVehicles.find((v) => v.vehicleNumber === val);
+                      setDnForm({
+                        ...dnForm,
+                        vehicleNumber: val,
+                        ...(veh?.defaultDriver?.name ? { driverName: veh.defaultDriver.name } : {}),
+                        ...(veh?.defaultDriver?.mobileNumber ? { driverPhone: veh.defaultDriver.mobileNumber } : {}),
+                      });
+                    }}
+                    placeholder="Select Company Vehicle"
+                    searchPlaceholder="Search vehicle..."
+                    allowClear={false}
+                  />
+                ) : (
+                  <Input
+                    placeholder="KA-01-AB-1234"
+                    value={dnForm.vehicleNumber}
+                    onChange={(e) => setDnForm({ ...dnForm, vehicleNumber: e.target.value })}
+                    required
+                  />
+                )}
               </div>
 
               <div>
@@ -1352,16 +1399,48 @@ export default function DeliveryNotesPage() {
             </div>
           ) : (
             <form onSubmit={handleGenerateEWB} className="space-y-4 pt-1">
-              <div>
-                <Label className="text-xs font-semibold text-slate-700">Vehicle Registration Number *</Label>
-                <Input
-                  value={ewbForm.vehicleNumber}
-                  onChange={(e) => setEwbForm({ ...ewbForm, vehicleNumber: e.target.value.toUpperCase() })}
-                  placeholder="e.g. KA01AB1234 or TN09Z1234"
-                  className="font-mono uppercase text-sm mt-1"
-                  required
-                />
-                <p className="text-[11px] text-slate-400 mt-0.5">Standard Indian RTO registration without spaces</p>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold text-slate-700">Vehicle Registration Number *</Label>
+                  {fleetVehicles.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomEwbVehicle(!isCustomEwbVehicle)}
+                      className="text-[11px] text-[#F26522] hover:underline font-semibold"
+                    >
+                      {isCustomEwbVehicle ? "← Select from Company Fleet" : "+ Enter Other Vehicle"}
+                    </button>
+                  )}
+                </div>
+
+                {!isCustomEwbVehicle && fleetVehicles.length > 0 ? (
+                  <SearchableCombobox
+                    options={fleetVehicles.map((v) => ({
+                      value: v.vehicleNumber,
+                      label: v.vehicleNumber,
+                      sublabel: `${v.make || ""} ${v.model || ""}`.trim() || undefined,
+                      badge: v.status || "ACTIVE",
+                    }))}
+                    value={ewbForm.vehicleNumber}
+                    onChange={(val) => setEwbForm({ ...ewbForm, vehicleNumber: val })}
+                    placeholder="Select Company-Owned Vehicle..."
+                    searchPlaceholder="Search vehicle number, make, model..."
+                    allowClear={false}
+                  />
+                ) : (
+                  <Input
+                    value={ewbForm.vehicleNumber}
+                    onChange={(e) => setEwbForm({ ...ewbForm, vehicleNumber: e.target.value.toUpperCase() })}
+                    placeholder="e.g. KA01AB1234 or TN09Z1234"
+                    className="font-mono uppercase text-sm mt-1"
+                    required
+                  />
+                )}
+                <p className="text-[11px] text-slate-400">
+                  {!isCustomEwbVehicle && fleetVehicles.length > 0
+                    ? `AJAY ENTERPRISES Company-Owned Fleet (Rule #4) · ${fleetVehicles.length} vehicles registered`
+                    : "Standard Indian RTO registration without spaces"}
+                </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1462,15 +1541,48 @@ export default function DeliveryNotesPage() {
           </DialogHeader>
 
           <form onSubmit={handleUpdateVehicle} className="space-y-4 pt-2">
-            <div>
-              <Label className="text-xs font-semibold text-slate-700">New Vehicle Number *</Label>
-              <Input
-                value={updateVehicleForm.newVehicleNumber}
-                onChange={(e) => setUpdateVehicleForm({ ...updateVehicleForm, newVehicleNumber: e.target.value.toUpperCase() })}
-                placeholder="e.g. KA01AB1234"
-                className="font-mono uppercase text-sm mt-1"
-                required
-              />
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-slate-700">New Vehicle Number *</Label>
+                {fleetVehicles.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomUpdateVehicle(!isCustomUpdateVehicle)}
+                    className="text-[11px] text-[#F26522] hover:underline font-semibold"
+                  >
+                    {isCustomUpdateVehicle ? "← Select from Company Fleet" : "+ Enter Other Vehicle"}
+                  </button>
+                )}
+              </div>
+
+              {!isCustomUpdateVehicle && fleetVehicles.length > 0 ? (
+                <SearchableCombobox
+                  options={fleetVehicles.map((v) => ({
+                    value: v.vehicleNumber,
+                    label: v.vehicleNumber,
+                    sublabel: `${v.make || ""} ${v.model || ""}`.trim() || undefined,
+                    badge: v.status || "ACTIVE",
+                  }))}
+                  value={updateVehicleForm.newVehicleNumber}
+                  onChange={(val) => setUpdateVehicleForm({ ...updateVehicleForm, newVehicleNumber: val })}
+                  placeholder="Select New Vehicle from Fleet..."
+                  searchPlaceholder="Search vehicle number, make, model..."
+                  allowClear={false}
+                />
+              ) : (
+                <Input
+                  value={updateVehicleForm.newVehicleNumber}
+                  onChange={(e) => setUpdateVehicleForm({ ...updateVehicleForm, newVehicleNumber: e.target.value.toUpperCase() })}
+                  placeholder="e.g. KA01AB1234"
+                  className="font-mono uppercase text-sm mt-1"
+                  required
+                />
+              )}
+              <p className="text-[11px] text-slate-400">
+                {!isCustomUpdateVehicle && fleetVehicles.length > 0
+                  ? `Select replacement conveyance from AJAY ENTERPRISES fleet`
+                  : "Standard Indian RTO registration without spaces"}
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
