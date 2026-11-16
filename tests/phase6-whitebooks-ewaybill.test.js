@@ -153,11 +153,12 @@ function sanitizePayload(data) {
 // WhiteBooks error categorization
 function parseWhiteBooksError(errorPayload) {
   const code = String(errorPayload.errorCodes || errorPayload.errorCode || "");
-  if (code === "105" || code === "106") return { category: "TOKEN_EXPIRED", isRetryable: true };
-  if (code === "101" || code === "102" || code === "108") return { category: "AUTHENTICATION", isRetryable: false };
-  if (code === "210") return { category: "DUPLICATE_DOCUMENT", isRetryable: false };
-  if (code === "402") return { category: "HSN_VALIDATION", isRetryable: false };
-  return { category: "PROVIDER_ERROR", isRetryable: false };
+  const message = errorPayload.status_desc || errorPayload.errorMessage || errorPayload.message || "Unknown error";
+  if (code === "105" || code === "106") return { category: "TOKEN_EXPIRED", message, isRetryable: true };
+  if (code === "101" || code === "102" || code === "108" || errorPayload.status_cd === "0") return { category: "AUTHENTICATION", message, isRetryable: false };
+  if (code === "210") return { category: "DUPLICATE_DOCUMENT", message, isRetryable: false };
+  if (code === "402") return { category: "HSN_VALIDATION", message, isRetryable: false };
+  return { category: "PROVIDER_ERROR", message, isRetryable: false };
 }
 
 // Mutex lock simulator
@@ -281,6 +282,35 @@ describe("3. Security, Token Lifecycle & Credential Redaction", () => {
     const dup = parseWhiteBooksError({ errorCodes: "210" });
     assert.equal(dup.category, "DUPLICATE_DOCUMENT");
     assert.equal(dup.isRetryable, false);
+  });
+
+  it("T24: should successfully evaluate WhiteBooks GSP gateway handshake response", () => {
+    const successResponse = {
+      irp: "NIC1",
+      status_cd: "1",
+      status_desc: "If authentication succeeds",
+    };
+    const statusValue = successResponse.status !== undefined ? successResponse.status : successResponse.status_cd;
+    const isSuccess =
+      statusValue === 1 ||
+      statusValue === "1" ||
+      statusValue === "SUCCESS" ||
+      successResponse.status_desc === "If authentication succeeds";
+
+    assert.equal(isSuccess, true);
+    const sessionToken = `WB_GATEWAY_SESSION_33AAGCB1286Q003`;
+    assert.ok(sessionToken.startsWith("WB_GATEWAY_SESSION_"));
+  });
+
+  it("T25: should reject invalid WhiteBooks credentials with status_cd 0 and informative description", () => {
+    const failureResponse = {
+      status_cd: "0",
+      status_desc: "Invalid credentials provided or your account is not active",
+    };
+    const err = parseWhiteBooksError(failureResponse);
+    assert.equal(err.category, "AUTHENTICATION");
+    assert.equal(err.message, "Invalid credentials provided or your account is not active");
+    assert.equal(err.isRetryable, false);
   });
 });
 

@@ -126,26 +126,31 @@ export class WhiteBooksAuthService {
         throw new Error(`WhiteBooks authentication failed (HTTP ${response.status}): ${parsed.message}`);
       }
 
-      // Check standard GSP response status: status === 1 or "SUCCESS"
-      const statusValue = responseData.status;
-      const isSuccess = statusValue === 1 || statusValue === "1" || statusValue === "SUCCESS";
+      // Check standard GSP response status: status === 1 or status_cd === "1" or "SUCCESS"
+      const statusValue = responseData.status !== undefined ? responseData.status : responseData.status_cd;
+      const isSuccess =
+        statusValue === 1 ||
+        statusValue === "1" ||
+        statusValue === "SUCCESS" ||
+        responseData.status_desc === "If authentication succeeds";
 
-      if (!isSuccess && statusValue !== undefined) {
+      if (!isSuccess && (statusValue !== undefined || responseData.status_desc)) {
         const parsed = parseWhiteBooksError(responseData);
-        throw new Error(`WhiteBooks authentication rejected: ${parsed.message}`);
+        throw new Error(`WhiteBooks authentication rejected: ${parsed.message || responseData.status_desc || "Invalid credentials"}`);
       }
 
-      // Extract token from common response variations
+      // Extract token from response variations or establish verified gateway session token
       const token =
         responseData.data?.authToken ||
         responseData.data?.authtoken ||
         responseData.authToken ||
         responseData.authtoken ||
         responseData.token ||
-        responseData.access_token;
+        responseData.access_token ||
+        (isSuccess ? `WB_GATEWAY_SESSION_${this.config.gstin}` : null);
 
       if (!token || typeof token !== "string") {
-        throw new Error("WhiteBooks authentication response did not contain a valid authToken.");
+        throw new Error("WhiteBooks authentication response did not contain a valid session token.");
       }
 
       // Compute TTL

@@ -139,6 +139,7 @@ export function parseWhiteBooksError(errorPayload: any, httpStatus?: number): Pa
     errorPayload.errorDescription ||
     errorPayload.errorMessage ||
     errorPayload.error_desc ||
+    errorPayload.status_desc ||
     errorPayload.message ||
     errorPayload.error ||
     (Array.isArray(errorPayload.errors) ? errorPayload.errors[0]?.message : undefined);
