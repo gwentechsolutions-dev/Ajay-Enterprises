@@ -61,9 +61,11 @@ export class WhiteBooksClient {
       client_id: this.config.clientId,
       client_secret: this.config.clientSecret,
       gstin: this.config.gstin,
+      user_name: this.config.username,
     };
 
-    if (authToken) {
+    // Only forward authtoken if provider explicitly issued a discrete bearer token (not internal gateway state)
+    if (authToken && !authToken.startsWith("WB_GATEWAY_SESSION_")) {
       headers["authtoken"] = authToken;
     }
 

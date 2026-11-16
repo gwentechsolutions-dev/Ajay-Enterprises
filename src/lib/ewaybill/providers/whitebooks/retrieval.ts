@@ -51,7 +51,7 @@ export async function executeWhiteBooksGetDetails(
     const data = response.data || response;
     const rawStatus = (data.status || "ACTIVE").toUpperCase();
     let status: EwbStatus = "ACTIVE";
-    if (rawStatus === "CANCELLED" || rawStatus === "C") status = "CANCELLED";
+    if (rawStatus === "CANCELLED" || rawStatus === "C" || rawStatus === "CNL") status = "CANCELLED";
     else if (rawStatus === "EXPIRED") status = "EXPIRED";
 
     return {
@@ -121,11 +121,11 @@ export async function executeWhiteBooksGstinLookup(
       legalName: data.legalName || data.legal_name,
       status: data.status || data.gstinStatus || "ACTIVE",
       address: {
-        buildingName: data.bno,
-        street: data.st,
-        location: data.loc,
-        pincode: String(data.pncd || data.pincode || ""),
-        stateCode: String(data.stcd || ""),
+        buildingName: data.bno || data.address1,
+        street: data.st || data.address2,
+        location: data.loc || data.address2,
+        pincode: String(data.pinCode || data.pncd || data.pincode || ""),
+        stateCode: String(data.stateCode || data.stcd || ""),
       },
       rawResponse: sanitizePayload(response),
     };

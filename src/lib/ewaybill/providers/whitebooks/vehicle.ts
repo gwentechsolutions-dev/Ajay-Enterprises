@@ -39,7 +39,7 @@ export async function executeWhiteBooksVehicleUpdate(
     fromPlace: req.fromPlace.slice(0, 50),
     fromState: req.fromStateCode,
     reasonCode: req.reasonCode,
-    reasonRem: (req.reasonDescription || "Vehicle change during transit").slice(0, 100),
+    reasonRem: (req.reasonDescription || "Vehicle change during transit").slice(0, 50),
     transDocNo: req.transDocNo || "",
     transDocDate: req.transDocDate || "",
     transMode: req.transMode || "1",

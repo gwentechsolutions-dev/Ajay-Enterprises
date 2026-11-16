@@ -99,10 +99,10 @@ function formatDateToDDMMYYYY(date) {
 function sanitizeUrl(urlStr) {
   return urlStr
     ? urlStr
-        .replace(/\/+$/, "")
-        .replace(/password=[^&]*/gi, "password=[REDACTED]")
-        .replace(/client_secret=[^&]*/gi, "client_secret=[REDACTED]")
-        .replace(/token=[^&]*/gi, "token=[REDACTED]")
+      .replace(/\/+$/, "")
+      .replace(/password=[^&]*/gi, "password=[REDACTED]")
+      .replace(/client_secret=[^&]*/gi, "client_secret=[REDACTED]")
+      .replace(/token=[^&]*/gi, "token=[REDACTED]")
     : "";
 }
 

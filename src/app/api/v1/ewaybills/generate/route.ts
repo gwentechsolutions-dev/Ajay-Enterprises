@@ -48,7 +48,13 @@ export async function POST(req: NextRequest) {
           customer: true,
           customerSite: true,
           sourceWarehouse: true,
-          items: { include: { materialVariant: true } },
+          items: {
+            include: {
+              materialVariant: {
+                include: { materialType: true },
+              },
+            },
+          },
         },
       });
 
@@ -63,8 +69,8 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const fromStateCode = parseInt(company?.gstStateCode || "33", 10) || 33;
-      const toStateCode = parseInt(dn.customerSite?.stateCode || company?.gstStateCode || "33", 10) || 33;
+      const fromStateCode = parseInt(defaultConsignorGstin.slice(0, 2), 10) || parseInt(company?.gstStateCode || "33", 10) || 33;
+      const toStateCode = parseInt(dn.customerSite?.stateCode || (dn.customer?.gstin ? dn.customer.gstin.slice(0, 2) : "29"), 10) || 29;
       const supplierStateStr = String(fromStateCode).padStart(2, "0");
       const placeOfSupplyStr = String(toStateCode).padStart(2, "0");
 
@@ -94,10 +100,13 @@ export async function POST(req: NextRequest) {
         totalSgst += Number(gstResult.sgstAmount);
         totalIgst += Number(gstResult.igstAmount);
 
+        const rawHsn = (it.materialVariant as any).materialType?.hsnCode || "73084000";
+        const cleanHsn = rawHsn.length === 4 ? `${rawHsn}4000` : rawHsn;
+
         items.push({
           materialName: it.materialVariant.name,
           description: `${it.materialVariant.name} (${it.materialVariant.size})`,
-          hsnCode: "7308", // Centering and scaffolding equipment
+          hsnCode: cleanHsn, // 8-digit tariff for centering & scaffolding equipment
           quantity: qty,
           uom: it.materialVariant.uom || "Nos.",
           taxableValue: lineTaxable,
@@ -150,7 +159,13 @@ export async function POST(req: NextRequest) {
         include: {
           sourceWarehouse: true,
           destinationWarehouse: true,
-          items: { include: { materialVariant: true } },
+          items: {
+            include: {
+              materialVariant: {
+                include: { materialType: true },
+              },
+            },
+          },
         },
       });
 
@@ -194,10 +209,13 @@ export async function POST(req: NextRequest) {
         totalSgst += Number(gstResult.sgstAmount);
         totalIgst += Number(gstResult.igstAmount);
 
+        const rawHsn = (it.materialVariant as any).materialType?.hsnCode || "73084000";
+        const cleanHsn = rawHsn.length === 4 ? `${rawHsn}4000` : rawHsn;
+
         items.push({
           materialName: it.materialVariant.name,
           description: `${it.materialVariant.name} (${it.materialVariant.size})`,
-          hsnCode: "7308",
+          hsnCode: cleanHsn,
           quantity: qty,
           uom: it.materialVariant.uom || "Nos.",
           taxableValue: lineTaxable,
