@@ -19,6 +19,7 @@ import {
   Copy,
   Check,
   AlertTriangle,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +58,13 @@ export default function DeliveryNotesPage() {
   const [dispatching, setDispatching] = React.useState(false);
   const [selectedDN, setSelectedDN] = React.useState<any>(null);
   const [submitting, setSubmitting] = React.useState(false);
+  const [editingDnId, setEditingDnId] = React.useState<string | null>(null);
+
+  // Dispatch stock check state
+  const [dispatchYardId, setDispatchYardId] = React.useState("");
+  const [stockBalances, setStockBalances] = React.useState<any[]>([]);
+  const [loadingBalances, setLoadingBalances] = React.useState(false);
+  const [yardStocks, setYardStocks] = React.useState<Record<string, number>>({});
 
   // New DN Form State
   const [dnForm, setDnForm] = React.useState({
@@ -126,7 +134,14 @@ export default function DeliveryNotesPage() {
 
       if (dnData) setDeliveryNotes(Array.isArray(dnData) ? dnData : []);
       if (custData) setCustomers(Array.isArray(custData) ? custData : []);
-      if (whData) setWarehouses(Array.isArray(whData) ? whData : []);
+      if (whData && Array.isArray(whData)) {
+        setWarehouses(whData);
+        setDnForm((prev) => {
+          if (prev.sourceWarehouseId) return prev;
+          const mainYard = whData.find((w: any) => w.warehouseType === "MAIN_YARD") || whData[0];
+          return mainYard ? { ...prev, sourceWarehouseId: mainYard.id } : prev;
+        });
+      }
       if (varData) setVariants(Array.isArray(varData) ? varData : []);
     } catch {
       toast.error("Failed to load delivery notes.");
@@ -134,6 +149,27 @@ export default function DeliveryNotesPage() {
       setLoading(false);
     }
   }, []);
+
+  // Fetch stock balances for selected source yard in Create/Edit form
+  React.useEffect(() => {
+    if (!dnForm.sourceWarehouseId) return;
+    async function fetchYardStock() {
+      try {
+        const res = await fetch(`/api/v1/inventory/stock-balances?warehouseId=${dnForm.sourceWarehouseId}&locationType=WAREHOUSE`);
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) {
+          const map: Record<string, number> = {};
+          for (const b of data.data) {
+            map[b.materialVariantId] = (map[b.materialVariantId] || 0) + Number(b.availableQty);
+          }
+          setYardStocks(map);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    fetchYardStock();
+  }, [dnForm.sourceWarehouseId]);
 
   React.useEffect(() => {
     loadData();
@@ -200,8 +236,11 @@ export default function DeliveryNotesPage() {
 
     try {
       setSubmitting(true);
-      const res = await fetch("/api/v1/delivery-notes", {
-        method: "POST",
+      const url = editingDnId ? `/api/v1/delivery-notes/${editingDnId}` : "/api/v1/delivery-notes";
+      const method = editingDnId ? "PATCH" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...dnForm,
@@ -216,10 +255,11 @@ export default function DeliveryNotesPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || "Failed to create Delivery Note");
+      if (!res.ok) throw new Error(data.error?.message || `Failed to ${editingDnId ? "update" : "create"} Delivery Note`);
 
-      toast.success(`Delivery Note ${data.data.dnNumber} created!`);
+      toast.success(`Delivery Note ${data.data.dnNumber} ${editingDnId ? "updated" : "created"}!`);
       setIsCreateModalOpen(false);
+      setEditingDnId(null);
       invalidateClientCache("/api/v1/delivery-notes");
       loadData(true);
     } catch (err: any) {
@@ -229,9 +269,74 @@ export default function DeliveryNotesPage() {
     }
   };
 
-  const handleOpenDispatch = (dn: any) => {
+  const handleOpenEdit = async (dn: any) => {
+    setEditingDnId(dn.id);
+    setDnForm({
+      customerId: dn.customerId,
+      customerSiteId: dn.customerSiteId,
+      sourceWarehouseId: dn.sourceWarehouseId,
+      deliveryDate: dn.deliveryDate ? dn.deliveryDate.split("T")[0] : new Date().toISOString().split("T")[0],
+      includeDeliveryDate: dn.includeDeliveryDate ?? true,
+      vehicleNumber: dn.vehicleNumber || "KA-01-AB-1234",
+      driverName: dn.driverName || "",
+      driverPhone: dn.driverPhone || "",
+      notes: dn.notes || "",
+      items: dn.items.map((it: any) => ({
+        materialVariantId: it.materialVariantId,
+        ownershipType: it.ownershipType,
+        dispatchedQty: Number(it.quantity),
+        dailyRentalRate: Number(it.dailyRate || 0),
+        remarks: it.remarks || "",
+      })),
+    });
+
+    if (dn.customerId) {
+      try {
+        const res = await fetch(`/api/v1/customers/${dn.customerId}/sites`);
+        const data = await res.json();
+        if (data.success) {
+          setSites(data.data);
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    setIsCreateModalOpen(true);
+  };
+
+  const handleDiscardDraft = async (dn: any) => {
+    if (!confirm(`Are you sure you want to discard draft Delivery Note ${dn.dnNumber}?`)) return;
+    try {
+      const res = await fetch(`/api/v1/delivery-notes/${dn.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || "Failed to discard draft");
+      toast.success(`Draft Delivery Note ${dn.dnNumber} discarded.`);
+      invalidateClientCache("/api/v1/delivery-notes");
+      loadData(true);
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleOpenDispatch = async (dn: any) => {
     setDispatchTarget(dn);
+    setDispatchYardId(dn.sourceWarehouseId || "");
     setIsDispatchModalOpen(true);
+    try {
+      setLoadingBalances(true);
+      const res = await fetch("/api/v1/inventory/stock-balances?locationType=WAREHOUSE");
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setStockBalances(data.data);
+      }
+    } catch {
+      // non-blocking
+    } finally {
+      setLoadingBalances(false);
+    }
   };
 
   const handleConfirmDispatch = async () => {
@@ -239,6 +344,20 @@ export default function DeliveryNotesPage() {
 
     try {
       setDispatching(true);
+
+      // If source yard was switched in the dispatch modal, update the draft Delivery Note first
+      if (dispatchYardId && dispatchYardId !== dispatchTarget.sourceWarehouseId) {
+        const patchRes = await fetch(`/api/v1/delivery-notes/${dispatchTarget.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sourceWarehouseId: dispatchYardId }),
+        });
+        const patchData = await patchRes.json();
+        if (!patchRes.ok) {
+          throw new Error(patchData.error?.message || "Failed to update source yard on Delivery Note");
+        }
+      }
+
       const res = await fetch(`/api/v1/delivery-notes/${dispatchTarget.id}/dispatch`, {
         method: "POST",
       });
@@ -582,6 +701,20 @@ export default function DeliveryNotesPage() {
                           <span>{dn.eWayBillNumber ? "View EWB" : "E-Way Bill"}</span>
                         </Button>
 
+                        {/* Edit Action for DRAFT */}
+                        {dn.status === "DRAFT" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleOpenEdit(dn)}
+                            className="text-xs h-7 px-2.5 inline-flex items-center gap-1 font-medium text-slate-700 hover:text-slate-900"
+                            title="Edit Draft Delivery Note"
+                          >
+                            <Pencil className="h-3.5 w-3.5 text-slate-500" />
+                            <span>Edit</span>
+                          </Button>
+                        ) : null}
+
                         {/* Dispatch Action */}
                         {dn.status === "DRAFT" ? (
                           <Button
@@ -591,6 +724,19 @@ export default function DeliveryNotesPage() {
                           >
                             <Send className="h-3.5 w-3.5" />
                             <span>Dispatch</span>
+                          </Button>
+                        ) : null}
+
+                        {/* Discard Action for DRAFT */}
+                        {dn.status === "DRAFT" ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDiscardDraft(dn)}
+                            className="text-xs h-7 px-2 inline-flex items-center text-red-500 hover:bg-red-50 hover:text-red-700"
+                            title="Discard Draft Delivery Note"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         ) : null}
 
@@ -615,16 +761,18 @@ export default function DeliveryNotesPage() {
         </div>
       </Card>
 
-      {/* CREATE DELIVERY NOTE MODAL */}
-      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+      {/* CREATE / EDIT DELIVERY NOTE MODAL */}
+      <Dialog open={isCreateModalOpen} onOpenChange={(open) => { setIsCreateModalOpen(open); if (!open) setEditingDnId(null); }}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <Truck className="h-5 w-5 text-[#F26522]" />
-              Create Delivery Note (DN)
+              {editingDnId ? "Edit Delivery Note (DN)" : "Create Delivery Note (DN)"}
             </DialogTitle>
             <DialogDescription>
-              Material custody transfer note for centering equipment dispatched to customer construction site.
+              {editingDnId
+                ? "Update customer, site, source yard, or material line items for this draft delivery note."
+                : "Material custody transfer note for centering equipment dispatched to customer construction site."}
             </DialogDescription>
           </DialogHeader>
 
@@ -736,10 +884,13 @@ export default function DeliveryNotesPage() {
                   <div className="col-span-12 md:col-span-5">
                     <Label className="text-[10px] text-slate-500 uppercase font-bold">Material Variant *</Label>
                     <SearchableCombobox
-                      options={variants.map((v) => ({
-                        value: v.id,
-                        label: `${v.name} ${v.size ? `(${v.size})` : ""} - ${v.materialCode}`,
-                      }))}
+                      options={variants.map((v) => {
+                        const stock = yardStocks[v.id] ?? 0;
+                        return {
+                          value: v.id,
+                          label: `${v.name} ${v.size ? `(${v.size})` : ""} - ${v.materialCode} [${stock > 0 ? `${stock} in yard` : "0 in yard"}]`,
+                        };
+                      })}
                       value={item.materialVariantId}
                       onChange={(val) => {
                         const updated = [...dnForm.items];
@@ -811,6 +962,22 @@ export default function DeliveryNotesPage() {
                       </Button>
                     )}
                   </div>
+
+                  {item.materialVariantId && (
+                    <div className="col-span-12 flex items-center justify-between text-[11px] pt-1 px-1 bg-slate-50/50 rounded">
+                      <span className="text-slate-500">
+                        Available in selected yard:{" "}
+                        <strong className={(yardStocks[item.materialVariantId] ?? 0) >= item.dispatchedQty ? "text-emerald-700 font-mono" : "text-red-600 font-mono"}>
+                          {yardStocks[item.materialVariantId] ?? 0} {variants.find((v) => v.id === item.materialVariantId)?.uom || "Nos."}
+                        </strong>
+                      </span>
+                      {(yardStocks[item.materialVariantId] ?? 0) < item.dispatchedQty && (
+                        <span className="text-amber-700 font-medium">
+                          ⚠️ Insufficient stock in this yard for requested quantity ({item.dispatchedQty})
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -822,10 +989,10 @@ export default function DeliveryNotesPage() {
               <Button
                 type="submit"
                 isLoading={submitting}
-                loadingText="Saving Delivery Note..."
+                loadingText={editingDnId ? "Saving Changes..." : "Saving Delivery Note..."}
                 className="bg-[#0B1E36] text-white"
               >
-                Save Delivery Note
+                {editingDnId ? "Save Changes" : "Create Delivery Note"}
               </Button>
             </DialogFooter>
           </form>
@@ -1086,7 +1253,7 @@ export default function DeliveryNotesPage() {
 
       {/* IN-APP DISPATCH CONFIRMATION MODAL */}
       <Dialog open={isDispatchModalOpen} onOpenChange={setIsDispatchModalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-[#0B1E36] flex items-center gap-2">
               <Truck className="h-5 w-5 text-[#F26522]" />
@@ -1097,63 +1264,199 @@ export default function DeliveryNotesPage() {
             </DialogDescription>
           </DialogHeader>
 
-          {dispatchTarget && (
-            <div className="space-y-3 pt-2 text-xs">
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1.5 font-mono">
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-sans">Document #:</span>
-                  <span className="font-bold text-slate-900">{dispatchTarget.dnNumber}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-sans">Customer:</span>
-                  <span className="font-semibold text-slate-800">{dispatchTarget.customer?.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-sans">Construction Site:</span>
-                  <span className="text-slate-700">{dispatchTarget.customerSite?.siteName}</span>
-                </div>
-                {dispatchTarget.vehicleNumber && (
+          {dispatchTarget && (() => {
+            // Check sufficiency for each line item
+            const itemStatuses = dispatchTarget.items.map((it: any) => {
+              const itemVariantId = it.materialVariantId || it.materialVariant?.id;
+              const itemOwnership = it.ownershipType || "OWNED";
+              const requestedQty = Number(it.quantity);
+
+              const balanceRecord = stockBalances.find(
+                (b) =>
+                  b.warehouseId === dispatchYardId &&
+                  b.materialVariantId === itemVariantId &&
+                  b.ownershipType === itemOwnership
+              );
+              const availInSelected = balanceRecord ? Number(balanceRecord.availableQty) : 0;
+              const isSufficient = availInSelected >= requestedQty;
+
+              const alternatives = stockBalances
+                .filter(
+                  (b) =>
+                    b.warehouseId !== dispatchYardId &&
+                    b.materialVariantId === itemVariantId &&
+                    b.ownershipType === itemOwnership &&
+                    Number(b.availableQty) >= requestedQty
+                )
+                .map((b) => ({
+                  warehouseId: b.warehouseId,
+                  warehouseName: b.warehouse?.name || "Another Yard",
+                  availableQty: Number(b.availableQty),
+                }));
+
+              return {
+                ...it,
+                requestedQty,
+                availInSelected,
+                isSufficient,
+                alternatives,
+              };
+            });
+
+            const allSufficient = itemStatuses.every((s: any) => s.isSufficient);
+
+            return (
+              <div className="space-y-3 pt-2 text-xs">
+                {/* Delivery Note Info Header */}
+                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1.5 font-mono">
                   <div className="flex justify-between">
-                    <span className="text-slate-500 font-sans">Vehicle:</span>
-                    <span className="text-slate-700">{dispatchTarget.vehicleNumber}</span>
+                    <span className="text-slate-500 font-sans">Document #:</span>
+                    <span className="font-bold text-slate-900">{dispatchTarget.dnNumber}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-sans">Customer:</span>
+                    <span className="font-semibold text-slate-800">{dispatchTarget.customer?.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-sans">Construction Site:</span>
+                    <span className="text-slate-700">{dispatchTarget.customerSite?.siteName}</span>
+                  </div>
+                  {dispatchTarget.vehicleNumber && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-sans">Vehicle:</span>
+                      <span className="text-slate-700">{dispatchTarget.vehicleNumber}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Dispatch Yard Selector */}
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+                    <span>Source Dispatch Yard *</span>
+                    {dispatchYardId !== dispatchTarget.sourceWarehouseId && (
+                      <span className="text-[10px] text-[#F26522] font-semibold">
+                        (Will switch Delivery Note yard on dispatch)
+                      </span>
+                    )}
+                  </Label>
+                  <SearchableCombobox
+                    options={warehouses.map((w) => {
+                      const yardSufficient = dispatchTarget.items.every((it: any) => {
+                        const rec = stockBalances.find(
+                          (b) =>
+                            b.warehouseId === w.id &&
+                            b.materialVariantId === (it.materialVariantId || it.materialVariant?.id) &&
+                            b.ownershipType === (it.ownershipType || "OWNED")
+                        );
+                        return (rec ? Number(rec.availableQty) : 0) >= Number(it.quantity);
+                      });
+                      return {
+                        value: w.id,
+                        label: `${w.name} ${yardSufficient ? "✓ Stock Available" : "✗ Stock Insufficient"}`,
+                      };
+                    })}
+                    value={dispatchYardId}
+                    onChange={(val) => setDispatchYardId(val)}
+                    placeholder="Select Dispatch Yard"
+                    allowClear={false}
+                  />
+                </div>
+
+                {/* Line Items Stock Check */}
+                <div className="border border-slate-200 rounded-lg p-2.5 bg-slate-50/60 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-[11px] text-slate-700 uppercase">
+                      Material Availability in Selected Yard
+                    </span>
+                    {loadingBalances && (
+                      <Loader2 className="h-3 w-3 animate-spin text-slate-400" />
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                    {itemStatuses.map((s: any) => (
+                      <div key={s.id} className="bg-white p-2.5 rounded border border-slate-200 text-xs">
+                        <div className="flex justify-between items-start">
+                          <span className="font-semibold text-slate-900">
+                            {s.materialVariant?.name} {s.materialVariant?.size ? `(${s.materialVariant.size})` : ""}
+                          </span>
+                          <span className="font-mono text-slate-700 font-medium">
+                            Req: {s.requestedQty} {s.materialVariant?.uom || "Nos."}
+                          </span>
+                        </div>
+
+                        <div className="mt-1 flex items-center justify-between text-[11px]">
+                          <span className="text-slate-500">In selected yard:</span>
+                          {s.isSufficient ? (
+                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 font-mono text-[10px] px-1.5 py-0">
+                              ✓ {s.availInSelected} available
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-red-100 text-red-800 border-red-200 font-mono text-[10px] px-1.5 py-0">
+                              ✗ {s.availInSelected} available (Deficit: {s.requestedQty - s.availInSelected})
+                            </Badge>
+                          )}
+                        </div>
+
+                        {!s.isSufficient && s.alternatives.length > 0 && (
+                          <div className="mt-2 pt-1.5 border-t border-slate-100 text-[11px] bg-amber-50/60 -mx-1 px-1.5 py-1 rounded flex items-center justify-between">
+                            <span className="text-amber-800">
+                              Available in: <strong>{s.alternatives[0].warehouseName}</strong> ({s.alternatives[0].availableQty} Nos.)
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setDispatchYardId(s.alternatives[0].warehouseId)}
+                              className="text-[#0B1E36] font-bold hover:underline cursor-pointer bg-white px-2 py-0.5 rounded border border-amber-200 shadow-xs"
+                            >
+                              Switch to this Yard &rarr;
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Warning / Informational Alert */}
+                {allSufficient ? (
+                  <div className="bg-emerald-50 border border-emerald-200 p-2.5 rounded-lg text-emerald-800 flex items-start gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <p className="text-xs">
+                      All material quantities are verified in stock. Confirming dispatch will officially deduct physical stock and start customer site custody.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-red-50 border border-red-200 p-2.5 rounded-lg text-red-800 flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                    <p className="text-xs">
+                      Cannot dispatch: One or more materials have insufficient stock in the selected yard. Please switch to a yard with available stock above.
+                    </p>
                   </div>
                 )}
-                {dispatchTarget.sourceWarehouse?.name && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-500 font-sans">Source Yard:</span>
-                    <span className="text-slate-700">{dispatchTarget.sourceWarehouse.name}</span>
-                  </div>
-                )}
-              </div>
 
-              <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg text-amber-800 flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                <p className="text-xs">
-                  This action will officially mark this Delivery Note as <strong>DISPATCHED</strong>, deduct physical stock from the source yard, and initiate customer site custody.
-                </p>
+                <DialogFooter className="pt-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsDispatchModalOpen(false)}
+                    disabled={dispatching}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleConfirmDispatch}
+                    disabled={!allSufficient || dispatching}
+                    isLoading={dispatching}
+                    loadingText="Dispatching..."
+                    className="bg-[#0B1E36] hover:bg-[#071424] text-white font-semibold disabled:opacity-50"
+                  >
+                    Confirm & Dispatch
+                  </Button>
+                </DialogFooter>
               </div>
-
-              <DialogFooter className="pt-2 gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsDispatchModalOpen(false)}
-                  disabled={dispatching}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  onClick={handleConfirmDispatch}
-                  isLoading={dispatching}
-                  loadingText="Dispatching..."
-                  className="bg-[#0B1E36] hover:bg-[#071424] text-white font-semibold"
-                >
-                  Confirm & Dispatch
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
