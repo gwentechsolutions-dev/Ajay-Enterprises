@@ -99,9 +99,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       ? `Bank: ${bank.bankName} | A/C: ${bank.accountNumber} | IFSC: ${bank.ifscCode} | Branch: ${bank.branchName}`
       : "Bank: HDFC Bank | A/C: 50200012345678 | IFSC: HDFC0001234";
 
-    const itemRows = statement.items
-      .map(
-        (it, idx) => `
+    const itemRows =
+      statement.items.length > 0
+        ? statement.items
+            .map(
+              (it, idx) => `
       <tr>
         <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;">${idx + 1}</td>
         <td style="border: 1px solid #cbd5e1; padding: 6px;">
@@ -117,8 +119,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: right; font-weight: bold;">₹${Number(it.rentalAmount).toFixed(2)}</td>
       </tr>
     `
-      )
-      .join("");
+            )
+            .join("")
+        : `<tr><td colspan="9" style="border: 1px solid #cbd5e1; padding: 18px; text-align: center; color: #64748b; font-style: italic;">No individual itemized material records found for this statement period.</td></tr>`;
 
     const siteSummaryRows = statement.siteSummaries
       .map(
