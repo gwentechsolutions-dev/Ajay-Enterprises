@@ -635,8 +635,18 @@ export default function DocumentSettingsPage() {
 
           <form onSubmit={seriesForm.handleSubmit(onSaveSeries)} className="space-y-4 py-2">
             <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Live Next Number Preview</span>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Live Next Number Preview</span>
+                <span className={`text-[10px] font-medium ${livePreview.length > 16 ? "text-amber-600 font-semibold" : "text-slate-400"}`}>
+                  {livePreview.length} / 16 chars {livePreview.length > 16 && "(GST Canonical)"}
+                </span>
+              </div>
               <p className="font-mono text-base font-bold text-accent-600">{livePreview}</p>
+              {livePreview.length > 16 && (
+                <p className="text-[11px] text-amber-600">
+                  Notice: Exceeds 16 characters. For GST E-Way Bill / Invoices (Rule 46b), numbers over 16 chars are canonically contracted (e.g. 2026-27 → 26-27).
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">

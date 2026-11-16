@@ -170,19 +170,77 @@ export function formatDateToDDMMYYYY(date: Date | string): string {
 }
 
 /**
+ * Formats an INVENTRA internal document number into an Indian GST & NIC statutory-compliant
+ * document number (maximum 16 characters, alphanumeric with '/' and '-').
+ * 
+ * Complies with Rule 46(b) of CGST Rules & NIC E-Way Bill specification.
+ * If the input already fits within 16 characters, it is preserved as-is.
+ * If it exceeds 16 characters due to expanded 4-digit fiscal year (e.g. 'AE/DN/2026-27/0003', 18 chars),
+ * it canonically contracts the fiscal year to 2-digit format ('AE/DN/26-27/0003', 16 chars).
+ * If still > 16 chars (e.g. 'AE/STN/2026-27/0003', 19 chars), it cleanly drops the redundant
+ * company prefix 'AE/' ('STN/26-27/0003', 14 chars), since AJAY ENTERPRISES is already
+ * statutory consignor on the document.
+ */
+export function formatStatutoryDocNo(rawDocNo: string): string {
+  if (!rawDocNo || typeof rawDocNo !== "string") {
+    throw new Error("Document number is required.");
+  }
+  let docNo = rawDocNo.trim();
+  if (!docNo) throw new Error("Document number is required.");
+
+  // If already <= 16 characters, return directly
+  if (docNo.length <= 16) {
+    return docNo;
+  }
+
+  // 1. Contract 4-digit fiscal year (e.g. '2026-27' -> '26-27')
+  // Example: 'AE/DN/2026-27/0003' (18 chars) -> 'AE/DN/26-27/0003' (16 chars)
+  let contracted = docNo.replace(/(\b|[/_-])20(\d{2}-\d{2})(\b|[/_-])/g, "$1$2$3");
+  if (contracted.length <= 16) {
+    return contracted;
+  }
+
+  // Also contract standalone 4-digit year like '2026'
+  contracted = contracted.replace(/(\b|[/_-])20(\d{2})(\b|[/_-])/g, "$1$2$3");
+  if (contracted.length <= 16) {
+    return contracted;
+  }
+
+  // 2. If still > 16, remove redundant business prefix 'AE/' or 'AE-'
+  // Example: 'AE/STN/26-27/0003' (17 chars) -> 'STN/26-27/0003' (14 chars)
+  if (/^AE[\/\-_]/i.test(contracted)) {
+    const withoutAe = contracted.replace(/^AE[\/\-_]/i, "");
+    if (withoutAe.length <= 16) {
+      return withoutAe;
+    }
+    contracted = withoutAe;
+  }
+
+  // 3. Normalize multiple consecutive separators
+  contracted = contracted.replace(/\/+/g, "/").replace(/-+/g, "-");
+  if (contracted.length <= 16) {
+    return contracted;
+  }
+
+  // 4. Reduce excessive zero padding on sequence number (e.g. /000001 -> /0001)
+  const reducedZeros = contracted.replace(/([/_-])0+(\d{3,})/g, "$1$2");
+  if (reducedZeros.length <= 16) {
+    return reducedZeros;
+  }
+
+  // If after all statutory normalizations it still exceeds 16 chars, throw with clear message
+  throw new Error(
+    `Document number '${rawDocNo}' exceeds maximum statutory limit of 16 characters under Rule 46(b) of CGST Rules (canonical normalization: '${contracted}', ${contracted.length} chars). Please adjust document prefix in Document Settings.`
+  );
+}
+
+/**
  * Maps INVENTRA GenerateEwbRequest into WhiteBooks statutory payload
  */
 export function mapInventraToWhiteBooksPayload(req: GenerateEwbRequest): WhiteBooksGenEwbPayload {
-  // 1. Validate Document Number
-  const cleanDocNo = req.documentNumber.trim();
-  if (!cleanDocNo) {
-    throw new Error("Document number is required.");
-  }
-  if (cleanDocNo.length > 16) {
-    throw new Error(
-      `Document number '${cleanDocNo}' exceeds maximum statutory limit of 16 characters. Statutory rules disallow silent truncation.`
-    );
-  }
+  // 1. Validate & Canonicalize Statutory Document Number (Max 16 chars under CGST Rule 46(b))
+  const cleanDocNo = formatStatutoryDocNo(req.documentNumber);
+
   // NIC allowed characters: alphanumeric with / and -
   if (!/^[A-Za-z0-9\/\-]+$/.test(cleanDocNo)) {
     throw new Error(

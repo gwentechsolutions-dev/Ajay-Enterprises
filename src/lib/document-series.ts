@@ -106,7 +106,10 @@ export async function generateNextDocumentNumber(
     if (!series) {
       // Find default prefix
       const def = DOCUMENT_TYPES.find((d) => d.id === documentType);
-      const prefix = def ? `${def.defaultPrefix}${fiscalYear}/` : `AE/${documentType}/${fiscalYear}/`;
+      // For statutory documents (DN, STN, Invoices), use compact fiscal year (e.g. 26-27)
+      // to ensure total formatted document number remains strictly within Rule 46(b) 16-character limit.
+      const shortFy = fiscalYear.includes("-") ? fiscalYear.slice(-5) : fiscalYear;
+      const prefix = def ? `${def.defaultPrefix}${shortFy}/` : `AE/${documentType}/${shortFy}/`;
 
       series = await tx.documentSeries.create({
         data: {

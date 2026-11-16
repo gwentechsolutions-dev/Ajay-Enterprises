@@ -98,9 +98,36 @@ function formatDateToDDMMYYYY(date) {
 // URL sanitization logic
 function sanitizeUrl(urlStr) {
   return urlStr
-    .replace(/password=[^&]*/gi, "password=[REDACTED]")
-    .replace(/client_secret=[^&]*/gi, "client_secret=[REDACTED]")
-    .replace(/token=[^&]*/gi, "token=[REDACTED]");
+    ? urlStr
+        .replace(/\/+$/, "")
+        .replace(/password=[^&]*/gi, "password=[REDACTED]")
+        .replace(/client_secret=[^&]*/gi, "client_secret=[REDACTED]")
+        .replace(/token=[^&]*/gi, "token=[REDACTED]")
+    : "";
+}
+
+// Statutory document number canonicalizer
+function formatStatutoryDocNo(rawDocNo) {
+  if (!rawDocNo || typeof rawDocNo !== "string") throw new Error("Document number is required.");
+  let docNo = rawDocNo.trim();
+  if (!docNo) throw new Error("Document number is required.");
+  if (docNo.length <= 16) return docNo;
+  let contracted = docNo.replace(/(\b|[/_-])20(\d{2}-\d{2})(\b|[/_-])/g, "$1$2$3");
+  if (contracted.length <= 16) return contracted;
+  contracted = contracted.replace(/(\b|[/_-])20(\d{2})(\b|[/_-])/g, "$1$2$3");
+  if (contracted.length <= 16) return contracted;
+  if (/^AE[\/\-_]/i.test(contracted)) {
+    const withoutAe = contracted.replace(/^AE[\/\-_]/i, "");
+    if (withoutAe.length <= 16) return withoutAe;
+    contracted = withoutAe;
+  }
+  contracted = contracted.replace(/\/+/g, "/").replace(/-+/g, "-");
+  if (contracted.length <= 16) return contracted;
+  const reducedZeros = contracted.replace(/([/_-])0+(\d{3,})/g, "$1$2");
+  if (reducedZeros.length <= 16) return reducedZeros;
+  throw new Error(
+    `Document number '${rawDocNo}' exceeds maximum statutory limit of 16 characters under Rule 46(b) of CGST Rules.`
+  );
 }
 
 // Payload sanitization logic
@@ -181,17 +208,26 @@ describe("1. Statutory Delivery Challan Mapping & Standards", () => {
     assert.throws(() => mapToGstUom("UNKNOWN"), /Unsupported Unit of Measurement/);
   });
 
-  it("T8: should reject document numbers exceeding 16 statutory characters without truncating", () => {
-    const validDocNo = "AE/DN/2026-27/01";
-    assert.ok(validDocNo.length <= 16);
+  it("T8: should canonically format document numbers to <= 16 characters per Rule 46(b) and reject unnormalizable numbers", () => {
+    // 18-char Delivery Note from INVENTRA default series
+    const dnNo = "AE/DN/2026-27/0003";
+    const statutoryDn = formatStatutoryDocNo(dnNo);
+    assert.equal(statutoryDn, "AE/DN/26-27/0003");
+    assert.equal(statutoryDn.length, 16);
 
-    const invalidDocNo = "AE/DN/2026-27/0000000001";
-    assert.ok(invalidDocNo.length > 16);
-    assert.throws(() => {
-      if (invalidDocNo.length > 16) {
-        throw new Error("Document number exceeds maximum statutory limit of 16 characters.");
-      }
-    }, /exceeds maximum statutory limit/);
+    // 19-char STN from INVENTRA series
+    const stnNo = "AE/STN/2026-27/0003";
+    const statutoryStn = formatStatutoryDocNo(stnNo);
+    assert.equal(statutoryStn, "STN/26-27/0003");
+    assert.ok(statutoryStn.length <= 16);
+
+    // Already valid <= 16 chars preserved as-is
+    assert.equal(formatStatutoryDocNo("AE/DN/2026-27/01"), "AE/DN/2026-27/01");
+    assert.equal(formatStatutoryDocNo("DN-2026-0001"), "DN-2026-0001");
+
+    // Truly invalid number that cannot be normalized
+    const invalidDocNo = "VERY_LONG_INVALID_PREFIX_WITHOUT_DATE_OR_COMPANY_CODE_123456";
+    assert.throws(() => formatStatutoryDocNo(invalidDocNo), /exceeds maximum statutory limit of 16 characters/);
   });
 });
 
