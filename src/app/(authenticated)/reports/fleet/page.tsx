@@ -74,32 +74,32 @@ export default function FleetReportsPage() {
 
       {/* Summary KPI Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Card className="border-l-4 border-l-[#0B1E36]">
+        <Card className="bg-white border border-slate-200/90 rounded-xl shadow-xs hover:shadow-md transition-all">
           <CardContent className="p-4">
             <div className="text-xs text-slate-500 font-medium">Company Vehicles</div>
             <div className="text-2xl font-bold text-slate-900 mt-1">{summary?.totalVehicles || 0}</div>
             <div className="text-[11px] text-slate-400 mt-0.5">Active: {summary?.activeVehicles || 0}</div>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-cyan-600">
+        <Card className="bg-white border border-slate-200/90 rounded-xl shadow-xs hover:shadow-md transition-all">
           <CardContent className="p-4">
             <div className="text-xs text-slate-500 font-medium">Total Fuel Consumed</div>
-            <div className="text-2xl font-bold text-cyan-900 mt-1">
+            <div className="text-2xl font-bold text-slate-900 mt-1">
               {Number(fuel?.totalFuelLiters || 0).toLocaleString("en-IN")} L
             </div>
             <div className="text-[11px] text-slate-400 mt-0.5">Cost: ₹{Number(fuel?.totalFuelExpense || 0).toLocaleString("en-IN")}</div>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-amber-600">
+        <Card className="bg-white border border-slate-200/90 rounded-xl shadow-xs hover:shadow-md transition-all">
           <CardContent className="p-4">
             <div className="text-xs text-slate-500 font-medium">Maintenance Expense</div>
-            <div className="text-2xl font-bold text-amber-900 mt-1">
+            <div className="text-2xl font-bold text-slate-900 mt-1">
               ₹{Number(maintenance?.totalMaintenanceExpense || 0).toLocaleString("en-IN")}
             </div>
             <div className="text-[11px] text-slate-400 mt-0.5">{maintenance?.maintenanceRecordsCount || 0} service jobs</div>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-orange-500">
+        <Card className="bg-white border border-slate-200/90 rounded-xl shadow-xs hover:shadow-md transition-all">
           <CardContent className="p-4">
             <div className="text-xs text-slate-500 font-medium">Statutory Expiries</div>
             <div className="text-2xl font-bold text-orange-700 mt-1">{expiries.length}</div>

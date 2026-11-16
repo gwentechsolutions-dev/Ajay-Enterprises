@@ -72,7 +72,7 @@ export default function LabourReportsPage() {
 
       {/* Reconciled Accounting Ledgers Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-l-4 border-l-[#0B1E36]">
+        <Card className="bg-white border border-slate-200/90 rounded-xl shadow-xs hover:shadow-md transition-all">
           <CardContent className="p-4">
             <div className="text-xs text-slate-500 font-medium">Gross Wage Accrual (5040)</div>
             <div className="text-2xl font-bold text-slate-900 mt-1">
@@ -82,17 +82,17 @@ export default function LabourReportsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-blue-600">
+        <Card className="bg-white border border-slate-200/90 rounded-xl shadow-xs hover:shadow-md transition-all">
           <CardContent className="p-4">
             <div className="text-xs text-slate-500 font-medium">Advances Recovered</div>
-            <div className="text-2xl font-bold text-blue-900 mt-1">
+            <div className="text-2xl font-bold text-slate-900 mt-1">
               ₹{Number(wages?.totalAdvancesRecovered || 0).toLocaleString("en-IN")}
             </div>
             <div className="text-[11px] text-slate-400 mt-0.5">Deducted from gross wages</div>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-emerald-600">
+        <Card className="bg-white border border-slate-200/90 rounded-xl shadow-xs hover:shadow-md transition-all">
           <CardContent className="p-4">
             <div className="text-xs text-slate-500 font-medium">Outstanding Wages Payable (2070)</div>
             <div className="text-2xl font-bold text-emerald-800 mt-1">
@@ -102,10 +102,10 @@ export default function LabourReportsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-amber-600">
+        <Card className="bg-white border border-slate-200/90 rounded-xl shadow-xs hover:shadow-md transition-all">
           <CardContent className="p-4">
             <div className="text-xs text-slate-500 font-medium">Outstanding Advances Asset (1070)</div>
-            <div className="text-2xl font-bold text-amber-800 mt-1">
+            <div className="text-2xl font-bold text-slate-900 mt-1">
               ₹{Number(advances?.outstandingAdvanceReceivable || 0).toLocaleString("en-IN")}
             </div>
             <div className="text-[11px] text-slate-400 mt-0.5">{advances?.advancesCount || 0} active advances</div>

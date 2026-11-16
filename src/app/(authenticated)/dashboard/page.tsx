@@ -158,95 +158,113 @@ export default function OwnerDashboardPage() {
       {/* 2. Top Financial KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Rental Revenue */}
-        <Card className="border-l-4 border-l-[#0B1E36] hover:shadow-md transition-shadow">
+        <Card className="bg-white border border-slate-200/90 rounded-xl shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200">
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Rental Revenue (Period)</span>
-              <div className="p-2 bg-blue-50 text-[#0B1E36] rounded-lg">
+              <div className="h-9 w-9 flex items-center justify-center bg-slate-100 text-[#0B1E36] rounded-lg ring-1 ring-slate-200/60">
                 <Receipt className="w-4 h-4" />
               </div>
             </div>
-            <div className="mt-2 flex items-baseline gap-2">
+            <div className="mt-3 flex items-baseline gap-2">
               <span className="text-2xl font-bold tracking-tight text-slate-900">
                 {isLoading ? <Skeleton className="h-7 w-32 inline-block rounded" /> : formatCurrency(kpis?.revenueThisMonth)}
               </span>
             </div>
-            <p className="mt-1 text-xs text-slate-500">
-              FY Total: <strong className="text-slate-700">{formatCurrency(kpis?.revenueThisFinancialYear)}</strong>
+            <div className="mt-2.5 pt-2.5 border-t border-slate-100 text-xs text-slate-500">
+              <div className="flex items-center justify-between">
+                <span>FY Total:</span>
+                <span className="font-semibold text-slate-700">{formatCurrency(kpis?.revenueThisFinancialYear)}</span>
+              </div>
               {Number(kpis?.uninvoicedAccrualRevenue) > 0 && (
-                <span className="block text-[11px] text-amber-600 font-medium mt-0.5">
-                  + {formatCurrency(kpis?.uninvoicedAccrualRevenue)} unbilled daily accrual
-                </span>
+                <div className="mt-1.5 flex items-center gap-1 text-[11px] text-amber-700 bg-amber-50/80 px-2 py-0.5 rounded-md border border-amber-200/60">
+                  <span className="font-semibold">+</span>
+                  <span className="font-semibold">{formatCurrency(kpis?.uninvoicedAccrualRevenue)}</span>
+                  <span className="text-amber-600">unbilled daily accrual</span>
+                </div>
               )}
-            </p>
+            </div>
           </CardContent>
         </Card>
 
         {/* Cash Collected vs Invoiced */}
-        <Card className="border-l-4 border-l-emerald-600 hover:shadow-md transition-shadow">
+        <Card className="bg-white border border-slate-200/90 rounded-xl shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200">
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Cash Collected (Period)</span>
-              <div className="p-2 bg-emerald-50 text-emerald-700 rounded-lg">
+              <div className="h-9 w-9 flex items-center justify-center bg-emerald-50 text-emerald-700 rounded-lg ring-1 ring-emerald-200/60">
                 <DollarSign className="w-4 h-4" />
               </div>
             </div>
-            <div className="mt-2 flex items-baseline gap-2">
+            <div className="mt-3 flex items-baseline gap-2">
               <span className="text-2xl font-bold tracking-tight text-emerald-700">
                 {isLoading ? <Skeleton className="h-7 w-32 inline-block rounded" /> : formatCurrency(kpis?.cashCollectedInPeriod)}
               </span>
             </div>
-            <p className="mt-1 text-xs text-slate-500">
-              From authorized customer receipts
-            </p>
+            <div className="mt-2.5 pt-2.5 border-t border-slate-100 text-xs text-slate-500 flex items-center justify-between">
+              <span>Customer receipts</span>
+              <span className="text-emerald-700 font-medium inline-flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Authorized
+              </span>
+            </div>
           </CardContent>
         </Card>
 
         {/* Customer Outstanding Receivables */}
-        <Card className="border-l-4 border-l-orange-500 hover:shadow-md transition-shadow">
+        <Card className="bg-white border border-slate-200/90 rounded-xl shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200">
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Customer Outstanding</span>
-              <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
+              <div className="h-9 w-9 flex items-center justify-center bg-orange-50 text-[#EA580C] rounded-lg ring-1 ring-orange-200/60">
                 <AlertCircle className="w-4 h-4" />
               </div>
             </div>
-            <div className="mt-2 flex items-baseline gap-2">
+            <div className="mt-3 flex items-baseline gap-2">
               <span className="text-2xl font-bold tracking-tight text-slate-900">
                 {isLoading ? <Skeleton className="h-7 w-32 inline-block rounded" /> : formatCurrency(kpis?.customerOutstandingReceivables)}
               </span>
             </div>
-            <Link href="/reports/customers" className="mt-1 text-xs text-orange-600 hover:underline flex items-center gap-1">
-              View customer ageing <ArrowRight className="w-3 h-3" />
-            </Link>
+            <div className="mt-2.5 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
+              <span className="text-slate-500">Due receivables</span>
+              <Link href="/reports/customers" className="text-[#EA580C] hover:text-[#C2410C] font-medium hover:underline inline-flex items-center gap-1 transition-colors">
+                View ageing <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
           </CardContent>
         </Card>
 
         {/* Net Profit & Liquid Funds */}
-        <Card className={`border-l-4 ${kpis?.isProfit ? "border-l-emerald-500" : "border-l-red-500"} hover:shadow-md transition-shadow`}>
+        <Card className="bg-white border border-slate-200/90 rounded-xl shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200">
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Net Profit (Period)</span>
-              <div className={`p-2 rounded-lg ${kpis?.isProfit ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+              <div className={`h-9 w-9 flex items-center justify-center rounded-lg ring-1 ${kpis?.isProfit ? "bg-emerald-50 text-emerald-700 ring-emerald-200/60" : "bg-red-50 text-red-700 ring-red-200/60"}`}>
                 {kpis?.isProfit ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
               </div>
             </div>
-            <div className="mt-2 flex items-baseline gap-2">
+            <div className="mt-3 flex items-baseline gap-2">
               <span className={`text-2xl font-bold tracking-tight ${kpis?.isProfit ? "text-emerald-700" : "text-red-700"}`}>
                 {isLoading ? <Skeleton className="h-7 w-32 inline-block rounded" /> : formatCurrency(kpis?.netProfitInPeriod)}
               </span>
-              <Badge variant={kpis?.isProfit ? "success" : "destructive"} className="text-[10px] px-1.5 py-0.5">
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
+                kpis?.isProfit 
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
+                  : "bg-red-50 text-red-700 border-red-200"
+              }`}>
                 {kpis?.isProfit ? "PROFIT" : "LOSS"}
-              </Badge>
+              </span>
             </div>
-            <p className="mt-1 text-xs text-slate-500">
-              Liquid Cash & Bank: <strong className="text-slate-700">{formatCurrency(kpis?.totalLiquidFunds)}</strong>
+            <div className="mt-2.5 pt-2.5 border-t border-slate-100 text-xs text-slate-500">
+              <div className="flex items-center justify-between">
+                <span>Liquid Cash & Bank:</span>
+                <span className="font-semibold text-slate-700">{formatCurrency(kpis?.totalLiquidFunds)}</span>
+              </div>
               {kpis?.cashAndBankAccounts && kpis.cashAndBankAccounts.length > 0 && (
-                <span className="block text-[11px] text-slate-400 mt-0.5 truncate">
+                <div className="text-[11px] text-slate-400 mt-1 truncate">
                   {kpis.cashAndBankAccounts.map((a: any) => `${a.accountCode}: ${formatCurrency(a.closingBalance)}`).join(" · ")}
-                </span>
+                </div>
               )}
-            </p>
+            </div>
           </CardContent>
         </Card>
       </div>

@@ -72,24 +72,24 @@ export default function MaintenanceReportsPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Card className="border-l-4 border-l-[#0B1E36]">
+        <Card className="bg-white border border-slate-200/90 rounded-xl shadow-xs hover:shadow-md transition-all">
           <CardContent className="p-4">
             <div className="text-xs text-slate-500 font-medium">Open Repair Jobs</div>
             <div className="text-2xl font-bold text-slate-900 mt-1">{summary?.openJobs || 0}</div>
             <div className="text-[11px] text-amber-600 mt-0.5">Awaiting Insp: {summary?.awaitingInspection || 0}</div>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-emerald-600">
+        <Card className="bg-white border border-slate-200/90 rounded-xl shadow-xs hover:shadow-md transition-all">
           <CardContent className="p-4">
             <div className="text-xs text-slate-500 font-medium">Completed Repairs</div>
-            <div className="text-2xl font-bold text-emerald-800 mt-1">{summary?.completedJobs || 0}</div>
+            <div className="text-2xl font-bold text-slate-900 mt-1">{summary?.completedJobs || 0}</div>
             <div className="text-[11px] text-emerald-600 mt-0.5">Restored to active stock</div>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-orange-500">
+        <Card className="bg-white border border-slate-200/90 rounded-xl shadow-xs hover:shadow-md transition-all">
           <CardContent className="p-4">
             <div className="text-xs text-slate-500 font-medium">Total Repair Expense</div>
-            <div className="text-2xl font-bold text-orange-700 mt-1">
+            <div className="text-2xl font-bold text-slate-900 mt-1">
               ₹{Number(summary?.totalRepairCost || 0).toLocaleString("en-IN")}
             </div>
             <div className="text-[11px] text-slate-400 mt-0.5">
@@ -97,10 +97,10 @@ export default function MaintenanceReportsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-red-600">
+        <Card className="bg-white border border-slate-200/90 rounded-xl shadow-xs hover:shadow-md transition-all">
           <CardContent className="p-4">
             <div className="text-xs text-slate-500 font-medium">Scrapped Beyond Repair</div>
-            <div className="text-2xl font-bold text-red-700 mt-1">
+            <div className="text-2xl font-bold text-red-600 mt-1">
               {Number(summary?.totalScrappedQuantity || 0).toLocaleString("en-IN")}
             </div>
             <div className="text-[11px] text-red-500 mt-0.5">Condemned units</div>

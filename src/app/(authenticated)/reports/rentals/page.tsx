@@ -107,32 +107,32 @@ export default function RentalReportsPage() {
           {activeTab === "UTILIZATION" && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Card className="border-l-4 border-l-blue-600">
+                <Card className="bg-white border border-slate-200/90 rounded-xl shadow-xs hover:shadow-md transition-all">
                   <CardContent className="p-4">
                     <div className="text-xs text-slate-500 font-medium">Owned Utilization Rate</div>
-                    <div className="text-2xl font-bold text-blue-900 mt-1">{ut?.owned?.utilizationRatePct || 0}%</div>
+                    <div className="text-2xl font-bold text-slate-900 mt-1">{ut?.owned?.utilizationRatePct || 0}%</div>
                     <div className="text-[11px] text-slate-400 mt-0.5">At customer sites / eligible owned</div>
                   </CardContent>
                 </Card>
-                <Card className="border-l-4 border-l-emerald-600">
+                <Card className="bg-white border border-slate-200/90 rounded-xl shadow-xs hover:shadow-md transition-all">
                   <CardContent className="p-4">
                     <div className="text-xs text-slate-500 font-medium">Owned at Customer Sites</div>
-                    <div className="text-2xl font-bold text-emerald-800 mt-1">
+                    <div className="text-2xl font-bold text-slate-900 mt-1">
                       {Number(ut?.owned?.atCustomerSites || 0).toLocaleString("en-IN")}
                     </div>
-                    <div className="text-[11px] text-slate-400 mt-0.5">Earning daily rental</div>
+                    <div className="text-[11px] text-emerald-600 mt-0.5">Earning daily rental</div>
                   </CardContent>
                 </Card>
-                <Card className="border-l-4 border-l-slate-600">
+                <Card className="bg-white border border-slate-200/90 rounded-xl shadow-xs hover:shadow-md transition-all">
                   <CardContent className="p-4">
                     <div className="text-xs text-slate-500 font-medium">Owned in Warehouse</div>
-                    <div className="text-2xl font-bold text-slate-800 mt-1">
+                    <div className="text-2xl font-bold text-slate-900 mt-1">
                       {Number(ut?.owned?.availableInWarehouse || 0).toLocaleString("en-IN")}
                     </div>
                     <div className="text-[11px] text-slate-400 mt-0.5">Available for hire</div>
                   </CardContent>
                 </Card>
-                <Card className="border-l-4 border-l-amber-600">
+                <Card className="bg-white border border-slate-200/90 rounded-xl shadow-xs hover:shadow-md transition-all">
                   <CardContent className="p-4">
                     <div className="text-xs text-slate-500 font-medium">Under Repair / Damaged</div>
                     <div className="text-2xl font-bold text-amber-800 mt-1">
@@ -187,28 +187,28 @@ export default function RentalReportsPage() {
           {activeTab === "TRANSFERS" && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Card className="border-l-4 border-l-[#0B1E36]">
+                <Card className="bg-white border border-slate-200/90 rounded-xl shadow-xs hover:shadow-md transition-all">
                   <CardContent className="p-4">
                     <div className="text-xs text-slate-500 font-medium">Direct Site Transfers</div>
                     <div className="text-2xl font-bold text-slate-900 mt-1">{dst?.totalTransfers || 0}</div>
                     <div className="text-[11px] text-slate-400 mt-0.5">Site-to-site notes</div>
                   </CardContent>
                 </Card>
-                <Card className="border-l-4 border-l-blue-600">
+                <Card className="bg-white border border-slate-200/90 rounded-xl shadow-xs hover:shadow-md transition-all">
                   <CardContent className="p-4">
                     <div className="text-xs text-slate-500 font-medium">Dispatched Quantity</div>
-                    <div className="text-2xl font-bold text-blue-900 mt-1">{Number(dst?.totalDispatched || 0).toLocaleString("en-IN")}</div>
+                    <div className="text-2xl font-bold text-slate-900 mt-1">{Number(dst?.totalDispatched || 0).toLocaleString("en-IN")}</div>
                     <div className="text-[11px] text-slate-400 mt-0.5">From source sites</div>
                   </CardContent>
                 </Card>
-                <Card className="border-l-4 border-l-emerald-600">
+                <Card className="bg-white border border-slate-200/90 rounded-xl shadow-xs hover:shadow-md transition-all">
                   <CardContent className="p-4">
                     <div className="text-xs text-slate-500 font-medium">Accepted at Destination</div>
-                    <div className="text-2xl font-bold text-emerald-800 mt-1">{Number(dst?.totalAccepted || 0).toLocaleString("en-IN")}</div>
+                    <div className="text-2xl font-bold text-slate-900 mt-1">{Number(dst?.totalAccepted || 0).toLocaleString("en-IN")}</div>
                     <div className="text-[11px] text-emerald-600 mt-0.5">{dst?.reconciliationRatePct || 100}% reconciled</div>
                   </CardContent>
                 </Card>
-                <Card className="border-l-4 border-l-orange-500">
+                <Card className="bg-white border border-slate-200/90 rounded-xl shadow-xs hover:shadow-md transition-all">
                   <CardContent className="p-4">
                     <div className="text-xs text-slate-500 font-medium">Discrepancies (Dmg/Miss/Rej)</div>
                     <div className="text-2xl font-bold text-orange-700 mt-1">
