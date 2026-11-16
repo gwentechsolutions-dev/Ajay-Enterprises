@@ -51,6 +51,10 @@ export async function GET(req: NextRequest) {
             materialVariant: { select: { id: true, name: true, size: true, materialCode: true, uom: true } },
           },
         },
+        eWayBills: {
+          orderBy: { generatedAt: "desc" },
+          take: 1,
+        },
         _count: { select: { evidences: true, eWayBills: true, returnNotes: true } },
       },
       orderBy: { deliveryDate: "desc" },

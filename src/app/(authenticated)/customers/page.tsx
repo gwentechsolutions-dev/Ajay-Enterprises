@@ -95,6 +95,12 @@ export default function CustomersPage() {
 
   React.useEffect(() => {
     fetchCustomers();
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("action") === "new") {
+        handleOpenCreateModal();
+      }
+    }
   }, [fetchCustomers]);
 
   const handleOpenCreateModal = () => {
@@ -184,7 +190,7 @@ export default function CustomersPage() {
           onClick={handleOpenCreateModal}
           className="bg-[#0B1E36] hover:bg-[#071424] text-white text-xs font-semibold shadow-sm"
         >
-          <Plus className="h-3.5 w-3.5 mr-1.5" /> + New Customer Account
+          <Plus className="h-3.5 w-3.5 mr-1.5" /> New Customer Account
         </Button>
       </div>
 

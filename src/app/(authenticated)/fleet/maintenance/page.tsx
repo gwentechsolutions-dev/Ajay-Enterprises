@@ -10,7 +10,7 @@ import {
   Calendar,
   AlertTriangle,
   FileText,
-  DollarSign,
+  IndianRupee,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

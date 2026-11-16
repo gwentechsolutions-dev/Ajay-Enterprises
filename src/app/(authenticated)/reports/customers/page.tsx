@@ -10,7 +10,7 @@ import {
   TrendingUp,
   AlertTriangle,
   Building,
-  DollarSign,
+  IndianRupee,
   Boxes,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";

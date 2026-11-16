@@ -7,7 +7,7 @@ import {
   Users2,
   ClipboardCheck,
   Calculator,
-  DollarSign,
+  IndianRupee,
   Plus,
   RefreshCw,
   Calendar,
@@ -141,7 +141,7 @@ export default function LabourOverviewPage() {
             <div className="text-xs text-slate-500 mt-1">Recoverable against wages</div>
           </div>
           <div className="p-3 bg-orange-50 text-[#F26522] rounded-xl">
-            <DollarSign className="w-6 h-6" />
+            <IndianRupee className="w-6 h-6" />
           </div>
         </div>
 

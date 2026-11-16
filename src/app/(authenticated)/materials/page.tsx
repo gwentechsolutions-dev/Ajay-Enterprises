@@ -46,6 +46,7 @@ export default function MaterialsPage() {
   const [search, setSearch] = React.useState("");
   const [selectedCategory, setSelectedCategory] = React.useState<string | null>(null);
   const [selectedType, setSelectedType] = React.useState<string | null>(null);
+  const [selectedSize, setSelectedSize] = React.useState<string | null>(null);
   const [ownershipFilter, setOwnershipFilter] = React.useState<string>("ALL");
 
   // Modals state
@@ -260,6 +261,15 @@ export default function MaterialsPage() {
     }
   };
 
+  // Available distinct sizes for filter
+  const availableSizes = React.useMemo(() => {
+    const set = new Set<string>();
+    variants.forEach((v) => {
+      if (v.size && v.size.trim()) set.add(v.size.trim());
+    });
+    return Array.from(set).sort();
+  }, [variants]);
+
   // Filtered variants
   const filteredVariants = React.useMemo(() => {
     return variants.filter((v) => {
@@ -275,12 +285,15 @@ export default function MaterialsPage() {
       const matchesType =
         !selectedType || v.materialTypeId === selectedType;
 
+      const matchesSize =
+        !selectedSize || v.size === selectedSize;
+
       const matchesOwnership =
         ownershipFilter === "ALL" || v.ownershipClassification === ownershipFilter;
 
-      return matchesSearch && matchesCat && matchesType && matchesOwnership;
+      return matchesSearch && matchesCat && matchesType && matchesSize && matchesOwnership;
     });
-  }, [variants, search, selectedCategory, selectedType, ownershipFilter]);
+  }, [variants, search, selectedCategory, selectedType, selectedSize, ownershipFilter]);
 
   return (
     <div className="space-y-6">
@@ -319,7 +332,7 @@ export default function MaterialsPage() {
             onClick={() => setIsCategoryModalOpen(true)}
             className="text-xs border-slate-300"
           >
-            <FolderPlus className="h-3.5 w-3.5 mr-1.5" /> + Category
+            <FolderPlus className="h-3.5 w-3.5 mr-1.5" /> Category
           </Button>
 
           <Button
@@ -328,7 +341,7 @@ export default function MaterialsPage() {
             onClick={() => setIsTypeModalOpen(true)}
             className="text-xs border-slate-300"
           >
-            <FilePlus className="h-3.5 w-3.5 mr-1.5" /> + Type
+            <FilePlus className="h-3.5 w-3.5 mr-1.5" /> Type
           </Button>
 
           <Button
@@ -336,7 +349,7 @@ export default function MaterialsPage() {
             onClick={() => setIsVariantModalOpen(true)}
             className="bg-[#0B1E36] hover:bg-[#071424] text-white text-xs font-semibold shadow-sm"
           >
-            <Plus className="h-3.5 w-3.5 mr-1.5" /> + Material Variant
+            <Plus className="h-3.5 w-3.5 mr-1.5" /> Material Variant
           </Button>
         </div>
       </div>
@@ -344,7 +357,7 @@ export default function MaterialsPage() {
       {/* Filter Toolbar */}
       <Card className="border-slate-200 shadow-none bg-white">
         <CardContent className="p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -393,6 +406,21 @@ export default function MaterialsPage() {
               className="h-9 text-xs"
             />
 
+            {/* Size Combobox */}
+            <SearchableCombobox
+              options={[
+                { value: "", label: "All Sizes" },
+                ...availableSizes.map((s) => ({
+                  value: s,
+                  label: s,
+                })),
+              ]}
+              value={selectedSize || ""}
+              onChange={(val) => setSelectedSize(val || null)}
+              placeholder="Filter Size..."
+              className="h-9 text-xs"
+            />
+
             {/* Ownership */}
             <div className="flex items-center gap-1.5">
               <Button
@@ -431,7 +459,8 @@ export default function MaterialsPage() {
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 uppercase font-semibold tracking-wider">
               <tr>
                 <th className="py-3 px-4">Code</th>
-                <th className="py-3 px-4">Material Variant & Size</th>
+                <th className="py-3 px-4">Material Variant</th>
+                <th className="py-3 px-4">Size</th>
                 <th className="py-3 px-4">Category / Type</th>
                 <th className="py-3 px-4 text-right">Daily Rental Rate</th>
                 <th className="py-3 px-4 text-center">Ownership</th>
@@ -441,14 +470,14 @@ export default function MaterialsPage() {
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-600">
               {loading ? (
-                <TableSkeleton columns={7} rows={8} />
+                <TableSkeleton columns={8} rows={8} />
               ) : filteredVariants.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center">
+                  <td colSpan={8} className="py-12 text-center">
                     <Layers className="h-8 w-8 text-slate-300 mx-auto mb-2" />
                     <p className="font-semibold text-slate-700">No material variants found</p>
                     <p className="text-xs text-slate-500 mt-1">
-                      Click &quot;Seed Initial Catalogue&quot; or &quot;+ Material Variant&quot; to begin.
+                      Click &quot;Seed Initial Catalogue&quot; or &quot;Material Variant&quot; to begin.
                     </p>
                   </td>
                 </tr>
@@ -464,9 +493,14 @@ export default function MaterialsPage() {
                       </td>
                       <td className="py-3 px-4">
                         <div className="font-semibold text-slate-900">{v.name}</div>
-                        <div className="text-[11px] text-slate-500 font-mono mt-0.5">
-                          Size: {v.size} • UOM: {v.uom}
+                        <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                          UOM: {v.uom}
                         </div>
+                      </td>
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <span className="font-mono text-xs font-semibold text-slate-800 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200/80">
+                          {v.size || "—"}
+                        </span>
                       </td>
                       <td className="py-3 px-4">
                         <div className="text-slate-800 font-medium">

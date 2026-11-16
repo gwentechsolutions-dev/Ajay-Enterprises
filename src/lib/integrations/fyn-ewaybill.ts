@@ -49,21 +49,6 @@ export async function generateFYNWayBill(
   const baseUrl = process.env.FYN_BASE_URL || "https://sandbox.fyn.in/api/v1/ewaybill";
   const isSandbox = !process.env.FYN_API_KEY || baseUrl.includes("sandbox");
 
-  // Strictly isolate demo documents from live FYN/GSTN transmission
-  if (req.documentNumber?.includes("DEMO")) {
-    const ewbNumber = `3112${Date.now().toString().slice(-8)}`;
-    const validUntil = new Date(Date.now() + 48 * 3600 * 1000);
-    return {
-      success: true,
-      ewbNumber,
-      validUntil,
-      status: "ACTIVE",
-      fynReferenceId: `FYN-DEMO-SIM-${Date.now()}`,
-      message: "[DEMO SIMULATION] FYN E-Way Bill simulated successfully for demo document.",
-      rawResponse: { simulated: true, documentNumber: req.documentNumber },
-    };
-  }
-
   // Mask payload to prevent logging secrets or sensitive auth
   const maskedPayload = {
     documentNumber: req.documentNumber,
@@ -82,7 +67,21 @@ export async function generateFYNWayBill(
     let fynReferenceId: string;
     let rawResponse: any;
 
-    if (apiKey && !isSandbox) {
+    if (req.documentNumber?.includes("DEMO")) {
+      // Demo documents simulate external transmission to protect live FYN/GSTN endpoints,
+      // while still persisting to the local database so INVENTRA documents and Delivery Notes reflect the E-Way Bill.
+      ewbNumber = `3112${Date.now().toString().slice(-8)}`;
+      validUntil = new Date(Date.now() + 48 * 3600 * 1000);
+      fynReferenceId = `FYN-DEMO-SIM-${Date.now()}`;
+      rawResponse = {
+        status: "SUCCESS",
+        mode: "DEMO_SIMULATION",
+        ewbNumber,
+        validUntil: validUntil.toISOString(),
+        fynReferenceId,
+        message: "[DEMO SIMULATION] FYN E-Way Bill simulated successfully for demo document.",
+      };
+    } else if (apiKey && !isSandbox) {
       // Live FYN API call
       const response = await fetch(`${baseUrl}/generate`, {
         method: "POST",

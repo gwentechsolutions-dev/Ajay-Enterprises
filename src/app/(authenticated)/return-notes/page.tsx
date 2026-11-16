@@ -99,6 +99,12 @@ export default function MaterialReturnsPage() {
 
   React.useEffect(() => {
     loadData();
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("action") === "new") {
+        setIsCreateModalOpen(true);
+      }
+    }
   }, [loadData]);
 
   const handleCustomerChange = async (customerId: string) => {

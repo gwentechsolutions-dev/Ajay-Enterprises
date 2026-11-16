@@ -5,8 +5,8 @@ import Link from "next/link";
 import {
   TrendingUp,
   TrendingDown,
-  DollarSign,
-  Receipt,
+  IndianRupee,
+  ReceiptIndianRupee,
   Boxes,
   Truck,
   AlertTriangle,
@@ -29,6 +29,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QuickActionDialog } from "@/components/dashboard/quick-action-dialog";
 
 export default function OwnerDashboardPage() {
   const [data, setData] = React.useState<any | null>(null);
@@ -78,18 +79,20 @@ export default function OwnerDashboardPage() {
   return (
     <div className="space-y-6 pb-12">
       {/* 1. Header Banner & Period Filter */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200 pb-5">
+      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-2xl font-bold tracking-tight text-[#0B1E36]">
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            <h1 className="text-2xl font-bold tracking-tight text-[#0B1E36] whitespace-nowrap">
               AJAY ENTERPRISES · Executive Dashboard
             </h1>
-            <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 font-semibold text-xs">
-              INVENTRA v1.0
-            </Badge>
-            <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-200 text-xs">
-              FY {data?.period?.fiscalYear || "2026-27"}
-            </Badge>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 font-semibold text-xs whitespace-nowrap shrink-0">
+                INVENTRA v1.0
+              </Badge>
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-200 text-xs whitespace-nowrap shrink-0">
+                FY {data?.period?.fiscalYear || "2026-27"}
+              </Badge>
+            </div>
           </div>
           <p className="text-sm text-slate-500">
             Real-time management overview, reconciled accounting ledgers, and centering material operations.
@@ -146,6 +149,8 @@ export default function OwnerDashboardPage() {
             Refresh
           </Button>
 
+          <QuickActionDialog buttonLabel="ADD" />
+
           <Link href="/reports">
             <Button size="sm" className="bg-[#0B1E36] hover:bg-[#071424] text-white gap-1.5 text-xs">
               <FileSpreadsheet className="w-3.5 h-3.5" />
@@ -163,7 +168,7 @@ export default function OwnerDashboardPage() {
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Rental Revenue (Period)</span>
               <div className="h-9 w-9 flex items-center justify-center bg-slate-100 text-[#0B1E36] rounded-lg ring-1 ring-slate-200/60">
-                <Receipt className="w-4 h-4" />
+                <ReceiptIndianRupee className="w-4 h-4" />
               </div>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
@@ -193,7 +198,7 @@ export default function OwnerDashboardPage() {
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Cash Collected (Period)</span>
               <div className="h-9 w-9 flex items-center justify-center bg-emerald-50 text-emerald-700 rounded-lg ring-1 ring-emerald-200/60">
-                <DollarSign className="w-4 h-4" />
+                <IndianRupee className="w-4 h-4" />
               </div>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
@@ -260,7 +265,10 @@ export default function OwnerDashboardPage() {
                 <span className="font-semibold text-slate-700">{formatCurrency(kpis?.totalLiquidFunds)}</span>
               </div>
               {kpis?.cashAndBankAccounts && kpis.cashAndBankAccounts.length > 0 && (
-                <div className="text-[11px] text-slate-400 mt-1 truncate">
+                <div
+                  className="text-[11px] text-slate-400 mt-1 truncate cursor-help"
+                  title={kpis.cashAndBankAccounts.map((a: any) => `${a.accountCode}: ${formatCurrency(a.closingBalance)}`).join(" · ")}
+                >
                   {kpis.cashAndBankAccounts.map((a: any) => `${a.accountCode}: ${formatCurrency(a.closingBalance)}`).join(" · ")}
                 </div>
               )}
@@ -307,12 +315,34 @@ export default function OwnerDashboardPage() {
           <div className="text-[11px] text-slate-400 mt-0.5">Live customer sites</div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm col-span-2 sm:col-span-1">
+        <div
+          className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm col-span-2 sm:col-span-1 group hover:border-slate-300 transition-colors cursor-help"
+          title={
+            kpis?.inventoryValuation
+              ? `${formatCurrency(kpis.inventoryValuation.totalOwnedValuation)} (${
+                  kpis.inventoryValuation.status === "PARTIALLY_VALUED"
+                    ? `Partial: ${kpis.inventoryValuation.valuedVariantsCount}/${kpis.inventoryValuation.totalVariantsCount} variants valued`
+                    : "Fully valued"
+                } at purchase cost)`
+              : "Valuation unavailable"
+          }
+        >
           <div className="text-slate-500 text-xs font-medium">Owned Valuation</div>
-          <div className="text-sm font-bold text-slate-900 mt-1 truncate" title={kpis?.inventoryValuation?.displayLabel || "Valuation unavailable"}>
-            {kpis?.inventoryValuation?.displayLabel || "Valuation unavailable"}
+          <div className="text-xl font-bold text-slate-900 mt-1 whitespace-nowrap">
+            {formatCurrency(kpis?.inventoryValuation?.totalOwnedValuation)}
           </div>
-          <div className="text-[11px] text-slate-400 mt-0.5">At purchase cost</div>
+          <div className="text-[11px] mt-0.5 flex items-center gap-1">
+            {kpis?.inventoryValuation?.status === "PARTIALLY_VALUED" ? (
+              <span
+                className="text-amber-600 font-medium truncate"
+                title={`${kpis.inventoryValuation.valuedVariantsCount} of ${kpis.inventoryValuation.totalVariantsCount} variants valued at purchase cost`}
+              >
+                Partial ({kpis.inventoryValuation.valuedVariantsCount}/{kpis.inventoryValuation.totalVariantsCount})
+              </span>
+            ) : (
+              <span className="text-slate-400">At purchase cost</span>
+            )}
+          </div>
         </div>
       </div>
 

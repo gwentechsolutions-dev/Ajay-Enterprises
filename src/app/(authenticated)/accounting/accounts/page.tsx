@@ -9,7 +9,7 @@ import {
   Search,
   Lock,
   ArrowLeft,
-  DollarSign,
+  IndianRupee,
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";

@@ -4,11 +4,11 @@ import * as React from "react";
 import Link from "next/link";
 import {
   BookOpen,
-  DollarSign,
+  IndianRupee,
   TrendingUp,
   TrendingDown,
   Scale,
-  Receipt,
+  ReceiptIndianRupee,
   Landmark,
   FileSpreadsheet,
   Calendar,
@@ -165,7 +165,7 @@ export default function AccountingDashboardPage() {
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-500 uppercase">Net GST Liability</span>
-            <Receipt className="w-4 h-4 text-[#F26522]" />
+            <ReceiptIndianRupee className="w-4 h-4 text-[#F26522]" />
           </div>
           <div className="text-2xl font-bold text-[#0B1E36] mt-2">
             ₹{netGstPayable.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
@@ -252,7 +252,7 @@ export default function AccountingDashboardPage() {
         >
           <div className="flex items-center justify-between mb-3">
             <div className="p-2.5 rounded-lg bg-emerald-50 text-emerald-700 group-hover:bg-[#0B1E36] group-hover:text-white transition-colors">
-              <DollarSign className="w-5 h-5" />
+              <IndianRupee className="w-5 h-5" />
             </div>
             <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-[#0B1E36] transition-transform group-hover:translate-x-1" />
           </div>
@@ -286,7 +286,7 @@ export default function AccountingDashboardPage() {
         >
           <div className="flex items-center justify-between mb-3">
             <div className="p-2.5 rounded-lg bg-orange-50 text-[#F26522] group-hover:bg-[#F26522] group-hover:text-white transition-colors">
-              <Receipt className="w-5 h-5" />
+              <ReceiptIndianRupee className="w-5 h-5" />
             </div>
             <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-[#0B1E36] transition-transform group-hover:translate-x-1" />
           </div>

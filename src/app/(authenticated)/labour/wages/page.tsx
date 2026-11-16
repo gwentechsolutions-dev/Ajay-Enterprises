@@ -13,7 +13,7 @@ import {
   CreditCard,
   TrendingDown,
   FileText,
-  DollarSign,
+  IndianRupee,
   ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";

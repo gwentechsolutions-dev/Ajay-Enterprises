@@ -11,7 +11,7 @@ import {
   RotateCcw,
   ArrowLeftRight,
   FileText,
-  DollarSign,
+  IndianRupee,
   ShieldAlert,
   ClipboardList,
 } from "lucide-react";
@@ -348,11 +348,11 @@ export default function PilotPage() {
 
                 <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex items-center gap-3">
                   <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded">
-                    <DollarSign className="h-5 w-5" />
+                    <IndianRupee className="h-5 w-5" />
                   </div>
                   <div>
                     <div className="text-xs text-slate-500">Invoices Billed</div>
-                    <div className="text-lg font-bold text-slate-900">Rs. {metrics.totalBilledAmount}</div>
+                    <div className="text-lg font-bold text-slate-900">₹{metrics.totalBilledAmount}</div>
                   </div>
                 </div>
               </div>

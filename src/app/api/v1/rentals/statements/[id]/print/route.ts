@@ -2,6 +2,38 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
+import { readPrivateFile } from "@/lib/storage";
+
+function extractStoragePath(urlOrPath?: string | null): string | null {
+  if (!urlOrPath) return null;
+  if (urlOrPath.startsWith("data:")) return null;
+  if (urlOrPath.includes("path=")) {
+    try {
+      const parsed = new URL(urlOrPath, "http://localhost");
+      const p = parsed.searchParams.get("path");
+      if (p) return decodeURIComponent(p);
+    } catch {
+      const match = urlOrPath.match(/path=([^&]+)/);
+      if (match) return decodeURIComponent(match[1]);
+    }
+  }
+  return urlOrPath.replace(/^\/+/, "");
+}
+
+async function getAssetAsBase64(urlOrPath?: string | null): Promise<string | null> {
+  if (!urlOrPath) return null;
+  if (urlOrPath.startsWith("data:")) return urlOrPath;
+  const storagePath = extractStoragePath(urlOrPath);
+  if (!storagePath) return urlOrPath;
+  try {
+    const file = await readPrivateFile(storagePath);
+    if (!file) return urlOrPath;
+    const mime = file.mime || "image/png";
+    return `data:${mime};base64,${file.buffer.toString("base64")}`;
+  } catch {
+    return urlOrPath;
+  }
+}
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -31,12 +63,27 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         include: {
           addresses: { where: { isDefaultBilling: true } },
           bankAccounts: { where: { isPrimary: true } },
+          signatories: { where: { isActive: true }, orderBy: { isDefault: "desc" } },
         },
       }),
     ]);
 
     if (!statement) {
       return NextResponse.json({ success: false, error: { message: "Statement not found" } }, { status: 404 });
+    }
+
+    const defaultSignatory = company?.signatories[0];
+    const signatoryName = defaultSignatory?.name || "Authorised Signatory";
+    const signatoryDesignation = defaultSignatory?.designation || "Authorised Signatory";
+
+    let signatureBase64: string | null = null;
+    let stampBase64: string | null = null;
+
+    if (defaultSignatory?.signatureAssetUrl) {
+      signatureBase64 = await getAssetAsBase64(defaultSignatory.signatureAssetUrl);
+    }
+    if (defaultSignatory?.stampAssetUrl) {
+      stampBase64 = await getAssetAsBase64(defaultSignatory.stampAssetUrl);
     }
 
     const companyName = company?.legalName || company?.tradeName || "AJAY ENTERPRISES";
@@ -232,13 +279,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   </div>
 
   <div class="footer">
-    <div class="sig-box">
-      Customer Site In-charge / Authorised Receiver<br/>
-      (Signature & Seal)
+    <div class="sig-box" style="width: 220px; text-align: left; padding: 6px;">
+      <div style="font-size: 9px; font-weight: bold; color: #475569;">Customer Site In-charge / Authorised Receiver</div>
+      <div style="height: 50px;"></div>
+      <div style="border-top: 1px dashed #94a3b8; padding-top: 4px; font-size: 8.5px; color: #64748b;">(Signature & Site Seal)</div>
     </div>
-    <div class="sig-box">
-      For <strong>${companyName}</strong><br/>
-      Authorised Signatory
+    <div class="sig-box" style="width: 240px; text-align: right; position: relative;">
+      <div style="font-weight: bold; font-size: 9.5px; color: #0B1E36;">For <strong>${companyName}</strong></div>
+      <div style="min-height: 50px; display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin: 4px 0;">
+        ${stampBase64 ? `<img src="${stampBase64}" alt="Company Seal" style="max-height: 54px; max-width: 80px; object-fit: contain; opacity: 0.9;" />` : ""}
+        ${signatureBase64 ? `<img src="${signatureBase64}" alt="Authorised Signature" style="max-height: 42px; max-width: 120px; object-fit: contain;" />` : '<div style="height: 42px;"></div>'}
+      </div>
+      <div style="font-weight: bold; font-size: 9.5px; color: #0B1E36;">${signatoryName}</div>
+      <div style="font-size: 8.5px; color: #64748b;">${signatoryDesignation}</div>
     </div>
   </div>
 </body>

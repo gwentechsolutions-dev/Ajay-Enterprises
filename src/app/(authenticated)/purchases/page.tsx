@@ -468,27 +468,30 @@ export default function PurchasesPage() {
                         {po.status}
                       </Badge>
                     </td>
-                    <td className="px-6 py-4 text-right space-x-2">
-                      {po.status === "DRAFT" || po.status === "SUBMITTED" ? (
-                        <Button
-                          size="sm"
-                          onClick={() => handleApprovePO(po.id, po.poNumber)}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-7 px-3"
-                        >
-                          Approve
-                        </Button>
-                      ) : null}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {po.status === "DRAFT" || po.status === "SUBMITTED" ? (
+                          <Button
+                            size="sm"
+                            onClick={() => handleApprovePO(po.id, po.poNumber)}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-7 px-2.5 inline-flex items-center gap-1 font-medium shadow-sm"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            <span>Approve</span>
+                          </Button>
+                        ) : null}
 
-                      {po.status === "APPROVED" || po.status === "PARTIALLY_RECEIVED" ? (
-                        <Button
-                          size="sm"
-                          onClick={() => openGRNModal(po)}
-                          className="bg-[#F26522] hover:bg-[#EA580C] text-white text-xs h-7 px-3 flex items-center gap-1 inline-flex"
-                        >
-                          <PackageCheck className="h-3.5 w-3.5" />
-                          Receive GRN
-                        </Button>
-                      ) : null}
+                        {po.status === "APPROVED" || po.status === "PARTIALLY_RECEIVED" ? (
+                          <Button
+                            size="sm"
+                            onClick={() => openGRNModal(po)}
+                            className="bg-[#F26522] hover:bg-[#EA580C] text-white text-xs h-7 px-2.5 inline-flex items-center gap-1 font-medium shadow-sm"
+                          >
+                            <PackageCheck className="h-3.5 w-3.5" />
+                            <span>Receive GRN</span>
+                          </Button>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))

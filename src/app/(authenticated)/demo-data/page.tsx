@@ -11,7 +11,7 @@ import {
   Truck,
   HardHat,
   Boxes,
-  Receipt,
+  ReceiptIndianRupee,
   FileSpreadsheet,
   ShieldAlert,
   ArrowRight,
@@ -314,7 +314,7 @@ export default function DemoDataPage() {
 
               <div className="p-3 bg-white border border-slate-200 rounded-lg shadow-2xs">
                 <div className="flex items-center gap-2 text-slate-600 text-xs font-semibold uppercase tracking-wider">
-                  <Receipt className="w-4 h-4 text-purple-600" />
+                  <ReceiptIndianRupee className="w-4 h-4 text-purple-600" />
                   Purchases
                 </div>
                 <div className="text-2xl font-bold font-mono text-slate-900 mt-1">
@@ -347,7 +347,7 @@ export default function DemoDataPage() {
 
               <div className="p-3 bg-white border border-slate-200 rounded-lg shadow-2xs">
                 <div className="flex items-center gap-2 text-slate-600 text-xs font-semibold uppercase tracking-wider">
-                  <Receipt className="w-4 h-4 text-teal-600" />
+                  <ReceiptIndianRupee className="w-4 h-4 text-teal-600" />
                   Accounting
                 </div>
                 <div className="text-2xl font-bold font-mono text-slate-900 mt-1">

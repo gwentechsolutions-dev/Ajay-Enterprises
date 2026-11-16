@@ -11,7 +11,7 @@ import {
   Upload,
   Layers,
   Building2,
-  DollarSign,
+  IndianRupee,
   Scale,
   RefreshCw,
   Lock,
@@ -295,7 +295,7 @@ export default function CutoverPage() {
               : "border-transparent text-slate-500 hover:text-slate-700"
           }`}
         >
-          <DollarSign className="h-4 w-4" />
+          <IndianRupee className="h-4 w-4" />
           3. Opening Balances & Trial Balance
         </button>
 

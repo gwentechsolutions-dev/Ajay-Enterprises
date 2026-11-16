@@ -10,7 +10,7 @@ import {
   Fuel,
   Wrench,
   Compass,
-  DollarSign,
+  IndianRupee,
   ShieldCheck,
   RefreshCw,
   Gauge,
@@ -123,7 +123,7 @@ export default function VehicleDetailPage() {
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase">Fuel Running Cost</span>
-            <DollarSign className="w-4 h-4 text-[#F26522]" />
+            <IndianRupee className="w-4 h-4 text-[#F26522]" />
           </div>
           <div className="text-2xl font-bold font-mono text-[#F26522] mt-2">
             {mileageStats?.averageCostPerKm
@@ -188,7 +188,7 @@ export default function VehicleDetailPage() {
               : "border-transparent text-slate-500 hover:text-slate-700"
           }`}
         >
-          <DollarSign className="w-4 h-4" />
+          <IndianRupee className="w-4 h-4" />
           Expenses ({vehicle.expenses?.length || 0})
         </button>
       </div>

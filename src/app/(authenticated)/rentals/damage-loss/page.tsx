@@ -9,7 +9,7 @@ import {
   Search,
   CheckCircle2,
   Building,
-  DollarSign,
+  IndianRupee,
   ShieldAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";

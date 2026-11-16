@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import {
-  Receipt,
+  ReceiptIndianRupee,
   ArrowLeft,
   RefreshCw,
   Download,

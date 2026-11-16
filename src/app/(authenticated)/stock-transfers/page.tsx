@@ -12,6 +12,8 @@ import {
   Send,
   Loader2,
   Trash2,
+  Truck,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +41,9 @@ export default function StockTransfersPage() {
   // Modals
   const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false);
   const [isReceiveModalOpen, setIsReceiveModalOpen] = React.useState(false);
+  const [isDispatchModalOpen, setIsDispatchModalOpen] = React.useState(false);
+  const [dispatchTarget, setDispatchTarget] = React.useState<any>(null);
+  const [dispatching, setDispatching] = React.useState(false);
   const [selectedSTN, setSelectedSTN] = React.useState<any>(null);
   const [submitting, setSubmitting] = React.useState(false);
 
@@ -100,6 +105,12 @@ export default function StockTransfersPage() {
 
   React.useEffect(() => {
     loadData();
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("action") === "new") {
+        setIsCreateModalOpen(true);
+      }
+    }
   }, [loadData]);
 
   const handleAddLine = () => {
@@ -161,20 +172,30 @@ export default function StockTransfersPage() {
     }
   };
 
-  const handleDispatchSTN = async (stnId: string, stnNumber: string) => {
-    if (!confirm(`Dispatch STN ${stnNumber}? This will deduct source warehouse stock.`)) return;
+  const handleOpenDispatch = (stn: any) => {
+    setDispatchTarget(stn);
+    setIsDispatchModalOpen(true);
+  };
+
+  const handleConfirmDispatch = async () => {
+    if (!dispatchTarget) return;
 
     try {
-      const res = await fetch(`/api/v1/stock-transfers/${stnId}/dispatch`, {
+      setDispatching(true);
+      const res = await fetch(`/api/v1/stock-transfers/${dispatchTarget.id}/dispatch`, {
         method: "POST",
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || "Failed to dispatch STN");
 
-      toast.success(`STN ${stnNumber} dispatched and in-transit!`);
-      loadData();
+      toast.success(`STN ${dispatchTarget.stnNumber} dispatched and in-transit!`);
+      setIsDispatchModalOpen(false);
+      setDispatchTarget(null);
+      await loadData();
     } catch (err: any) {
       toast.error(err.message);
+    } finally {
+      setDispatching(false);
     }
   };
 
@@ -331,39 +352,42 @@ export default function StockTransfersPage() {
                         {stn.status}
                       </Badge>
                     </td>
-                    <td className="px-6 py-4 text-right space-x-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        asChild
-                        className="text-xs h-7 px-2"
-                      >
-                        <a href={`/api/v1/stock-transfers/${stn.id}/print`} target="_blank" rel="noopener noreferrer">
-                          <Printer className="h-3.5 w-3.5 mr-1" />
-                          Print
-                        </a>
-                      </Button>
-
-                      {stn.status === "DRAFT" ? (
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1.5">
                         <Button
                           size="sm"
-                          onClick={() => handleDispatchSTN(stn.id, stn.stnNumber)}
-                          className="bg-[#0B1E36] hover:bg-[#0B1E36]/90 text-white text-xs h-7 px-3"
+                          variant="outline"
+                          asChild
+                          className="text-xs h-7 px-2.5 inline-flex items-center gap-1 font-medium text-slate-700"
                         >
-                          Dispatch
+                          <a href={`/api/v1/stock-transfers/${stn.id}/print`} target="_blank" rel="noopener noreferrer">
+                            <Printer className="h-3.5 w-3.5" />
+                            <span>Print</span>
+                          </a>
                         </Button>
-                      ) : null}
 
-                      {stn.status === "DISPATCHED" ? (
-                        <Button
-                          size="sm"
-                          onClick={() => openReceiveModal(stn)}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-7 px-3 inline-flex items-center gap-1"
-                        >
-                          <PackageCheck className="h-3.5 w-3.5" />
-                          Receive
-                        </Button>
-                      ) : null}
+                        {stn.status === "DRAFT" ? (
+                          <Button
+                            size="sm"
+                            onClick={() => handleOpenDispatch(stn)}
+                            className="bg-[#0B1E36] hover:bg-[#071424] text-white text-xs h-7 px-2.5 inline-flex items-center gap-1 font-medium shadow-sm"
+                          >
+                            <Send className="h-3.5 w-3.5" />
+                            <span>Dispatch</span>
+                          </Button>
+                        ) : null}
+
+                        {stn.status === "DISPATCHED" ? (
+                          <Button
+                            size="sm"
+                            onClick={() => openReceiveModal(stn)}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-7 px-2.5 inline-flex items-center gap-1 font-medium shadow-sm"
+                          >
+                            <PackageCheck className="h-3.5 w-3.5" />
+                            <span>Receive</span>
+                          </Button>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -605,6 +629,73 @@ export default function StockTransfersPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* IN-APP DISPATCH CONFIRMATION MODAL */}
+      <Dialog open={isDispatchModalOpen} onOpenChange={setIsDispatchModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-[#0B1E36] flex items-center gap-2">
+              <Truck className="h-5 w-5 text-[#F26522]" />
+              Confirm Stock Transfer Dispatch
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Inter-yard transfer between storage yards.
+            </DialogDescription>
+          </DialogHeader>
+
+          {dispatchTarget && (
+            <div className="space-y-3 pt-2 text-xs">
+              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1.5 font-mono">
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-sans">STN Number:</span>
+                  <span className="font-bold text-slate-900">{dispatchTarget.stnNumber}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-sans">Source Yard:</span>
+                  <span className="font-semibold text-slate-800">{dispatchTarget.sourceWarehouse?.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-sans">Destination Yard:</span>
+                  <span className="text-slate-700">{dispatchTarget.destinationWarehouse?.name}</span>
+                </div>
+                {dispatchTarget.vehicleNumber && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-sans">Vehicle:</span>
+                    <span className="text-slate-700">{dispatchTarget.vehicleNumber}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg text-amber-800 flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <p className="text-xs">
+                  This action will deduct physical inventory from <strong>{dispatchTarget.sourceWarehouse?.name}</strong> and mark the transfer as in-transit.
+                </p>
+              </div>
+
+              <DialogFooter className="pt-2 gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsDispatchModalOpen(false)}
+                  disabled={dispatching}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleConfirmDispatch}
+                  isLoading={dispatching}
+                  loadingText="Dispatching..."
+                  className="bg-[#0B1E36] hover:bg-[#071424] text-white font-semibold"
+                >
+                  Confirm & Dispatch
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

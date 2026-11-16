@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import {
-  Receipt,
+  ReceiptIndianRupee,
   RefreshCw,
   Search,
   ArrowLeft,
@@ -109,7 +109,7 @@ export default function GstCenterPage() {
               : "border-transparent text-slate-500 hover:text-slate-700"
           }`}
         >
-          <Receipt className="w-4 h-4" />
+          <ReceiptIndianRupee className="w-4 h-4" />
           GSTR-3B (Monthly Summary)
         </button>
       </div>
@@ -191,19 +191,19 @@ export default function GstCenterPage() {
                           {inv.placeOfSupply} {inv.isInterState ? "(Inter-State)" : "(Intra-State)"}
                         </td>
                         <td className="p-2.5 text-right font-mono font-medium">
-                          ₹{Number(inv.subtotal).toFixed(2)}
+                          ₹{Number(inv.taxableAmount ?? inv.subtotal ?? 0).toFixed(2)}
                         </td>
                         <td className="p-2.5 text-right font-mono text-slate-600">
-                          ₹{Number(inv.totalCgst).toFixed(2)}
+                          ₹{Number(inv.cgstAmount ?? inv.totalCgst ?? 0).toFixed(2)}
                         </td>
                         <td className="p-2.5 text-right font-mono text-slate-600">
-                          ₹{Number(inv.totalSgst).toFixed(2)}
+                          ₹{Number(inv.sgstAmount ?? inv.totalSgst ?? 0).toFixed(2)}
                         </td>
                         <td className="p-2.5 text-right font-mono text-slate-600">
-                          ₹{Number(inv.totalIgst).toFixed(2)}
+                          ₹{Number(inv.igstAmount ?? inv.totalIgst ?? 0).toFixed(2)}
                         </td>
                         <td className="p-2.5 text-right font-mono font-bold text-[#0B1E36]">
-                          ₹{Number(inv.totalAmount).toFixed(2)}
+                          ₹{Number(inv.grandTotal ?? inv.totalAmount ?? 0).toFixed(2)}
                         </td>
                       </tr>
                     ))

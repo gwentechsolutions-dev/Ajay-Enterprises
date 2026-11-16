@@ -16,6 +16,9 @@ import {
   Trash2,
   FileDigit,
   Send,
+  Copy,
+  Check,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +51,9 @@ export default function DeliveryNotesPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false);
   const [isDeliverModalOpen, setIsDeliverModalOpen] = React.useState(false);
   const [isEwbModalOpen, setIsEwbModalOpen] = React.useState(false);
+  const [isDispatchModalOpen, setIsDispatchModalOpen] = React.useState(false);
+  const [dispatchTarget, setDispatchTarget] = React.useState<any>(null);
+  const [dispatching, setDispatching] = React.useState(false);
   const [selectedDN, setSelectedDN] = React.useState<any>(null);
   const [submitting, setSubmitting] = React.useState(false);
 
@@ -124,6 +130,12 @@ export default function DeliveryNotesPage() {
 
   React.useEffect(() => {
     loadData();
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("action") === "new") {
+        setIsCreateModalOpen(true);
+      }
+    }
   }, [loadData]);
 
   // Load sites when customer changes
@@ -209,20 +221,30 @@ export default function DeliveryNotesPage() {
     }
   };
 
-  const handleDispatch = async (dnId: string, dnNumber: string) => {
-    if (!confirm(`Dispatch Delivery Note ${dnNumber}? This will deduct warehouse stock and start site custody.`)) return;
+  const handleOpenDispatch = (dn: any) => {
+    setDispatchTarget(dn);
+    setIsDispatchModalOpen(true);
+  };
+
+  const handleConfirmDispatch = async () => {
+    if (!dispatchTarget) return;
 
     try {
-      const res = await fetch(`/api/v1/delivery-notes/${dnId}/dispatch`, {
+      setDispatching(true);
+      const res = await fetch(`/api/v1/delivery-notes/${dispatchTarget.id}/dispatch`, {
         method: "POST",
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || "Failed to dispatch Delivery Note");
 
-      toast.success(`Delivery Note ${dnNumber} marked DISPATCHED! Stock deducted.`);
-      loadData();
+      toast.success(`Delivery Note ${dispatchTarget.dnNumber} marked DISPATCHED! Stock deducted.`);
+      setIsDispatchModalOpen(false);
+      setDispatchTarget(null);
+      await loadData();
     } catch (err: any) {
       toast.error(err.message);
+    } finally {
+      setDispatching(false);
     }
   };
 
@@ -267,13 +289,19 @@ export default function DeliveryNotesPage() {
     }
   };
 
+  const [showRegenerateForm, setShowRegenerateForm] = React.useState(false);
+  const [copiedEwb, setCopiedEwb] = React.useState(false);
+
   const openEwbModal = (dn: any) => {
     setSelectedDN(dn);
+    setShowRegenerateForm(!dn.eWayBillNumber);
+    setCopiedEwb(false);
+    const latestEwb = dn.eWayBills?.[0];
     setEwbForm({
-      vehicleNumber: dn.vehicleNumber || "KA-01-AB-1234",
-      fromPincode: "560001",
-      toPincode: "560068",
-      distanceKm: 30,
+      vehicleNumber: latestEwb?.vehicleNumber || dn.vehicleNumber || "KA-01-AB-1234",
+      fromPincode: latestEwb?.fromPincode || "560001",
+      toPincode: latestEwb?.toPincode || "560068",
+      distanceKm: latestEwb?.distanceKm || 30,
     });
     setIsEwbModalOpen(true);
   };
@@ -299,7 +327,9 @@ export default function DeliveryNotesPage() {
 
       toast.success(`E-Way Bill ${data.data.ewbNumber} generated via FYN Gateway!`);
       setIsEwbModalOpen(false);
-      loadData();
+      setShowRegenerateForm(false);
+      setSelectedDN(null);
+      await loadData();
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -466,7 +496,20 @@ export default function DeliveryNotesPage() {
                 filteredDNs.map((dn) => (
                   <tr key={dn.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="px-6 py-4 font-mono font-medium text-slate-900">
-                      {dn.dnNumber}
+                      <div>{dn.dnNumber}</div>
+                      {dn.eWayBillNumber ? (
+                        <div className="mt-1">
+                          <button
+                            type="button"
+                            onClick={() => openEwbModal(dn)}
+                            title={`Click to view E-Way Bill ${dn.eWayBillNumber}`}
+                            className="inline-flex items-center gap-1 text-[11px] font-mono font-semibold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors cursor-pointer"
+                          >
+                            <FileDigit className="h-3 w-3 text-blue-600" />
+                            EWB: {dn.eWayBillNumber}
+                          </button>
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-6 py-4">
                       <div className="font-medium text-slate-900">{dn.customer?.name}</div>
@@ -498,53 +541,60 @@ export default function DeliveryNotesPage() {
                         {dn.status}
                       </Badge>
                     </td>
-                    <td className="px-6 py-4 text-right space-x-1 whitespace-nowrap">
-                      {/* Print Button */}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        asChild
-                        className="text-xs h-7 px-2"
-                      >
-                        <a href={`/api/v1/delivery-notes/${dn.id}/print`} target="_blank" rel="noopener noreferrer">
-                          <Printer className="h-3.5 w-3.5 mr-1" />
-                          Print
-                        </a>
-                      </Button>
-
-                      {/* E-Way Bill */}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openEwbModal(dn)}
-                        className="text-xs h-7 px-2"
-                      >
-                        <FileDigit className="h-3.5 w-3.5 mr-1" />
-                        E-Way Bill
-                      </Button>
-
-                      {/* Dispatch Action */}
-                      {dn.status === "DRAFT" ? (
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {/* Print Button */}
                         <Button
                           size="sm"
-                          onClick={() => handleDispatch(dn.id, dn.dnNumber)}
-                          className="bg-[#0B1E36] hover:bg-[#0B1E36]/90 text-white text-xs h-7 px-3"
+                          variant="outline"
+                          asChild
+                          className="text-xs h-7 px-2.5 inline-flex items-center gap-1 font-medium text-slate-700"
                         >
-                          Dispatch
+                          <a href={`/api/v1/delivery-notes/${dn.id}/print`} target="_blank" rel="noopener noreferrer">
+                            <Printer className="h-3.5 w-3.5" />
+                            <span>Print</span>
+                          </a>
                         </Button>
-                      ) : null}
 
-                      {/* Deliver Action */}
-                      {dn.status === "DISPATCHED" ? (
+                        {/* E-Way Bill */}
                         <Button
                           size="sm"
-                          onClick={() => openDeliverModal(dn)}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-7 px-3 inline-flex items-center gap-1"
+                          variant={dn.eWayBillNumber ? "secondary" : "outline"}
+                          onClick={() => openEwbModal(dn)}
+                          className={`text-xs h-7 px-2.5 inline-flex items-center gap-1 font-medium ${
+                            dn.eWayBillNumber
+                              ? "bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
+                              : "text-slate-700"
+                          }`}
                         >
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          Deliver
+                          <FileDigit className="h-3.5 w-3.5" />
+                          <span>{dn.eWayBillNumber ? "View EWB" : "E-Way Bill"}</span>
                         </Button>
-                      ) : null}
+
+                        {/* Dispatch Action */}
+                        {dn.status === "DRAFT" ? (
+                          <Button
+                            size="sm"
+                            onClick={() => handleOpenDispatch(dn)}
+                            className="bg-[#0B1E36] hover:bg-[#071424] text-white text-xs h-7 px-2.5 inline-flex items-center gap-1 font-medium shadow-sm"
+                          >
+                            <Send className="h-3.5 w-3.5" />
+                            <span>Dispatch</span>
+                          </Button>
+                        ) : null}
+
+                        {/* Deliver Action */}
+                        {dn.status === "DISPATCHED" ? (
+                          <Button
+                            size="sm"
+                            onClick={() => openDeliverModal(dn)}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-7 px-2.5 inline-flex items-center gap-1 font-medium shadow-sm"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            <span>Deliver</span>
+                          </Button>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -866,74 +916,233 @@ export default function DeliveryNotesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* GENERATE E-WAY BILL MODAL */}
+      {/* E-WAY BILL MODAL (VIEW OR GENERATE) */}
       <Dialog open={isEwbModalOpen} onOpenChange={setIsEwbModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <FileDigit className="h-5 w-5 text-[#F26522]" />
-              Generate Statutory E-Way Bill
+              {selectedDN?.eWayBillNumber && !showRegenerateForm ? "Statutory E-Way Bill Details" : "Generate Statutory E-Way Bill"}
             </DialogTitle>
             <DialogDescription>
-              Dispatches statutory E-Way Bill request to FYN Gateway for {selectedDN?.dnNumber}.
+              {selectedDN?.eWayBillNumber && !showRegenerateForm
+                ? `Active E-Way Bill issued via FYN Gateway for ${selectedDN?.dnNumber}.`
+                : `Dispatches statutory E-Way Bill request to FYN Gateway for ${selectedDN?.dnNumber}.`}
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleGenerateEWB} className="space-y-4 pt-2">
-            <div>
-              <Label className="text-xs font-semibold">Vehicle Number *</Label>
-              <Input
-                value={ewbForm.vehicleNumber}
-                onChange={(e) => setEwbForm({ ...ewbForm, vehicleNumber: e.target.value })}
-                required
-              />
-            </div>
+          {selectedDN?.eWayBillNumber && !showRegenerateForm ? (
+            <div className="space-y-4 pt-2">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">E-Way Bill Number</span>
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-xs font-medium">
+                    ACTIVE / VERIFIED
+                  </Badge>
+                </div>
 
-            <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-xl font-bold text-[#0B1E36] tracking-wider">
+                    {selectedDN.eWayBillNumber}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      if (selectedDN?.eWayBillNumber) {
+                        navigator.clipboard.writeText(selectedDN.eWayBillNumber);
+                        setCopiedEwb(true);
+                        setTimeout(() => setCopiedEwb(false), 2000);
+                        toast.success("E-Way Bill number copied to clipboard!");
+                      }
+                    }}
+                    className="h-8 px-2 text-slate-500 hover:text-slate-800"
+                  >
+                    {copiedEwb ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-2 text-xs text-slate-600 border-t border-slate-200/60">
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Vehicle Number</span>
+                    <span className="font-semibold font-mono">{selectedDN.vehicleNumber || ewbForm.vehicleNumber}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Delivery Note</span>
+                    <span className="font-semibold font-mono">{selectedDN.dnNumber}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Route</span>
+                    <span>{ewbForm.fromPincode} &rarr; {ewbForm.toPincode}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Distance</span>
+                    <span>{ewbForm.distanceKm} KM</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Button
+                  asChild
+                  className="w-full bg-[#0B1E36] hover:bg-[#0B1E36]/90 text-white flex items-center justify-center gap-2"
+                >
+                  <a href={`/api/v1/delivery-notes/${selectedDN.id}/print`} target="_blank" rel="noopener noreferrer">
+                    <Printer className="w-4 h-4" />
+                    Open Printable Delivery Note (with E-Way Bill)
+                  </a>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowRegenerateForm(true)}
+                  className="w-full text-xs text-slate-600 border-slate-300"
+                >
+                  Update Vehicle / Re-generate E-Way Bill
+                </Button>
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsEwbModalOpen(false)}>
+                  Close
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <form onSubmit={handleGenerateEWB} className="space-y-4 pt-2">
               <div>
-                <Label className="text-xs font-semibold">Source Pincode *</Label>
+                <Label className="text-xs font-semibold">Vehicle Number *</Label>
                 <Input
-                  value={ewbForm.fromPincode}
-                  onChange={(e) => setEwbForm({ ...ewbForm, fromPincode: e.target.value })}
+                  value={ewbForm.vehicleNumber}
+                  onChange={(e) => setEwbForm({ ...ewbForm, vehicleNumber: e.target.value })}
                   required
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs font-semibold">Source Pincode *</Label>
+                  <Input
+                    value={ewbForm.fromPincode}
+                    onChange={(e) => setEwbForm({ ...ewbForm, fromPincode: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs font-semibold">Destination Pincode *</Label>
+                  <Input
+                    value={ewbForm.toPincode}
+                    onChange={(e) => setEwbForm({ ...ewbForm, toPincode: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
               <div>
-                <Label className="text-xs font-semibold">Destination Pincode *</Label>
+                <Label className="text-xs font-semibold">Transport Distance (KM) *</Label>
                 <Input
-                  value={ewbForm.toPincode}
-                  onChange={(e) => setEwbForm({ ...ewbForm, toPincode: e.target.value })}
+                  type="number"
+                  min="1"
+                  value={ewbForm.distanceKm}
+                  onChange={(e) => setEwbForm({ ...ewbForm, distanceKm: parseInt(e.target.value) || 1 })}
                   required
                 />
               </div>
-            </div>
 
-            <div>
-              <Label className="text-xs font-semibold">Transport Distance (KM) *</Label>
-              <Input
-                type="number"
-                min="1"
-                value={ewbForm.distanceKm}
-                onChange={(e) => setEwbForm({ ...ewbForm, distanceKm: parseInt(e.target.value) || 1 })}
-                required
-              />
-            </div>
+              <DialogFooter>
+                {selectedDN?.eWayBillNumber ? (
+                  <Button type="button" variant="ghost" onClick={() => setShowRegenerateForm(false)}>
+                    Back to Details
+                  </Button>
+                ) : null}
+                <Button type="button" variant="outline" onClick={() => setIsEwbModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  isLoading={submitting}
+                  loadingText="Generating E-Way Bill..."
+                  className="bg-[#0B1E36] text-white"
+                >
+                  Generate via FYN Gateway
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsEwbModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                isLoading={submitting}
-                loadingText="Generating E-Way Bill..."
-                className="bg-[#0B1E36] text-white"
-              >
-                Generate via FYN Gateway
-              </Button>
-            </DialogFooter>
-          </form>
+      {/* IN-APP DISPATCH CONFIRMATION MODAL */}
+      <Dialog open={isDispatchModalOpen} onOpenChange={setIsDispatchModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-[#0B1E36] flex items-center gap-2">
+              <Truck className="h-5 w-5 text-[#F26522]" />
+              Confirm Material Dispatch
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Transfer custody of centering materials from yard to customer construction site.
+            </DialogDescription>
+          </DialogHeader>
+
+          {dispatchTarget && (
+            <div className="space-y-3 pt-2 text-xs">
+              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1.5 font-mono">
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-sans">Document #:</span>
+                  <span className="font-bold text-slate-900">{dispatchTarget.dnNumber}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-sans">Customer:</span>
+                  <span className="font-semibold text-slate-800">{dispatchTarget.customer?.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-sans">Construction Site:</span>
+                  <span className="text-slate-700">{dispatchTarget.customerSite?.siteName}</span>
+                </div>
+                {dispatchTarget.vehicleNumber && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-sans">Vehicle:</span>
+                    <span className="text-slate-700">{dispatchTarget.vehicleNumber}</span>
+                  </div>
+                )}
+                {dispatchTarget.sourceWarehouse?.name && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-sans">Source Yard:</span>
+                    <span className="text-slate-700">{dispatchTarget.sourceWarehouse.name}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg text-amber-800 flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <p className="text-xs">
+                  This action will officially mark this Delivery Note as <strong>DISPATCHED</strong>, deduct physical stock from the source yard, and initiate customer site custody.
+                </p>
+              </div>
+
+              <DialogFooter className="pt-2 gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsDispatchModalOpen(false)}
+                  disabled={dispatching}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleConfirmDispatch}
+                  isLoading={dispatching}
+                  loadingText="Dispatching..."
+                  className="bg-[#0B1E36] hover:bg-[#071424] text-white font-semibold"
+                >
+                  Confirm & Dispatch
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

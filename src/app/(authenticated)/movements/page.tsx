@@ -284,7 +284,7 @@ export default function MovementsPage() {
             onClick={() => setIsMovementModalOpen(true)}
             className="bg-[#0B1E36] hover:bg-[#071424] text-white text-xs font-semibold shadow-sm"
           >
-            <Plus className="h-3.5 w-3.5 mr-1.5" /> + Record Movement
+            <Plus className="h-3.5 w-3.5 mr-1.5" /> Record Movement
           </Button>
         </div>
       </div>

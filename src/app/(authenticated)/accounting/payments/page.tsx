@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import {
-  DollarSign,
+  IndianRupee,
   Plus,
   RefreshCw,
   Search,
@@ -103,6 +103,14 @@ export default function PaymentsPage() {
 
   React.useEffect(() => {
     loadData();
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("action") === "receipt") {
+        setIsReceiptModalOpen(true);
+      } else if (params.get("action") === "pay") {
+        setIsPayModalOpen(true);
+      }
+    }
   }, []);
 
   const handleCreateReceipt = async (e: React.FormEvent) => {

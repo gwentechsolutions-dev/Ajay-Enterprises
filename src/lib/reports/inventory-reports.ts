@@ -660,12 +660,18 @@ export async function getInventoryValuationReport(
   let displayValuation = "Valuation unavailable";
 
   if (totalOwnedVariants > 0) {
+    const formattedAmount = new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 2,
+    }).format(Number(totalOwnedValuation));
+
     if (valuedOwnedVariantsCount === totalOwnedVariants) {
       status = "FULLY_VALUED";
-      displayValuation = `₹${totalOwnedValuation.toFixed(2)}`;
+      displayValuation = formattedAmount;
     } else if (valuedOwnedVariantsCount > 0) {
       status = "PARTIALLY_VALUED";
-      displayValuation = `₹${totalOwnedValuation.toFixed(2)} (Partial: ${valuedOwnedVariantsCount}/${totalOwnedVariants} variants valued)`;
+      displayValuation = `${formattedAmount} (Partial: ${valuedOwnedVariantsCount}/${totalOwnedVariants} variants valued)`;
     } else {
       status = "VALUATION_UNAVAILABLE";
       displayValuation = "Valuation unavailable (Missing purchase cost data)";

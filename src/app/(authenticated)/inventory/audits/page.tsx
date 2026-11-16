@@ -105,7 +105,7 @@ export default function StockAuditsPage() {
           onClick={() => setIsModalOpen(true)}
           className="bg-[#0B1E36] hover:bg-[#071424] text-white text-xs font-semibold shadow-sm"
         >
-          <Plus className="h-3.5 w-3.5 mr-1.5" /> + Initiate Stock Verification
+          <Plus className="h-3.5 w-3.5 mr-1.5" /> Initiate Stock Verification
         </Button>
       </div>
 

@@ -173,7 +173,7 @@ export default function SuppliersPage() {
           onClick={() => setIsModalOpen(true)}
           className="bg-[#0B1E36] hover:bg-[#071424] text-white text-xs font-semibold shadow-sm"
         >
-          <Plus className="h-3.5 w-3.5 mr-1.5" /> + New Supplier
+          <Plus className="h-3.5 w-3.5 mr-1.5" /> New Supplier
         </Button>
       </div>
 

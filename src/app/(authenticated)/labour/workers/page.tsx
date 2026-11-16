@@ -10,7 +10,7 @@ import {
   UserCheck,
   UserX,
   Phone,
-  DollarSign,
+  IndianRupee,
   AlertCircle,
   X,
   Check,

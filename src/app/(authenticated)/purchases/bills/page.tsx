@@ -11,7 +11,7 @@ import {
   Building,
   TrendingDown,
   Trash2,
-  DollarSign,
+  IndianRupee,
   AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -84,6 +84,12 @@ export default function PurchaseBillsPage() {
 
   React.useEffect(() => {
     loadData();
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("action") === "new") {
+        setIsModalOpen(true);
+      }
+    }
   }, []);
 
   const handleAddItem = () => {
@@ -208,9 +214,9 @@ export default function PurchaseBillsPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const totalPayable = bills.reduce((sum, b) => sum + Number(b.totalAmount || 0), 0);
-  const totalPaid = bills.reduce((sum, b) => sum + Number(b.paidAmount || 0), 0);
-  const totalOutstanding = bills.reduce((sum, b) => sum + Number(b.balanceAmount || 0), 0);
+  const totalPayable = bills.reduce((sum, b) => sum + Number(b.grandTotal ?? b.totalAmount ?? 0), 0);
+  const totalPaid = bills.reduce((sum, b) => sum + Number(b.paidAmount ?? 0), 0);
+  const totalOutstanding = bills.reduce((sum, b) => sum + Number(b.outstandingAmount ?? b.balanceAmount ?? 0), 0);
 
   const preview = calculatePreview();
 
@@ -365,16 +371,16 @@ export default function PurchaseBillsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right font-medium text-slate-700">
-                      ₹{Number(b.subtotal).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      ₹{Number(b.taxableAmount ?? b.subtotal ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-4 py-3 text-right text-xs text-slate-600">
-                      ₹{Number(b.totalTax).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      ₹{Number(b.totalTaxAmount ?? b.totalTax ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-4 py-3 text-right font-bold text-[#0B1E36]">
-                      ₹{Number(b.totalAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      ₹{Number(b.grandTotal ?? b.totalAmount ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-4 py-3 text-right font-bold text-rose-600">
-                      ₹{Number(b.balanceAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      ₹{Number(b.outstandingAmount ?? b.balanceAmount ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span

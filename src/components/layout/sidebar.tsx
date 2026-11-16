@@ -16,7 +16,7 @@ import {
   Users2,
   Boxes,
   Truck,
-  Receipt,
+  ReceiptIndianRupee,
   BookOpen,
   ChevronLeft,
   ChevronRight,
@@ -34,7 +34,7 @@ import {
   Calculator,
   AlertTriangle,
   CheckCircle2,
-  DollarSign,
+  IndianRupee,
   Landmark,
   Scale,
   FileSpreadsheet,
@@ -65,28 +65,6 @@ const NAVIGATION: NavGroup[] = [
     ],
   },
   {
-    group: "Production Cutover & Launch",
-    items: [
-      { title: "Cutover & Go-Live Hub", href: "/cutover", icon: ShieldCheck, badge: "Owner" },
-      { title: "Demo Data Manager", href: "/demo-data", icon: Database, badge: "Demo" },
-      { title: "Pilot Operations", href: "/pilot", icon: Compass },
-      { title: "Staff Training & SOPs", href: "/training", icon: BookOpen },
-    ],
-  },
-  {
-    group: "Analytics & Reports",
-    items: [
-      { title: "Reports Hub", href: "/reports", icon: FileSpreadsheet },
-      { title: "Rental Analytics", href: "/reports/rentals", icon: Receipt },
-      { title: "Customer Receivables", href: "/reports/customers", icon: Users2 },
-      { title: "Inventory Custody", href: "/reports/inventory", icon: Boxes },
-      { title: "Financial Statements", href: "/reports/financial", icon: Scale },
-      { title: "Fleet & Mileage", href: "/reports/fleet", icon: Truck },
-      { title: "Labour & Wages", href: "/reports/labour", icon: HardHat },
-      { title: "Material Repairs", href: "/reports/maintenance", icon: Layers },
-    ],
-  },
-  {
     group: "Operations & Movement",
     items: [
       { title: "Delivery Notes (DN)", href: "/delivery-notes", icon: Truck },
@@ -102,29 +80,12 @@ const NAVIGATION: NavGroup[] = [
   {
     group: "Rental & Billing Engine",
     items: [
-      { title: "Rental Operations", href: "/rentals", icon: Receipt },
+      { title: "Rental Operations", href: "/rentals", icon: ReceiptIndianRupee },
       { title: "Rental Agreements", href: "/rentals/agreements", icon: FileText },
       { title: "Field Held Equipment", href: "/rentals/held-stock", icon: Boxes },
       { title: "Monthly Statements", href: "/rentals/statements", icon: Calculator },
       { title: "Damage & Loss Claims", href: "/rentals/damage-loss", icon: AlertTriangle },
       { title: "Site Closure & Settlement", href: "/rentals/closures", icon: CheckCircle2 },
-    ],
-  },
-  {
-    group: "Portals (PWA & Yard)",
-    items: [
-      { title: "Warehouse Yard Portal", href: "/warehouse-portal", icon: WarehouseIcon },
-      { title: "Delivery Driver App", href: "/delivery-portal", icon: Compass },
-    ],
-  },
-  {
-    group: "Catalogue & Masters",
-    items: [
-      { title: "Material Catalogue", href: "/materials", icon: Layers },
-      { title: "Customers & Sites", href: "/customers", icon: Users2 },
-      { title: "Suppliers", href: "/suppliers", icon: Factory },
-      { title: "Warehouses & Yards", href: "/warehouses", icon: WarehouseIcon },
-      { title: "Branches", href: "/branches", icon: GitBranch },
     ],
   },
   {
@@ -135,21 +96,21 @@ const NAVIGATION: NavGroup[] = [
       { title: "Accounting Hub", href: "/accounting", icon: BookOpen },
       { title: "Chart of Accounts", href: "/accounting/accounts", icon: Layers },
       { title: "General Ledger", href: "/accounting/journals", icon: FileSpreadsheet },
-      { title: "Receipts & Payments", href: "/accounting/payments", icon: DollarSign },
+      { title: "Receipts & Payments", href: "/accounting/payments", icon: IndianRupee },
       { title: "Banking & Contra", href: "/accounting/banking", icon: Landmark },
-      { title: "GST & Statutory Tax", href: "/accounting/gst", icon: Receipt },
+      { title: "GST & Statutory Tax", href: "/accounting/gst", icon: ReceiptIndianRupee },
       { title: "Financial Reports", href: "/accounting/reports", icon: Scale },
       { title: "Fiscal Years & Locks", href: "/accounting/periods", icon: Calendar },
     ],
   },
   {
-    group: "Administration",
+    group: "Catalogue & Masters",
     items: [
-      { title: "Company Profile", href: "/company", icon: Building2 },
-      { title: "Users", href: "/users", icon: Users },
-      { title: "Roles & Permissions", href: "/roles", icon: ShieldCheck },
-      { title: "Document Settings", href: "/document-settings", icon: FileDigit },
-      { title: "Audit Logs", href: "/audit-logs", icon: History },
+      { title: "Customers & Sites", href: "/customers", icon: Users2 },
+      { title: "Material Catalogue", href: "/materials", icon: Layers },
+      { title: "Suppliers", href: "/suppliers", icon: Factory },
+      { title: "Warehouses & Yards", href: "/warehouses", icon: WarehouseIcon },
+      { title: "Branches", href: "/branches", icon: GitBranch },
     ],
   },
   {
@@ -170,8 +131,47 @@ const NAVIGATION: NavGroup[] = [
       { title: "Workforce Register", href: "/labour/workers", icon: Users2 },
       { title: "Daily Attendance", href: "/labour/attendance", icon: ClipboardCheck },
       { title: "Wage Settlements", href: "/labour/wages", icon: Calculator },
-      { title: "Labour Advances", href: "/labour/advances", icon: DollarSign },
+      { title: "Labour Advances", href: "/labour/advances", icon: IndianRupee },
       { title: "Centering Material Repairs", href: "/material-maintenance", icon: Layers },
+    ],
+  },
+  {
+    group: "Portals (PWA & Yard)",
+    items: [
+      { title: "Warehouse Yard Portal", href: "/warehouse-portal", icon: WarehouseIcon },
+      { title: "Delivery Driver App", href: "/delivery-portal", icon: Compass },
+    ],
+  },
+  {
+    group: "Analytics & Reports",
+    items: [
+      { title: "Reports Hub", href: "/reports", icon: FileSpreadsheet },
+      { title: "Rental Analytics", href: "/reports/rentals", icon: ReceiptIndianRupee },
+      { title: "Customer Receivables", href: "/reports/customers", icon: Users2 },
+      { title: "Inventory Custody", href: "/reports/inventory", icon: Boxes },
+      { title: "Financial Statements", href: "/reports/financial", icon: Scale },
+      { title: "Fleet & Mileage", href: "/reports/fleet", icon: Truck },
+      { title: "Labour & Wages", href: "/reports/labour", icon: HardHat },
+      { title: "Material Repairs", href: "/reports/maintenance", icon: Layers },
+    ],
+  },
+  {
+    group: "Production Cutover & Launch",
+    items: [
+      { title: "Cutover & Go-Live Hub", href: "/cutover", icon: ShieldCheck, badge: "Owner" },
+      { title: "Demo Data Manager", href: "/demo-data", icon: Database, badge: "Demo" },
+      { title: "Pilot Operations", href: "/pilot", icon: Compass },
+      { title: "Staff Training & SOPs", href: "/training", icon: BookOpen },
+    ],
+  },
+  {
+    group: "Administration",
+    items: [
+      { title: "Company Profile", href: "/company", icon: Building2 },
+      { title: "Users", href: "/users", icon: Users },
+      { title: "Roles & Permissions", href: "/roles", icon: ShieldCheck },
+      { title: "Document Settings", href: "/document-settings", icon: FileDigit },
+      { title: "Audit Logs", href: "/audit-logs", icon: History },
     ],
   },
 ];

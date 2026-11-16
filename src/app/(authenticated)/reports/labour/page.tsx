@@ -8,7 +8,7 @@ import {
   RefreshCw,
   Printer,
   Calendar,
-  DollarSign,
+  IndianRupee,
   ClipboardCheck,
   Users2,
 } from "lucide-react";

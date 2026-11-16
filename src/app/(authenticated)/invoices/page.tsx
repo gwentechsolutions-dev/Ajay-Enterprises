@@ -12,7 +12,7 @@ import {
   Clock,
   AlertCircle,
   TrendingUp,
-  Receipt,
+  ReceiptIndianRupee,
   ArrowRight,
   Filter,
 } from "lucide-react";
@@ -125,9 +125,9 @@ export default function InvoicesPage() {
   });
 
   // Calculate totals
-  const totalBilled = invoices.reduce((sum, i) => sum + Number(i.totalAmount || 0), 0);
-  const totalPaid = invoices.reduce((sum, i) => sum + Number(i.paidAmount || 0), 0);
-  const totalOutstanding = invoices.reduce((sum, i) => sum + Number(i.balanceAmount || 0), 0);
+  const totalBilled = invoices.reduce((sum, i) => sum + Number(i.grandTotal ?? i.totalAmount ?? 0), 0);
+  const totalPaid = invoices.reduce((sum, i) => sum + Number(i.paidAmount ?? 0), 0);
+  const totalOutstanding = invoices.reduce((sum, i) => sum + Number(i.outstandingAmount ?? i.balanceAmount ?? 0), 0);
 
   return (
     <div className="space-y-6">
@@ -155,7 +155,7 @@ export default function InvoicesPage() {
             onClick={() => setIsStatementModalOpen(true)}
             className="bg-[#F26522] hover:bg-[#EA580C] text-white"
           >
-            <Receipt className="w-4 h-4 mr-2" />
+            <ReceiptIndianRupee className="w-4 h-4 mr-2" />
             Convert Statement to Invoice
           </Button>
         </div>
@@ -298,16 +298,16 @@ export default function InvoicesPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right font-medium text-slate-700">
-                      ₹{Number(inv.subtotal).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      ₹{Number(inv.taxableAmount ?? inv.subtotal ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-4 py-3 text-right text-xs text-slate-600">
-                      <div>₹{Number(inv.totalTax).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
+                      <div>₹{Number(inv.totalTaxAmount ?? inv.totalTax ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
                       <div className="text-[10px] text-slate-400">
                         {inv.isInterState ? "IGST" : "CGST+SGST"}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right font-bold text-[#0B1E36]">
-                      ₹{Number(inv.totalAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      ₹{Number(inv.grandTotal ?? inv.totalAmount ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span
@@ -524,43 +524,43 @@ export default function InvoicesPage() {
               <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1.5 text-right">
                 <div className="flex justify-between">
                   <span className="text-slate-500">Taxable Subtotal:</span>
-                  <span className="font-semibold">₹{Number(activeInvoice.subtotal).toFixed(2)}</span>
+                  <span className="font-semibold">₹{Number(activeInvoice.taxableAmount ?? activeInvoice.subtotal ?? 0).toFixed(2)}</span>
                 </div>
-                {Number(activeInvoice.totalCgst) > 0 && (
+                {Number(activeInvoice.cgstAmount ?? activeInvoice.totalCgst ?? 0) > 0 && (
                   <div className="flex justify-between text-slate-600">
                     <span>CGST (9%):</span>
-                    <span>₹{Number(activeInvoice.totalCgst).toFixed(2)}</span>
+                    <span>₹{Number(activeInvoice.cgstAmount ?? activeInvoice.totalCgst ?? 0).toFixed(2)}</span>
                   </div>
                 )}
-                {Number(activeInvoice.totalSgst) > 0 && (
+                {Number(activeInvoice.sgstAmount ?? activeInvoice.totalSgst ?? 0) > 0 && (
                   <div className="flex justify-between text-slate-600">
                     <span>SGST (9%):</span>
-                    <span>₹{Number(activeInvoice.totalSgst).toFixed(2)}</span>
+                    <span>₹{Number(activeInvoice.sgstAmount ?? activeInvoice.totalSgst ?? 0).toFixed(2)}</span>
                   </div>
                 )}
-                {Number(activeInvoice.totalIgst) > 0 && (
+                {Number(activeInvoice.igstAmount ?? activeInvoice.totalIgst ?? 0) > 0 && (
                   <div className="flex justify-between text-slate-600">
                     <span>IGST (18%):</span>
-                    <span>₹{Number(activeInvoice.totalIgst).toFixed(2)}</span>
+                    <span>₹{Number(activeInvoice.igstAmount ?? activeInvoice.totalIgst ?? 0).toFixed(2)}</span>
                   </div>
                 )}
-                {Number(activeInvoice.roundOffAmount) !== 0 && (
+                {Number(activeInvoice.roundOff ?? activeInvoice.roundOffAmount ?? 0) !== 0 && (
                   <div className="flex justify-between text-slate-500">
                     <span>Round Off:</span>
-                    <span>₹{Number(activeInvoice.roundOffAmount).toFixed(2)}</span>
+                    <span>₹{Number(activeInvoice.roundOff ?? activeInvoice.roundOffAmount ?? 0).toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between border-t border-slate-200 pt-1 text-sm font-bold text-[#0B1E36]">
                   <span>Grand Total:</span>
-                  <span>₹{Number(activeInvoice.totalAmount).toFixed(2)}</span>
+                  <span>₹{Number(activeInvoice.grandTotal ?? activeInvoice.totalAmount ?? 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-xs text-emerald-600 font-semibold">
                   <span>Amount Paid:</span>
-                  <span>₹{Number(activeInvoice.paidAmount).toFixed(2)}</span>
+                  <span>₹{Number(activeInvoice.paidAmount ?? 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-xs text-amber-600 font-bold">
                   <span>Balance Due:</span>
-                  <span>₹{Number(activeInvoice.balanceAmount).toFixed(2)}</span>
+                  <span>₹{Number(activeInvoice.outstandingAmount ?? activeInvoice.balanceAmount ?? 0).toFixed(2)}</span>
                 </div>
               </div>
             </div>

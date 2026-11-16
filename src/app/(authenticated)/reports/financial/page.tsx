@@ -13,7 +13,7 @@ import {
   AlertTriangle,
   Landmark,
   FileSpreadsheet,
-  Receipt,
+  ReceiptIndianRupee,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

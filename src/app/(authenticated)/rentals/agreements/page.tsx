@@ -10,7 +10,7 @@ import {
   CheckCircle2,
   Calendar,
   Building,
-  DollarSign,
+  IndianRupee,
   AlertCircle,
   X,
   Trash2,
@@ -66,6 +66,12 @@ export default function RentalAgreementsPage() {
 
   React.useEffect(() => {
     fetchAgreements();
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("action") === "new") {
+        setIsModalOpen(true);
+      }
+    }
 
     // Fetch Master Data
     fetch("/api/v1/customers")

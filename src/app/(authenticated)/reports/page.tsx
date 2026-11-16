@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import {
   FileSpreadsheet,
-  Receipt,
+  ReceiptIndianRupee,
   Users2,
   Boxes,
   Scale,
@@ -27,7 +27,7 @@ const REPORT_MODULES = [
   {
     title: "Rental Business Analytics",
     href: "/reports/rentals",
-    icon: Receipt,
+    icon: ReceiptIndianRupee,
     color: "bg-blue-50 text-[#0B1E36] border-blue-200",
     description: "Monthly rental revenue, active batches, customer & site rental performance, material utilization (OWNED vs HIRED_IN), and direct site transfers.",
     kpis: ["12 Reports", "Utilization %", "Site Transfers"],

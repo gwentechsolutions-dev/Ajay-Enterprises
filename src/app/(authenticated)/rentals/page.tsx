@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import {
-  Receipt,
+  ReceiptIndianRupee,
   FileText,
   Boxes,
   Calculator,
@@ -154,7 +154,7 @@ export default function RentalDashboardPage() {
           <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
             <span>30-Day Expected Revenue</span>
             <div className="h-8 w-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
-              <Receipt className="h-4 w-4" />
+              <ReceiptIndianRupee className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
