@@ -9,9 +9,11 @@ import {
   CheckCircle2,
   AlertTriangle,
   Printer,
-  PackageMinus,
   Loader2,
   Trash2,
+  Boxes,
+  Sparkles,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +32,23 @@ import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { TableSkeleton } from "@/components/ui/loading-states";
 import { toast } from "sonner";
 
+interface MRNLineItem {
+  materialVariantId: string;
+  ownershipType: "OWNED" | "HIRED_IN";
+  returnedQty: number;
+  acceptedQty: number;
+  damagedQty: number;
+  missingQty: number;
+  condition: "GOOD" | "FAIR" | "DAMAGED" | "REPAIRABLE" | "SCRAP";
+  remarks?: string;
+  heldQty?: number;
+  materialName?: string;
+  materialCode?: string;
+  uom?: string;
+  size?: string | null;
+  deliveryNotes?: Array<{ id: string; dnNumber: string; deliveryDate: string }>;
+}
+
 export default function MaterialReturnsPage() {
   const [returnNotes, setReturnNotes] = React.useState<any[]>([]);
   const [customers, setCustomers] = React.useState<any[]>([]);
@@ -39,15 +58,22 @@ export default function MaterialReturnsPage() {
   const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState("");
 
-  // Modals
+  // Modals & Submissions
   const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
+
+  // Auto-Population & Site Stock State
+  const [loadingSiteMaterials, setLoadingSiteMaterials] = React.useState(false);
+  const [siteDeliveredMaterials, setSiteDeliveredMaterials] = React.useState<any[]>([]);
+  const [siteDeliveryNotes, setSiteDeliveryNotes] = React.useState<any[]>([]);
+  const [autoPopulatedCount, setAutoPopulatedCount] = React.useState(0);
 
   // New MRN Form
   const [mrnForm, setMrnForm] = React.useState({
     customerId: "",
     customerSiteId: "",
     receivingWarehouseId: "",
+    referenceDeliveryNoteId: "",
     returnDate: new Date().toISOString().split("T")[0],
     includeReturnDate: false,
     vehicleNumber: "KA-01-AB-1234",
@@ -56,17 +82,7 @@ export default function MaterialReturnsPage() {
     receiverName: "Yard Manager",
     receiverPhone: "9876543210",
     remarks: "",
-    items: [
-      {
-        materialVariantId: "",
-        returnedQty: 50,
-        acceptedQty: 48,
-        damagedQty: 2,
-        missingQty: 0,
-        condition: "GOOD",
-        remarks: "",
-      },
-    ],
+    items: [] as MRNLineItem[],
   });
 
   const loadData = React.useCallback(async () => {
@@ -88,7 +104,16 @@ export default function MaterialReturnsPage() {
 
       if (mrnData.success) setReturnNotes(Array.isArray(mrnData.data) ? mrnData.data : []);
       if (custData.success) setCustomers(Array.isArray(custData.data) ? custData.data : []);
-      if (whData.success) setWarehouses(Array.isArray(whData.data) ? whData.data : []);
+      if (whData.success) {
+        const whList = Array.isArray(whData.data) ? whData.data : [];
+        setWarehouses(whList);
+        if (whList.length > 0) {
+          setMrnForm((prev) => ({
+            ...prev,
+            receivingWarehouseId: prev.receivingWarehouseId || whList[0].id,
+          }));
+        }
+      }
       if (varData.success) setVariants(Array.isArray(varData.data) ? varData.data : []);
     } catch {
       toast.error("Failed to load material return notes.");
@@ -107,23 +132,143 @@ export default function MaterialReturnsPage() {
     }
   }, [loadData]);
 
+  // Load delivered materials held at a specific customer site
+  const loadSiteDeliveredMaterials = React.useCallback(
+    async (siteId: string, deliveryNoteId?: string) => {
+      if (!siteId) {
+        setSiteDeliveredMaterials([]);
+        setSiteDeliveryNotes([]);
+        setAutoPopulatedCount(0);
+        return;
+      }
+
+      try {
+        setLoadingSiteMaterials(true);
+        const queryParams = new URLSearchParams({ customerSiteId: siteId });
+        if (deliveryNoteId) {
+          queryParams.set("deliveryNoteId", deliveryNoteId);
+        }
+
+        const res = await fetch(`/api/v1/return-notes/site-materials?${queryParams.toString()}`);
+        const result = await res.json();
+
+        if (result.success && result.data) {
+          const materials = result.data.materials || [];
+          const dns = result.data.deliveryNotes || [];
+          setSiteDeliveredMaterials(materials);
+          setSiteDeliveryNotes(dns);
+
+          if (materials.length > 0) {
+            // Auto-populate form items with full current held quantity
+            const autoPopulatedItems: MRNLineItem[] = materials.map((m: any) => ({
+              materialVariantId: m.materialVariantId,
+              ownershipType: m.ownershipType || "OWNED",
+              returnedQty: m.currentHeldQty,
+              acceptedQty: m.currentHeldQty,
+              damagedQty: 0,
+              missingQty: 0,
+              condition: "GOOD",
+              remarks: "",
+              heldQty: m.currentHeldQty,
+              materialName: m.materialName,
+              materialCode: m.materialCode,
+              uom: m.uom,
+              size: m.size,
+              deliveryNotes: m.deliveryNotes || [],
+            }));
+
+            setMrnForm((prev) => ({
+              ...prev,
+              customerSiteId: siteId,
+              referenceDeliveryNoteId: deliveryNoteId || prev.referenceDeliveryNoteId || "",
+              items: autoPopulatedItems,
+            }));
+            setAutoPopulatedCount(materials.length);
+            toast.success(
+              `Auto-populated ${materials.length} material line(s) delivered to ${result.data.site.siteName}.`
+            );
+          } else {
+            // No materials on site: provide one empty row for manual entry
+            setMrnForm((prev) => ({
+              ...prev,
+              customerSiteId: siteId,
+              referenceDeliveryNoteId: deliveryNoteId || "",
+              items: [
+                {
+                  materialVariantId: "",
+                  ownershipType: "OWNED",
+                  returnedQty: 1,
+                  acceptedQty: 1,
+                  damagedQty: 0,
+                  missingQty: 0,
+                  condition: "GOOD",
+                  remarks: "",
+                  heldQty: 0,
+                },
+              ],
+            }));
+            setAutoPopulatedCount(0);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load site delivered materials:", err);
+        toast.error("Failed to fetch site material stock.");
+      } finally {
+        setLoadingSiteMaterials(false);
+      }
+    },
+    []
+  );
+
+  // When customer changes, load customer sites and trigger material fetch for initial site
   const handleCustomerChange = async (customerId: string) => {
-    setMrnForm((prev) => ({ ...prev, customerId, customerSiteId: "" }));
+    setMrnForm((prev) => ({
+      ...prev,
+      customerId,
+      customerSiteId: "",
+      referenceDeliveryNoteId: "",
+      items: [],
+    }));
+    setSiteDeliveredMaterials([]);
+    setSiteDeliveryNotes([]);
+    setAutoPopulatedCount(0);
+
     if (!customerId) {
       setSites([]);
       return;
     }
+
     try {
       const res = await fetch(`/api/v1/customers/${customerId}/sites`);
       const data = await res.json();
-      if (data.success) {
+      if (data.success && Array.isArray(data.data)) {
         setSites(data.data);
         if (data.data.length > 0) {
-          setMrnForm((prev) => ({ ...prev, customerSiteId: data.data[0].id }));
+          const firstSite = data.data[0];
+          setMrnForm((prev) => ({ ...prev, customerSiteId: firstSite.id }));
+          loadSiteDeliveredMaterials(firstSite.id);
         }
       }
     } catch {
-      toast.error("Failed to load customer sites");
+      toast.error("Failed to load customer construction sites.");
+    }
+  };
+
+  // When construction site changes, auto-populate delivered materials for that site
+  const handleSiteChange = (siteId: string) => {
+    setMrnForm((prev) => ({
+      ...prev,
+      customerSiteId: siteId,
+      referenceDeliveryNoteId: "",
+    }));
+    loadSiteDeliveredMaterials(siteId);
+  };
+
+  // Optional filter by a specific Delivery Note
+  const handleDeliveryNoteFilterChange = (deliveryNoteId: string) => {
+    setMrnForm((prev) => ({ ...prev, referenceDeliveryNoteId: deliveryNoteId }));
+    if (mrnForm.customerSiteId) {
+      loadSiteDeliveredMaterials(mrnForm.customerSiteId, deliveryNoteId || undefined);
     }
   };
 
@@ -134,12 +279,14 @@ export default function MaterialReturnsPage() {
         ...prev.items,
         {
           materialVariantId: "",
+          ownershipType: "OWNED",
           returnedQty: 10,
           acceptedQty: 10,
           damagedQty: 0,
           missingQty: 0,
           condition: "GOOD",
           remarks: "",
+          heldQty: 0,
         },
       ],
     }));
@@ -157,16 +304,34 @@ export default function MaterialReturnsPage() {
     if (!mrnForm.customerId) return toast.error("Please select a customer");
     if (!mrnForm.customerSiteId) return toast.error("Please select returning construction site");
     if (!mrnForm.receivingWarehouseId) return toast.error("Please select receiving yard");
+    if (mrnForm.items.length === 0) {
+      return toast.error("Please add at least one material to return.");
+    }
     if (mrnForm.items.some((i) => !i.materialVariantId || i.returnedQty <= 0)) {
       return toast.error("Ensure all items have a variant and returned quantity > 0");
     }
 
     try {
       setSubmitting(true);
+      const payload = {
+        ...mrnForm,
+        referenceDeliveryNoteId: mrnForm.referenceDeliveryNoteId || undefined,
+        items: mrnForm.items.map((it) => ({
+          materialVariantId: it.materialVariantId,
+          ownershipType: it.ownershipType || "OWNED",
+          returnedQty: Number(it.returnedQty),
+          acceptedQty: Number(it.acceptedQty),
+          damagedQty: Number(it.damagedQty || 0),
+          missingQty: Number(it.missingQty || 0),
+          condition: it.condition || "GOOD",
+          remarks: it.remarks || null,
+        })),
+      };
+
       const res = await fetch("/api/v1/return-notes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(mrnForm),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -209,7 +374,12 @@ export default function MaterialReturnsPage() {
           </p>
         </div>
         <Button
-          onClick={() => setIsCreateModalOpen(true)}
+          onClick={() => {
+            setIsCreateModalOpen(true);
+            if (mrnForm.customerSiteId && mrnForm.items.length === 0) {
+              loadSiteDeliveredMaterials(mrnForm.customerSiteId);
+            }
+          }}
           className="bg-[#0B1E36] hover:bg-[#0B1E36]/90 text-white shadow-sm flex items-center gap-2"
         >
           <Plus className="h-4 w-4" />
@@ -240,7 +410,9 @@ export default function MaterialReturnsPage() {
           <CardContent>
             <div className="text-2xl font-bold text-emerald-700">
               {returnNotes.reduce(
-                (acc, m) => acc + m.items.reduce((sum: number, it: any) => sum + Number(it.acceptedQty), 0),
+                (acc, m) =>
+                  acc +
+                  (m.items || []).reduce((sum: number, it: any) => sum + Number(it.acceptedQty || 0), 0),
                 0
               )}
             </div>
@@ -259,8 +431,9 @@ export default function MaterialReturnsPage() {
               {returnNotes.reduce(
                 (acc, m) =>
                   acc +
-                  m.items.reduce(
-                    (sum: number, it: any) => sum + Number(it.damagedQty) + Number(it.missingQty),
+                  (m.items || []).reduce(
+                    (sum: number, it: any) =>
+                      sum + Number(it.damagedQty || 0) + Number(it.missingQty || 0),
                     0
                   ),
                 0
@@ -320,12 +493,8 @@ export default function MaterialReturnsPage() {
                       <div className="font-medium text-slate-900">{mrn.customer?.name}</div>
                       <div className="text-xs text-slate-400">{mrn.customer?.customerCode}</div>
                     </td>
-                    <td className="px-6 py-4 text-slate-700">
-                      {mrn.customerSite?.siteName}
-                    </td>
-                    <td className="px-6 py-4 text-slate-700">
-                      {mrn.receivingWarehouse?.name}
-                    </td>
+                    <td className="px-6 py-4 text-slate-700">{mrn.customerSite?.siteName}</td>
+                    <td className="px-6 py-4 text-slate-700">{mrn.receivingWarehouse?.name}</td>
                     <td className="px-6 py-4 text-slate-500 text-xs">
                       {new Date(mrn.returnDate).toLocaleDateString("en-IN")}
                     </td>
@@ -335,13 +504,12 @@ export default function MaterialReturnsPage() {
                       </Badge>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        asChild
-                        className="text-xs h-7 px-3"
-                      >
-                        <a href={`/api/v1/return-notes/${mrn.id}/print`} target="_blank" rel="noopener noreferrer">
+                      <Button size="sm" variant="outline" asChild className="text-xs h-7 px-3">
+                        <a
+                          href={`/api/v1/return-notes/${mrn.id}/print`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
                           <Printer className="h-3.5 w-3.5 mr-1" />
                           Print MRN
                         </a>
@@ -357,23 +525,28 @@ export default function MaterialReturnsPage() {
 
       {/* CREATE MRN MODAL */}
       <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <RotateCcw className="h-5 w-5 text-[#F26522]" />
               Record Material Return Note (MRN)
             </DialogTitle>
             <DialogDescription>
-              Inspection and physical stock return from site. Accepted items credit warehouse available stock; damaged items are isolated in damaged pool.
+              Inspection and physical stock return from customer site. Delivered materials auto-populate
+              when choosing a site so you can quickly review and modify return quantities.
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleCreateMRN} className="space-y-4 pt-2">
+            {/* Primary Selection: Customer & Site */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <Label className="text-xs font-semibold">Customer *</Label>
                 <SearchableCombobox
-                  options={customers.map((c) => ({ value: c.id, label: `${c.name} (${c.customerCode})` }))}
+                  options={customers.map((c) => ({
+                    value: c.id,
+                    label: `${c.name} (${c.customerCode})`,
+                  }))}
                   value={mrnForm.customerId}
                   onChange={handleCustomerChange}
                   placeholder="Select Customer"
@@ -383,9 +556,12 @@ export default function MaterialReturnsPage() {
               <div>
                 <Label className="text-xs font-semibold">Returning Construction Site *</Label>
                 <SearchableCombobox
-                  options={sites.map((s) => ({ value: s.id, label: `${s.siteName} (${s.siteCode})` }))}
+                  options={sites.map((s) => ({
+                    value: s.id,
+                    label: `${s.siteName} (${s.siteCode})`,
+                  }))}
                   value={mrnForm.customerSiteId}
-                  onChange={(val) => setMrnForm({ ...mrnForm, customerSiteId: val })}
+                  onChange={handleSiteChange}
                   placeholder={mrnForm.customerId ? "Select Construction Site" : "Select Customer First"}
                   disabled={!mrnForm.customerId}
                 />
@@ -394,13 +570,49 @@ export default function MaterialReturnsPage() {
               <div>
                 <Label className="text-xs font-semibold">Receiving Yard / Warehouse *</Label>
                 <SearchableCombobox
-                  options={warehouses.map((w) => ({ value: w.id, label: `${w.name} (${w.warehouseCode})` }))}
+                  options={warehouses.map((w) => ({
+                    value: w.id,
+                    label: `${w.name} (${w.warehouseCode})`,
+                  }))}
                   value={mrnForm.receivingWarehouseId}
                   onChange={(val) => setMrnForm({ ...mrnForm, receivingWarehouseId: val })}
                   placeholder="Select Receiving Yard"
                 />
               </div>
             </div>
+
+            {/* Optional Filter by Delivery Note if multiple dispatches exist */}
+            {siteDeliveryNotes.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                <div>
+                  <Label className="text-xs font-semibold flex items-center gap-1.5 text-slate-700">
+                    <Boxes className="h-3.5 w-3.5 text-[#F26522]" />
+                    Filter by Delivery Note (Optional)
+                  </Label>
+                  <SearchableCombobox
+                    options={[
+                      {
+                        value: "",
+                        label: `All Delivered Materials on Site (${siteDeliveredMaterials.length} unique items)`,
+                      },
+                      ...siteDeliveryNotes.map((dn) => ({
+                        value: dn.id,
+                        label: `${dn.dnNumber} (${
+                          dn.deliveryDate ? new Date(dn.deliveryDate).toLocaleDateString("en-IN") : ""
+                        }) - ${dn.items?.length || 0} items`,
+                      })),
+                    ]}
+                    value={mrnForm.referenceDeliveryNoteId}
+                    onChange={handleDeliveryNoteFilterChange}
+                    placeholder="All Site Deliveries"
+                  />
+                </div>
+                <div className="flex items-center text-xs text-slate-500 pt-5">
+                  Select a specific Delivery Note to narrow down return materials, or leave blank to return
+                  from the site&apos;s total held stock.
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
@@ -446,26 +658,141 @@ export default function MaterialReturnsPage() {
               </label>
             </div>
 
-            {/* Returned Items Breakdown */}
+            {/* Returned Items Breakdown with Auto-Population */}
             <div className="border border-slate-200 rounded-lg p-4 bg-slate-50/50 space-y-3">
-              <div className="flex justify-between items-center">
-                <h4 className="text-sm font-bold text-slate-800">Returned Materials Inspection</h4>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddLine}
-                  className="text-xs h-7"
-                >
-                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Material
-                </Button>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                    Returned Materials Inspection
+                    {autoPopulatedCount > 0 && (
+                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 font-normal text-xs">
+                        <Sparkles className="h-3 w-3 mr-1 text-emerald-600" />
+                        {autoPopulatedCount} Auto-Populated
+                      </Badge>
+                    )}
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    Verify physical quantities returned from site. Edit quantities or remove items not included.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {mrnForm.customerSiteId && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        loadSiteDeliveredMaterials(mrnForm.customerSiteId, mrnForm.referenceDeliveryNoteId)
+                      }
+                      disabled={loadingSiteMaterials}
+                      className="text-xs h-7 text-slate-600 hover:text-slate-900"
+                      title="Reload delivered materials from site"
+                    >
+                      <RefreshCw className={`h-3 w-3 mr-1 ${loadingSiteMaterials ? "animate-spin" : ""}`} />
+                      Reload Site Stock
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddLine}
+                    className="text-xs h-7"
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" /> Add Material
+                  </Button>
+                </div>
               </div>
 
+              {/* Status / Guidance Banner */}
+              {loadingSiteMaterials ? (
+                <div className="flex items-center gap-2 p-3 bg-white border border-slate-200 rounded-lg text-xs text-slate-600">
+                  <Loader2 className="h-4 w-4 animate-spin text-[#F26522]" />
+                  <span>Fetching delivered centering materials currently held at this construction site...</span>
+                </div>
+              ) : autoPopulatedCount > 0 ? (
+                <div className="bg-emerald-50/80 border border-emerald-200 rounded-lg p-3 text-xs text-emerald-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span>
+                      <strong>Delivered materials auto-populated from site custody.</strong> Quantities are prefilled with current site stock. You can edit any quantity for partial returns, report damaged units, or remove lines.
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 self-end sm:self-auto shrink-0">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        loadSiteDeliveredMaterials(mrnForm.customerSiteId, mrnForm.referenceDeliveryNoteId)
+                      }
+                      className="text-xs h-6 px-2 text-emerald-700 hover:text-emerald-900"
+                    >
+                      <RotateCcw className="h-3 w-3 mr-1" /> Reset to Site Stock
+                    </Button>
+                  </div>
+                </div>
+              ) : mrnForm.customerSiteId ? (
+                <div className="bg-amber-50/80 border border-amber-200 rounded-lg p-3 text-xs text-amber-900 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                  <span>
+                    No active delivered materials currently recorded at this construction site. You can manually
+                    add items below using the <strong>+ Add Material</strong> button.
+                  </span>
+                </div>
+              ) : (
+                <div className="bg-slate-100/70 border border-slate-200 rounded-lg p-3 text-xs text-slate-600 flex items-center gap-2">
+                  <Boxes className="h-4 w-4 text-slate-400 shrink-0" />
+                  <span>Select a customer and construction site above to automatically load delivered materials.</span>
+                </div>
+              )}
+
+              {/* Items List */}
+              {mrnForm.items.length === 0 && !loadingSiteMaterials && (
+                <div className="text-center py-6 bg-white rounded-lg border border-dashed border-slate-300 text-xs text-slate-500">
+                  No materials currently selected. Click <strong>&quot;+ Add Material&quot;</strong> to add items.
+                </div>
+              )}
+
               {mrnForm.items.map((item, idx) => (
-                <div key={idx} className="bg-white p-3 rounded-lg border border-slate-200 space-y-2">
-                  <div className="grid grid-cols-12 gap-2 items-end">
+                <div
+                  key={idx}
+                  className="bg-white p-3.5 rounded-lg border border-slate-200 space-y-2.5 shadow-2xs hover:border-slate-300 transition-colors"
+                >
+                  {/* Top Item Summary Info */}
+                  {(item.heldQty !== undefined && item.heldQty > 0) && (
+                    <div className="flex flex-wrap items-center justify-between text-xs pb-1 border-b border-slate-100 gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-slate-900">
+                          {item.materialName || variants.find((v) => v.id === item.materialVariantId)?.name || "Material"}
+                        </span>
+                        {item.materialCode && (
+                          <span className="text-[11px] font-mono text-slate-400">
+                            ({item.materialCode})
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant="secondary"
+                          className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[11px] font-medium"
+                        >
+                          Held on Site: {item.heldQty} {item.uom || "Nos."}
+                        </Badge>
+                        {item.deliveryNotes && item.deliveryNotes.length > 0 && (
+                          <span className="text-[10px] text-slate-400 hidden sm:inline">
+                            via {item.deliveryNotes.map((d) => d.dnNumber).join(", ")}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-12 gap-2.5 items-end">
                     <div className="col-span-12 md:col-span-5">
-                      <Label className="text-[10px] text-slate-500 uppercase font-bold">Material Variant *</Label>
+                      <Label className="text-[10px] text-slate-500 uppercase font-bold">
+                        Material Variant *
+                      </Label>
                       <SearchableCombobox
                         options={variants.map((v) => ({
                           value: v.id,
@@ -475,6 +802,13 @@ export default function MaterialReturnsPage() {
                         onChange={(val) => {
                           const updated = [...mrnForm.items];
                           updated[idx].materialVariantId = val;
+                          const foundVariant = variants.find((v) => v.id === val);
+                          if (foundVariant) {
+                            updated[idx].materialName = foundVariant.name;
+                            updated[idx].materialCode = foundVariant.materialCode;
+                            updated[idx].uom = foundVariant.uom;
+                            updated[idx].size = foundVariant.size;
+                          }
                           setMrnForm({ ...mrnForm, items: updated });
                         }}
                         placeholder="Select Material"
@@ -482,7 +816,26 @@ export default function MaterialReturnsPage() {
                     </div>
 
                     <div className="col-span-4 md:col-span-2">
-                      <Label className="text-[10px] text-slate-500 uppercase font-bold">Returned Qty *</Label>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[10px] text-slate-500 uppercase font-bold">
+                          Returned Qty *
+                        </Label>
+                        {item.heldQty !== undefined && item.heldQty > 0 && item.returnedQty !== item.heldQty && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = [...mrnForm.items];
+                              updated[idx].returnedQty = item.heldQty!;
+                              updated[idx].acceptedQty = Math.max(0, item.heldQty! - (updated[idx].damagedQty || 0));
+                              setMrnForm({ ...mrnForm, items: updated });
+                            }}
+                            className="text-[10px] text-[#F26522] hover:underline font-medium"
+                            title="Fill maximum quantity held on site"
+                          >
+                            Fill Max
+                          </button>
+                        )}
+                      </div>
                       <Input
                         type="number"
                         step="any"
@@ -492,14 +845,21 @@ export default function MaterialReturnsPage() {
                           const val = parseFloat(e.target.value) || 0;
                           const updated = [...mrnForm.items];
                           updated[idx].returnedQty = val;
-                          updated[idx].acceptedQty = Math.max(0, val - updated[idx].damagedQty);
+                          updated[idx].acceptedQty = Math.max(0, val - (updated[idx].damagedQty || 0));
                           setMrnForm({ ...mrnForm, items: updated });
                         }}
                       />
+                      {item.heldQty !== undefined && item.heldQty > 0 && item.returnedQty > item.heldQty && (
+                        <p className="text-[10px] text-amber-600 mt-0.5 leading-tight">
+                          ⚠ Exceeds site stock ({item.heldQty})
+                        </p>
+                      )}
                     </div>
 
                     <div className="col-span-4 md:col-span-2">
-                      <Label className="text-[10px] text-emerald-600 uppercase font-bold">Accepted (Good)</Label>
+                      <Label className="text-[10px] text-emerald-600 uppercase font-bold">
+                        Accepted (Good)
+                      </Label>
                       <Input
                         type="number"
                         step="any"
@@ -532,17 +892,16 @@ export default function MaterialReturnsPage() {
                     </div>
 
                     <div className="col-span-1 flex justify-center">
-                      {mrnForm.items.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveLine(idx)}
-                          className="text-red-500 hover:text-red-700 h-9 w-9 p-0"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveLine(idx)}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50 h-9 w-9 p-0"
+                        title="Remove material from this return note"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -552,13 +911,13 @@ export default function MaterialReturnsPage() {
             <div>
               <Label className="text-xs font-semibold">General Remarks / Inspection Notes</Label>
               <Input
-                placeholder="Remarks regarding batch or condition"
+                placeholder="Remarks regarding batch, vehicle, or returned condition"
                 value={mrnForm.remarks}
                 onChange={(e) => setMrnForm({ ...mrnForm, remarks: e.target.value })}
               />
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="gap-2 sm:gap-0">
               <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
                 Cancel
               </Button>
@@ -566,7 +925,7 @@ export default function MaterialReturnsPage() {
                 type="submit"
                 isLoading={submitting}
                 loadingText="Posting Return Note..."
-                className="bg-[#0B1E36] text-white"
+                className="bg-[#0B1E36] hover:bg-[#0B1E36]/90 text-white"
               >
                 Post Return Note & Update Stock
               </Button>
@@ -577,4 +936,3 @@ export default function MaterialReturnsPage() {
     </div>
   );
 }
-
