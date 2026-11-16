@@ -763,7 +763,7 @@ export default function DeliveryNotesPage() {
 
       {/* CREATE / EDIT DELIVERY NOTE MODAL */}
       <Dialog open={isCreateModalOpen} onOpenChange={(open) => { setIsCreateModalOpen(open); if (!open) setEditingDnId(null); }}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <Truck className="h-5 w-5 text-[#F26522]" />
@@ -1001,7 +1001,7 @@ export default function DeliveryNotesPage() {
 
       {/* DELIVER & SITE ACKNOWLEDGEMENT MODAL */}
       <Dialog open={isDeliverModalOpen} onOpenChange={setIsDeliverModalOpen}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-xl overflow-x-hidden">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5 text-emerald-600" />
@@ -1096,7 +1096,7 @@ export default function DeliveryNotesPage() {
 
       {/* E-WAY BILL MODAL (VIEW OR GENERATE) */}
       <Dialog open={isEwbModalOpen} onOpenChange={setIsEwbModalOpen}>
-        <DialogContent className="max-w-lg sm:max-w-xl">
+        <DialogContent className="max-w-lg sm:max-w-xl overflow-x-hidden">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <FileDigit className="h-5 w-5 text-[#F26522]" />
@@ -1265,7 +1265,7 @@ export default function DeliveryNotesPage() {
 
       {/* IN-APP DISPATCH CONFIRMATION MODAL */}
       <Dialog open={isDispatchModalOpen} onOpenChange={setIsDispatchModalOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg sm:max-w-xl overflow-x-hidden">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-[#0B1E36] flex items-center gap-2">
               <Truck className="h-5 w-5 text-[#F26522]" />
@@ -1388,11 +1388,11 @@ export default function DeliveryNotesPage() {
                   <div className="space-y-1.5 max-h-48 overflow-y-auto">
                     {itemStatuses.map((s: any) => (
                       <div key={s.id} className="bg-white p-2.5 rounded border border-slate-200 text-xs">
-                        <div className="flex justify-between items-start">
-                          <span className="font-semibold text-slate-900">
+                        <div className="flex justify-between items-start gap-2">
+                          <span className="font-semibold text-slate-900 break-words flex-1 min-w-0">
                             {s.materialVariant?.name} {s.materialVariant?.size ? `(${s.materialVariant.size})` : ""}
                           </span>
-                          <span className="font-mono text-slate-700 font-medium">
+                          <span className="font-mono text-slate-700 font-medium shrink-0 whitespace-nowrap">
                             Req: {s.requestedQty} {s.materialVariant?.uom || "Nos."}
                           </span>
                         </div>
@@ -1400,25 +1400,25 @@ export default function DeliveryNotesPage() {
                         <div className="mt-1 flex items-center justify-between text-[11px]">
                           <span className="text-slate-500">In selected yard:</span>
                           {s.isSufficient ? (
-                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 font-mono text-[10px] px-1.5 py-0">
+                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 font-mono text-[10px] px-1.5 py-0 whitespace-nowrap">
                               ✓ {s.availInSelected} available
                             </Badge>
                           ) : (
-                            <Badge className="bg-red-100 text-red-800 border-red-200 font-mono text-[10px] px-1.5 py-0">
+                            <Badge className="bg-red-100 text-red-800 border-red-200 font-mono text-[10px] px-1.5 py-0 whitespace-nowrap">
                               ✗ {s.availInSelected} available (Deficit: {s.requestedQty - s.availInSelected})
                             </Badge>
                           )}
                         </div>
 
                         {!s.isSufficient && s.alternatives.length > 0 && (
-                          <div className="mt-2 pt-1.5 border-t border-slate-100 text-[11px] bg-amber-50/60 -mx-1 px-1.5 py-1 rounded flex items-center justify-between">
+                          <div className="mt-2 pt-1.5 border-t border-slate-100 text-[11px] bg-amber-50/60 p-2 rounded flex flex-wrap sm:flex-nowrap items-center justify-between gap-1.5">
                             <span className="text-amber-800">
                               Available in: <strong>{s.alternatives[0].warehouseName}</strong> ({s.alternatives[0].availableQty} Nos.)
                             </span>
                             <button
                               type="button"
                               onClick={() => setDispatchYardId(s.alternatives[0].warehouseId)}
-                              className="text-[#0B1E36] font-bold hover:underline cursor-pointer bg-white px-2 py-0.5 rounded border border-amber-200 shadow-xs"
+                              className="text-[#0B1E36] font-bold hover:underline cursor-pointer bg-white px-2 py-0.5 rounded border border-amber-200 shadow-xs shrink-0 whitespace-nowrap"
                             >
                               Switch to this Yard &rarr;
                             </button>
@@ -1446,12 +1446,13 @@ export default function DeliveryNotesPage() {
                   </div>
                 )}
 
-                <DialogFooter className="pt-2 gap-2">
+                <DialogFooter className="pt-2 gap-2 flex-col sm:flex-row items-center sm:justify-end">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => setIsDispatchModalOpen(false)}
                     disabled={dispatching}
+                    className="w-full sm:w-auto"
                   >
                     Cancel
                   </Button>
@@ -1461,7 +1462,7 @@ export default function DeliveryNotesPage() {
                     disabled={!allSufficient || dispatching}
                     isLoading={dispatching}
                     loadingText="Dispatching..."
-                    className="bg-[#0B1E36] hover:bg-[#071424] text-white font-semibold disabled:opacity-50"
+                    className="w-full sm:w-auto bg-[#0B1E36] hover:bg-[#071424] text-white font-semibold disabled:opacity-50 whitespace-nowrap"
                   >
                     Confirm & Dispatch
                   </Button>

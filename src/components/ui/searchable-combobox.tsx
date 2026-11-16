@@ -101,9 +101,9 @@ export function SearchableCombobox({
           isOpen && "ring-2 ring-primary-900/20 border-primary-900"
         )}
       >
-        <div className="flex items-center gap-2 truncate">
+        <div className="flex items-center gap-2 truncate min-w-0 flex-1">
           {selectedOption ? (
-            <span className="font-medium text-slate-900 truncate">
+            <span className="font-medium text-slate-900 truncate block">
               {selectedOption.label}
               {selectedOption.sublabel && (
                 <span className="ml-2 text-xs text-slate-500 font-normal">
