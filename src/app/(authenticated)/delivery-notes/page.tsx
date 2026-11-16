@@ -1096,7 +1096,7 @@ export default function DeliveryNotesPage() {
 
       {/* E-WAY BILL MODAL (VIEW OR GENERATE) */}
       <Dialog open={isEwbModalOpen} onOpenChange={setIsEwbModalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <FileDigit className="h-5 w-5 text-[#F26522]" />
@@ -1228,23 +1228,35 @@ export default function DeliveryNotesPage() {
                 />
               </div>
 
-              <DialogFooter>
+              <DialogFooter className="flex-col sm:flex-row items-center sm:justify-end gap-2 pt-2">
                 {selectedDN?.eWayBillNumber ? (
-                  <Button type="button" variant="ghost" onClick={() => setShowRegenerateForm(false)}>
-                    Back to Details
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setShowRegenerateForm(false)}
+                    className="w-full sm:w-auto sm:mr-auto text-xs text-slate-600"
+                  >
+                    &larr; Back to Details
                   </Button>
                 ) : null}
-                <Button type="button" variant="outline" onClick={() => setIsEwbModalOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  isLoading={submitting}
-                  loadingText="Generating E-Way Bill..."
-                  className="bg-[#0B1E36] text-white"
-                >
-                  Generate via FYN Gateway
-                </Button>
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsEwbModalOpen(false)}
+                    className="w-full sm:w-auto text-xs"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    isLoading={submitting}
+                    loadingText="Generating E-Way Bill..."
+                    className="w-full sm:w-auto bg-[#0B1E36] hover:bg-[#071424] text-white text-xs font-semibold whitespace-nowrap"
+                  >
+                    Generate via FYN Gateway
+                  </Button>
+                </div>
               </DialogFooter>
             </form>
           )}
