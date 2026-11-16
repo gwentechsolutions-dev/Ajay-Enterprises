@@ -20,6 +20,8 @@ import {
   Check,
   AlertTriangle,
   Pencil,
+  RefreshCw,
+  Ban,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -420,18 +422,65 @@ export default function DeliveryNotesPage() {
 
   const [showRegenerateForm, setShowRegenerateForm] = React.useState(false);
   const [copiedEwb, setCopiedEwb] = React.useState(false);
+  const [activeEwbProvider, setActiveEwbProvider] = React.useState<"WHITEBOOKS" | "FYN">("WHITEBOOKS");
+  const [refreshingEwb, setRefreshingEwb] = React.useState(false);
+
+  // Part-B Vehicle Update Modal State
+  const [isUpdateVehicleModalOpen, setIsUpdateVehicleModalOpen] = React.useState(false);
+  const [updateVehicleForm, setUpdateVehicleForm] = React.useState({
+    newVehicleNumber: "",
+    fromPlace: "Bengaluru",
+    fromStateCode: 33,
+    reasonCode: "3" as "1" | "2" | "3",
+    reasonDescription: "Vehicle change during transit",
+  });
+
+  // Statutory Cancellation Modal State
+  const [isCancelEwbModalOpen, setIsCancelEwbModalOpen] = React.useState(false);
+  const [cancelEwbForm, setCancelEwbForm] = React.useState({
+    cancelReason: "",
+    cancelReasonCode: "4" as "1" | "2" | "3" | "4",
+  });
+
+  // Fetch active provider on mount
+  React.useEffect(() => {
+    fetch("/api/v1/ewaybills/settings")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.data?.activeProvider) {
+          setActiveEwbProvider(data.data.activeProvider);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const openEwbModal = (dn: any) => {
     setSelectedDN(dn);
     setShowRegenerateForm(!dn.eWayBillNumber);
     setCopiedEwb(false);
     const latestEwb = dn.eWayBills?.[0];
+    const sourceYard = warehouses.find((w: any) => w.id === dn.sourceWarehouseId);
+
     setEwbForm({
       vehicleNumber: latestEwb?.vehicleNumber || dn.vehicleNumber || "KA-01-AB-1234",
-      fromPincode: latestEwb?.fromPincode || "560001",
-      toPincode: latestEwb?.toPincode || "560068",
+      fromPincode: latestEwb?.fromPincode || sourceYard?.pincode || "560058",
+      toPincode: latestEwb?.toPincode || dn.customerSite?.pincode || "560068",
       distanceKm: latestEwb?.distanceKm || 30,
     });
+
+    setUpdateVehicleForm({
+      newVehicleNumber: latestEwb?.vehicleNumber || dn.vehicleNumber || "",
+      fromPlace: sourceYard?.city || "Bengaluru",
+      fromStateCode: parseInt(sourceYard?.stateCode || "33", 10) || 33,
+      reasonCode: "3",
+      reasonDescription: "Vehicle change during transit",
+    });
+
+    setCancelEwbForm({
+      cancelReason: "",
+      cancelReasonCode: "4",
+    });
+
     setIsEwbModalOpen(true);
   };
 
@@ -447,6 +496,7 @@ export default function DeliveryNotesPage() {
         body: JSON.stringify({
           documentType: "DELIVERY_NOTE",
           documentId: selectedDN.id,
+          provider: activeEwbProvider,
           ...ewbForm,
         }),
       });
@@ -454,7 +504,8 @@ export default function DeliveryNotesPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || "Failed to generate E-Way Bill");
 
-      toast.success(`E-Way Bill ${data.data.ewbNumber} generated via FYN Gateway!`);
+      const providerLabel = data.data?.provider === "FYN" ? "FYN Gateway" : "WhiteBooks GSP (Sandbox)";
+      toast.success(`E-Way Bill ${data.data.ewbNumber} generated via ${providerLabel}!`);
       setIsEwbModalOpen(false);
       setShowRegenerateForm(false);
       setSelectedDN(null);
@@ -464,6 +515,77 @@ export default function DeliveryNotesPage() {
       toast.error(err.message);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleUpdateVehicle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedDN?.eWayBillNumber) return;
+
+    try {
+      setSubmitting(true);
+      const res = await fetch(`/api/v1/ewaybills/${selectedDN.eWayBillNumber}/update-vehicle`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updateVehicleForm),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || "Failed to update vehicle");
+
+      toast.success(data.data?.message || `Part-B vehicle updated to ${updateVehicleForm.newVehicleNumber}!`);
+      setIsUpdateVehicleModalOpen(false);
+      setIsEwbModalOpen(false);
+      invalidateClientCache("/api/v1/delivery-notes");
+      await loadData(true);
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCancelEwb = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedDN?.eWayBillNumber) return;
+
+    try {
+      setSubmitting(true);
+      const res = await fetch(`/api/v1/ewaybills/${selectedDN.eWayBillNumber}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cancelEwbForm),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || "Failed to cancel E-Way Bill");
+
+      toast.success(data.data?.message || `E-Way Bill ${selectedDN.eWayBillNumber} cancelled successfully!`);
+      setIsCancelEwbModalOpen(false);
+      setIsEwbModalOpen(false);
+      invalidateClientCache("/api/v1/delivery-notes");
+      await loadData(true);
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRefreshEwb = async () => {
+    if (!selectedDN?.eWayBillNumber) return;
+    try {
+      setRefreshingEwb(true);
+      const res = await fetch(`/api/v1/ewaybills/${selectedDN.eWayBillNumber}?refresh=true`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || "Failed to refresh E-Way Bill details");
+      toast.success("E-Way Bill details refreshed from statutory provider.");
+      invalidateClientCache("/api/v1/delivery-notes");
+      await loadData(true);
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setRefreshingEwb(false);
     }
   };
 
@@ -1096,21 +1218,35 @@ export default function DeliveryNotesPage() {
 
       {/* E-WAY BILL MODAL (VIEW OR GENERATE) */}
       <Dialog open={isEwbModalOpen} onOpenChange={setIsEwbModalOpen}>
-        <DialogContent className="max-w-lg sm:max-w-xl overflow-x-hidden">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-slate-900 flex items-center gap-2">
-              <FileDigit className="h-5 w-5 text-[#F26522]" />
-              {selectedDN?.eWayBillNumber && !showRegenerateForm ? "Statutory E-Way Bill Details" : "Generate Statutory E-Way Bill"}
-            </DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-lg sm:max-w-xl w-full max-h-[90vh] overflow-y-auto overflow-x-hidden p-6">
+          <DialogHeader className="pb-2">
+            <div className="flex items-center justify-between gap-2">
+              <DialogTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <FileDigit className="h-5 w-5 text-[#F26522]" />
+                {selectedDN?.eWayBillNumber && !showRegenerateForm
+                  ? "Statutory E-Way Bill Details"
+                  : "Generate Statutory E-Way Bill"}
+              </DialogTitle>
+              <Badge
+                variant="outline"
+                className={
+                  activeEwbProvider === "WHITEBOOKS"
+                    ? "bg-blue-50 text-blue-700 border-blue-200 text-[11px] font-semibold"
+                    : "bg-purple-50 text-purple-700 border-purple-200 text-[11px] font-semibold"
+                }
+              >
+                {activeEwbProvider === "WHITEBOOKS" ? "WhiteBooks GSP · Sandbox" : "FYN Gateway · Backup"}
+              </Badge>
+            </div>
+            <DialogDescription className="text-xs text-slate-500">
               {selectedDN?.eWayBillNumber && !showRegenerateForm
-                ? `Active E-Way Bill issued via FYN Gateway for ${selectedDN?.dnNumber}.`
-                : `Dispatches statutory E-Way Bill request to FYN Gateway for ${selectedDN?.dnNumber}.`}
+                ? `Active E-Way Bill linked to Delivery Note ${selectedDN?.dnNumber}.`
+                : `Generates statutory Goods Movement E-Way Bill (Delivery Challan) for ${selectedDN?.dnNumber}.`}
             </DialogDescription>
           </DialogHeader>
 
           {selectedDN?.eWayBillNumber && !showRegenerateForm ? (
-            <div className="space-y-4 pt-2">
+            <div className="space-y-4 pt-1">
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                   <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">E-Way Bill Number</span>
@@ -1163,69 +1299,113 @@ export default function DeliveryNotesPage() {
               <div className="space-y-2">
                 <Button
                   asChild
-                  className="w-full bg-[#0B1E36] hover:bg-[#0B1E36]/90 text-white flex items-center justify-center gap-2"
+                  className="w-full bg-[#0B1E36] hover:bg-[#0B1E36]/90 text-white flex items-center justify-center gap-2 text-xs"
                 >
                   <a href={`/api/v1/delivery-notes/${selectedDN.id}/print`} target="_blank" rel="noopener noreferrer">
                     <Printer className="w-4 h-4" />
                     Open Printable Delivery Note (with E-Way Bill)
                   </a>
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowRegenerateForm(true)}
-                  className="w-full text-xs text-slate-600 border-slate-300"
-                >
-                  Update Vehicle / Re-generate E-Way Bill
-                </Button>
+
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsUpdateVehicleModalOpen(true)}
+                    className="text-xs text-slate-700 border-slate-300 flex items-center justify-center gap-1.5"
+                  >
+                    <Truck className="w-3.5 h-3.5 text-[#F26522]" />
+                    Update Part-B
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleRefreshEwb}
+                    disabled={refreshingEwb}
+                    className="text-xs text-slate-700 border-slate-300 flex items-center justify-center gap-1.5"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 text-blue-600 ${refreshingEwb ? "animate-spin" : ""}`} />
+                    Refresh
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsCancelEwbModalOpen(true)}
+                    className="text-xs text-red-600 border-red-200 hover:bg-red-50 flex items-center justify-center gap-1.5"
+                  >
+                    <Ban className="w-3.5 h-3.5" />
+                    Cancel EWB
+                  </Button>
+                </div>
               </div>
 
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsEwbModalOpen(false)}>
+              <DialogFooter className="pt-2">
+                <Button type="button" variant="outline" onClick={() => setIsEwbModalOpen(false)} className="w-full text-xs">
                   Close
                 </Button>
               </DialogFooter>
             </div>
           ) : (
-            <form onSubmit={handleGenerateEWB} className="space-y-4 pt-2">
+            <form onSubmit={handleGenerateEWB} className="space-y-4 pt-1">
               <div>
-                <Label className="text-xs font-semibold">Vehicle Number *</Label>
+                <Label className="text-xs font-semibold text-slate-700">Vehicle Registration Number *</Label>
                 <Input
                   value={ewbForm.vehicleNumber}
-                  onChange={(e) => setEwbForm({ ...ewbForm, vehicleNumber: e.target.value })}
+                  onChange={(e) => setEwbForm({ ...ewbForm, vehicleNumber: e.target.value.toUpperCase() })}
+                  placeholder="e.g. KA01AB1234 or TN09Z1234"
+                  className="font-mono uppercase text-sm mt-1"
                   required
                 />
+                <p className="text-[11px] text-slate-400 mt-0.5">Standard Indian RTO registration without spaces</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs font-semibold">Source Pincode *</Label>
+                  <Label className="text-xs font-semibold text-slate-700">Source Pincode (Yard) *</Label>
                   <Input
                     value={ewbForm.fromPincode}
                     onChange={(e) => setEwbForm({ ...ewbForm, fromPincode: e.target.value })}
+                    className="font-mono text-sm mt-1"
+                    maxLength={6}
                     required
                   />
                 </div>
 
                 <div>
-                  <Label className="text-xs font-semibold">Destination Pincode *</Label>
+                  <Label className="text-xs font-semibold text-slate-700">Destination Pincode (Site) *</Label>
                   <Input
                     value={ewbForm.toPincode}
                     onChange={(e) => setEwbForm({ ...ewbForm, toPincode: e.target.value })}
+                    className="font-mono text-sm mt-1"
+                    maxLength={6}
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <Label className="text-xs font-semibold">Transport Distance (KM) *</Label>
+                <Label className="text-xs font-semibold text-slate-700">Transport Distance (KM) *</Label>
                 <Input
                   type="number"
                   min="1"
+                  max="4000"
                   value={ewbForm.distanceKm}
                   onChange={(e) => setEwbForm({ ...ewbForm, distanceKm: parseInt(e.target.value) || 1 })}
+                  className="font-mono text-sm mt-1"
                   required
                 />
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 space-y-1">
+                <p className="font-semibold flex items-center gap-1.5">
+                  <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
+                  Statutory Delivery Challan Compliance
+                </p>
+                <p className="text-[11px] text-amber-700 leading-relaxed">
+                  Generates an official Outward Delivery Challan (docType: CHL) under Rule 55 of CGST Rules for centering material rental custody transfer.
+                </p>
               </div>
 
               <DialogFooter className="flex-col sm:flex-row items-center sm:justify-end gap-2 pt-2">
@@ -1254,12 +1434,149 @@ export default function DeliveryNotesPage() {
                     loadingText="Generating E-Way Bill..."
                     className="w-full sm:w-auto bg-[#0B1E36] hover:bg-[#071424] text-white text-xs font-semibold whitespace-nowrap"
                   >
-                    Generate via FYN Gateway
+                    {activeEwbProvider === "WHITEBOOKS"
+                      ? "Generate via WhiteBooks GSP"
+                      : "Generate via FYN Gateway"}
                   </Button>
                 </div>
               </DialogFooter>
             </form>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* PART-B VEHICLE UPDATE MODAL */}
+      <Dialog open={isUpdateVehicleModalOpen} onOpenChange={setIsUpdateVehicleModalOpen}>
+        <DialogContent className="max-w-md w-full p-6">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Truck className="h-5 w-5 text-[#F26522]" />
+              Update Part-B Vehicle Details
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Update conveyance details for E-Way Bill {selectedDN?.eWayBillNumber}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleUpdateVehicle} className="space-y-4 pt-2">
+            <div>
+              <Label className="text-xs font-semibold text-slate-700">New Vehicle Number *</Label>
+              <Input
+                value={updateVehicleForm.newVehicleNumber}
+                onChange={(e) => setUpdateVehicleForm({ ...updateVehicleForm, newVehicleNumber: e.target.value.toUpperCase() })}
+                placeholder="e.g. KA01AB1234"
+                className="font-mono uppercase text-sm mt-1"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold text-slate-700">Current Place *</Label>
+                <Input
+                  value={updateVehicleForm.fromPlace}
+                  onChange={(e) => setUpdateVehicleForm({ ...updateVehicleForm, fromPlace: e.target.value })}
+                  placeholder="e.g. Bengaluru"
+                  className="text-sm mt-1"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-semibold text-slate-700">Reason Code *</Label>
+                <select
+                  value={updateVehicleForm.reasonCode}
+                  onChange={(e) => setUpdateVehicleForm({ ...updateVehicleForm, reasonCode: e.target.value as any })}
+                  className="w-full h-9 rounded-md border border-slate-300 bg-white px-3 py-1 text-xs mt-1"
+                >
+                  <option value="1">1 - Vehicle Breakdown</option>
+                  <option value="2">2 - Transshipment</option>
+                  <option value="3">3 - Others</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold text-slate-700">Reason Remarks *</Label>
+              <Input
+                value={updateVehicleForm.reasonDescription}
+                onChange={(e) => setUpdateVehicleForm({ ...updateVehicleForm, reasonDescription: e.target.value })}
+                placeholder="Brief reason for vehicle change"
+                className="text-sm mt-1"
+                required
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setIsUpdateVehicleModalOpen(false)} className="text-xs">
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                isLoading={submitting}
+                loadingText="Updating Part-B..."
+                className="bg-[#0B1E36] hover:bg-[#071424] text-white text-xs font-semibold"
+              >
+                Update Vehicle
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* STATUTORY CANCELLATION MODAL */}
+      <Dialog open={isCancelEwbModalOpen} onOpenChange={setIsCancelEwbModalOpen}>
+        <DialogContent className="max-w-md w-full p-6">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-red-600 flex items-center gap-2">
+              <Ban className="h-5 w-5" />
+              Cancel Statutory E-Way Bill
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Confirm cancellation of E-Way Bill {selectedDN?.eWayBillNumber}. This statutory action cannot be reversed.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCancelEwb} className="space-y-4 pt-2">
+            <div>
+              <Label className="text-xs font-semibold text-slate-700">Cancellation Reason Code *</Label>
+              <select
+                value={cancelEwbForm.cancelReasonCode}
+                onChange={(e) => setCancelEwbForm({ ...cancelEwbForm, cancelReasonCode: e.target.value as any })}
+                className="w-full h-9 rounded-md border border-slate-300 bg-white px-3 py-1 text-xs mt-1"
+              >
+                <option value="1">1 - Duplicate Document</option>
+                <option value="2">2 - Order Cancelled</option>
+                <option value="3">3 - Data Entry Error</option>
+                <option value="4">4 - Others</option>
+              </select>
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold text-slate-700">Detailed Remarks (Mandatory) *</Label>
+              <Input
+                value={cancelEwbForm.cancelReason}
+                onChange={(e) => setCancelEwbForm({ ...cancelEwbForm, cancelReason: e.target.value })}
+                placeholder="Explain why this E-Way Bill is being cancelled (min 5 chars)"
+                className="text-sm mt-1"
+                required
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setIsCancelEwbModalOpen(false)} className="text-xs">
+                Abort
+              </Button>
+              <Button
+                type="submit"
+                isLoading={submitting}
+                loadingText="Cancelling..."
+                className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold"
+              >
+                Confirm Cancellation
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

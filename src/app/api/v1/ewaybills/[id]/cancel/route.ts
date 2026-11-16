@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import { cancelEWayBillSchema } from "@/lib/schemas/ewaybill";
-import { cancelFYNWayBill } from "@/lib/integrations/fyn-ewaybill";
+import { ewayBillService } from "@/lib/ewaybill/service";
 
 export async function POST(
   req: NextRequest,
@@ -23,8 +23,11 @@ export async function POST(
       );
     }
 
-    const ewb = await db.eWayBill.findUnique({
-      where: { id },
+    // ID can be E-Way Bill UUID or ewbNumber
+    const ewb = await db.eWayBill.findFirst({
+      where: {
+        OR: [{ id }, { ewbNumber: id }],
+      },
     });
 
     if (!ewb) {
@@ -38,9 +41,12 @@ export async function POST(
       ipAddress: req.headers.get("x-forwarded-for") || undefined,
     };
 
-    const result = await cancelFYNWayBill(
-      ewb.ewbNumber,
-      parsed.data.cancelReason,
+    const result = await ewayBillService.cancelEWayBill(
+      {
+        ewbNumber: ewb.ewbNumber,
+        cancelReasonCode: parsed.data.cancelReasonCode,
+        cancelRemarks: parsed.data.cancelReason,
+      },
       actor
     );
 
@@ -50,4 +56,3 @@ export async function POST(
     return NextResponse.json({ success: false, error: { message: error.message } }, { status });
   }
 }
-

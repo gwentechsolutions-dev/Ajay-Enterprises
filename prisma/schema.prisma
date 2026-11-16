@@ -1327,39 +1327,77 @@ model MovementEvidence {
 }
 
 // ------------------------------------------------------------------------------
-// 17. E-Way Bill Integration (FYN Gateway)
+// 17. Statutory E-Way Bill Integration (WhiteBooks Primary GSP + FYN Gateway Backup)
 // ------------------------------------------------------------------------------
 
 model EWayBill {
-  id              String    @id @default(uuid()) @db.Uuid
-  ewbNumber       String    @unique // Official 12-digit E-Way Bill number
-  documentType    String // DELIVERY_NOTE, TRANSFER_NOTE
-  documentId      String    @db.Uuid
-  deliveryNoteId  String?   @db.Uuid
-  transferNoteId  String?   @db.Uuid
-  generatedAt     DateTime  @default(now())
-  validUntil      DateTime?
-  vehicleNumber   String?
-  fromPincode     String?
-  toPincode       String?
-  distanceKm      Int?
-  status          String    @default("ACTIVE") // ACTIVE, CANCELLED, EXPIRED
-  fynReferenceId  String?
-  cancelReason    String?
-  cancelledAt     DateTime?
-  requestPayload  Json?
-  responsePayload Json?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id                  String    @id @default(uuid()) @db.Uuid
+  ewbNumber           String    @unique // Official 12-digit E-Way Bill number
+  documentType        String    // DELIVERY_NOTE, TRANSFER_NOTE
+  documentId          String    @db.Uuid
+  deliveryNoteId      String?   @db.Uuid
+  transferNoteId      String?   @db.Uuid
+  generatedAt         DateTime  @default(now())
+  validUntil          DateTime?
+  vehicleNumber       String?
+  fromPincode         String?
+  toPincode           String?
+  distanceKm          Int?
+  status              String    @default("ACTIVE") // ACTIVE, CANCELLED, EXPIRED, UNKNOWN
 
-  deliveryNote DeliveryNote?      @relation(fields: [deliveryNoteId], references: [id], onDelete: Cascade)
-  transferNote StockTransferNote? @relation(fields: [transferNoteId], references: [id], onDelete: Cascade)
+  // Multi-Provider Architecture (Primary: WhiteBooks, Backup: FYN)
+  provider            String    @default("WHITEBOOKS") // WHITEBOOKS, FYN
+  environment         String    @default("SANDBOX")    // SANDBOX, PRODUCTION
+  providerReferenceId String?
+  partBUpdatedDate    DateTime?
+  partBReason         String?
+
+  // Preserved FYN field for 100% backward compatibility
+  fynReferenceId      String?
+  cancelReason        String?
+  cancelledAt         DateTime?
+  requestPayload      Json?
+  responsePayload     Json?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  deliveryNote        DeliveryNote?        @relation(fields: [deliveryNoteId], references: [id], onDelete: SetNull)
+  transferNote        StockTransferNote?   @relation(fields: [transferNoteId], references: [id], onDelete: SetNull)
+  operations          EWayBillOperation[]
 
   @@index([ewbNumber])
   @@index([documentType, documentId])
   @@index([deliveryNoteId])
   @@index([transferNoteId])
   @@index([status])
+  @@index([provider])
+}
+
+model EWayBillOperation {
+  id              String    @id @default(uuid()) @db.Uuid
+  eWayBillId      String?   @db.Uuid
+  documentType    String    // DELIVERY_NOTE, TRANSFER_NOTE
+  documentId      String    @db.Uuid
+  provider        String    // WHITEBOOKS, FYN
+  environment     String    // SANDBOX, PRODUCTION
+  operationType   String    // GENERATE, UPDATE_VEHICLE, CANCEL, GET_DETAILS, TEST_CONNECTION
+  idempotencyKey  String?
+  status          String    @default("PENDING") // PENDING, PROCESSING, SUCCESS, FAILED, UNKNOWN
+  requestPayload  Json?
+  responsePayload Json?
+  errorCode       String?
+  errorMessage    String?
+  initiatedById   String?   @db.Uuid
+  initiatedByName String?
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+
+  eWayBill        EWayBill? @relation(fields: [eWayBillId], references: [id], onDelete: SetNull)
+
+  @@index([documentType, documentId])
+  @@index([idempotencyKey])
+  @@index([status])
+  @@index([provider])
 }
 
 // ==============================================================================

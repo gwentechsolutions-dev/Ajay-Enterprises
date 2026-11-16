@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
-import { FileDigit, Plus, Edit2, Calendar, CheckCircle2, ShieldCheck, Hash } from "lucide-react";
+import { FileDigit, Plus, Edit2, Calendar, CheckCircle2, ShieldCheck, Hash, Activity, Lock, Search, RefreshCw, Zap, Server, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { formatDocumentNumber } from "@/lib/document-series";
 
@@ -24,6 +24,120 @@ export default function DocumentSettingsPage() {
   const [editingSeries, setEditingSeries] = React.useState<any | null>(null);
 
   const [fyModalOpen, setFyModalOpen] = React.useState(false);
+
+  // E-Way Bill Provider & Diagnostics State
+  const [ewbSettings, setEwbSettings] = React.useState<any>(null);
+  const [testingConnection, setTestingConnection] = React.useState(false);
+  const [connectionResult, setConnectionResult] = React.useState<any>(null);
+  const [gstinQuery, setGstinQuery] = React.useState("33AAGCB1286Q003");
+  const [lookingUpGstin, setLookingUpGstin] = React.useState(false);
+  const [gstinResult, setGstinResult] = React.useState<any>(null);
+  const [hsnQuery, setHsnQuery] = React.useState("7308");
+  const [lookingUpHsn, setLookingUpHsn] = React.useState(false);
+  const [hsnResult, setHsnResult] = React.useState<any>(null);
+
+  const fetchEwbSettings = React.useCallback(async () => {
+    try {
+      const res = await fetch("/api/v1/ewaybills/settings");
+      const json = await res.json();
+      if (json.success) {
+        setEwbSettings(json.data);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  React.useEffect(() => {
+    fetchEwbSettings();
+  }, [fetchEwbSettings]);
+
+  const handleSwitchProvider = async (newProvider: "WHITEBOOKS" | "FYN") => {
+    try {
+      const res = await fetch("/api/v1/ewaybills/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activeProvider: newProvider, environment: "SANDBOX" }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success(`Active statutory provider switched to ${newProvider}`);
+        fetchEwbSettings();
+      } else {
+        toast.error(json.error?.message || "Failed to switch provider");
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    try {
+      setTestingConnection(true);
+      setConnectionResult(null);
+      const res = await fetch("/api/v1/ewaybills/test-connection", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: ewbSettings?.activeProvider }),
+      });
+      const json = await res.json();
+      setConnectionResult(json.data || { success: false, message: json.error?.message });
+      if (json.success) {
+        toast.success(`Connection verified (${json.data?.latencyMs || 0}ms)`);
+      } else {
+        toast.error(json.error?.message || "Connection test failed");
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+      setConnectionResult({ success: false, message: err.message });
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
+  const handleLookupGstin = async () => {
+    if (!gstinQuery || gstinQuery.length !== 15) {
+      return toast.error("Enter a valid 15-character GSTIN");
+    }
+    try {
+      setLookingUpGstin(true);
+      setGstinResult(null);
+      const res = await fetch(`/api/v1/ewaybills/lookup/gstin?gstin=${gstinQuery.trim()}`);
+      const json = await res.json();
+      if (json.success) {
+        setGstinResult(json.data);
+        toast.success("GSTIN details retrieved");
+      } else {
+        toast.error(json.error?.message || "GSTIN lookup failed");
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setLookingUpGstin(false);
+    }
+  };
+
+  const handleLookupHsn = async () => {
+    if (!hsnQuery || hsnQuery.length < 4) {
+      return toast.error("Enter a valid HSN code (min 4 digits)");
+    }
+    try {
+      setLookingUpHsn(true);
+      setHsnResult(null);
+      const res = await fetch(`/api/v1/ewaybills/lookup/hsn?hsn=${hsnQuery.trim()}`);
+      const json = await res.json();
+      if (json.success) {
+        setHsnResult(json.data);
+        toast.success("HSN details retrieved");
+      } else {
+        toast.error(json.error?.message || "HSN lookup failed");
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setLookingUpHsn(false);
+    }
+  };
 
   // Series Form
   const seriesForm = useForm<DocumentSeriesInput>({
@@ -289,6 +403,223 @@ export default function DocumentSettingsPage() {
               )}
             </tbody>
           </table>
+        </div>
+      </Card>
+
+      {/* STATUTORY GST E-WAY BILL PROVIDER & GSP DIAGNOSTICS */}
+      <Card className="p-6 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Server className="h-5 w-5 text-[#F26522]" />
+              <h2 className="text-lg font-bold text-slate-900">
+                Statutory GST E-Way Bill Integration & GSP Diagnostics
+              </h2>
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs font-semibold">
+                Phase 6 GSP Architecture
+              </Badge>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Dual-provider statutory gateway: WhiteBooks GSP (Primary) + FYN Gateway (Backup). Configure provider routing, run live sandbox connection tests, and verify GSTIN/HSN masters.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleTestConnection}
+              disabled={testingConnection}
+              className="gap-1.5 text-xs font-semibold text-[#0B1E36] border-slate-300"
+            >
+              <Activity className={`h-3.5 w-3.5 text-[#F26522] ${testingConnection ? "animate-spin" : ""}`} />
+              {testingConnection ? "Testing Connection..." : "Test Active Provider Connection"}
+            </Button>
+          </div>
+        </div>
+
+        {/* Provider Selection & Environment Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* WhiteBooks Primary Card */}
+          <div
+            onClick={() => handleSwitchProvider("WHITEBOOKS")}
+            className={`p-4 rounded-xl border-2 transition-all cursor-pointer space-y-3 ${
+              ewbSettings?.activeProvider === "WHITEBOOKS"
+                ? "border-[#0B1E36] bg-blue-50/40 shadow-sm"
+                : "border-slate-200 hover:border-slate-300 bg-white"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className={`w-3 h-3 rounded-full ${ewbSettings?.activeProvider === "WHITEBOOKS" ? "bg-emerald-500" : "bg-slate-300"}`} />
+                <h3 className="font-bold text-sm text-slate-900">WhiteBooks GSP (Primary)</h3>
+              </div>
+              <Badge className="bg-blue-100 text-blue-800 text-[10px] font-bold">
+                DEFAULT / ACTIVE
+              </Badge>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              BVM IT Consulting Services India Pvt. Ltd. Official GSP licensed APIs for direct statutory generation, vehicle Part-B updates, and cancellations.
+            </p>
+            <div className="grid grid-cols-2 gap-2 pt-2 text-[11px] text-slate-500 border-t border-slate-200/60 font-mono">
+              <div>
+                <span className="text-slate-400 block text-[10px]">Environment</span>
+                <span className="font-semibold text-emerald-700">SANDBOX (Active)</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[10px]">Test GSTIN</span>
+                <span>{ewbSettings?.whitebooks?.gstin || "33AAGCB1286Q003"}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* FYN Gateway Backup Card */}
+          <div
+            onClick={() => handleSwitchProvider("FYN")}
+            className={`p-4 rounded-xl border-2 transition-all cursor-pointer space-y-3 ${
+              ewbSettings?.activeProvider === "FYN"
+                ? "border-[#0B1E36] bg-purple-50/40 shadow-sm"
+                : "border-slate-200 hover:border-slate-300 bg-white"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className={`w-3 h-3 rounded-full ${ewbSettings?.activeProvider === "FYN" ? "bg-emerald-500" : "bg-slate-300"}`} />
+                <h3 className="font-bold text-sm text-slate-900">FYN Gateway (Secondary / Backup)</h3>
+              </div>
+              <Badge variant="outline" className="text-[10px] font-bold text-purple-700 border-purple-200">
+                MANUAL BACKUP
+              </Badge>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Fynamics Techno Solutions Pvt. Ltd. Preserved secondary provider for high-availability redundancy without automatic failover risk.
+            </p>
+            <div className="grid grid-cols-2 gap-2 pt-2 text-[11px] text-slate-500 border-t border-slate-200/60 font-mono">
+              <div>
+                <span className="text-slate-400 block text-[10px]">Environment</span>
+                <span className="font-semibold text-purple-700">SANDBOX (Simulation)</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[10px]">Status</span>
+                <span>AVAILABLE AS BACKUP</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Live Connection Diagnostics Banner */}
+        {connectionResult && (
+          <div
+            className={`p-4 rounded-xl border text-xs flex items-start gap-3 ${
+              connectionResult.success
+                ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                : "bg-red-50 border-red-200 text-red-900"
+            }`}
+          >
+            {connectionResult.success ? (
+              <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+            ) : (
+              <ShieldAlert className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+            )}
+            <div className="space-y-1">
+              <p className="font-bold">
+                {connectionResult.success
+                  ? `Connection Verified (${connectionResult.latencyMs || 0}ms)`
+                  : "Connection Test Failed"}
+              </p>
+              <p className="text-[11px] opacity-90 leading-relaxed">{connectionResult.message}</p>
+              {connectionResult.details && (
+                <div className="flex gap-4 pt-1 font-mono text-[10px] text-emerald-800">
+                  <span>GSTIN: {connectionResult.details.gstin}</span>
+                  <span>Env: {connectionResult.details.environment}</span>
+                  <span>User: {connectionResult.details.username}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Production Lock Guard Notice */}
+        <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2 text-slate-600">
+            <Lock className="w-4 h-4 text-slate-400" />
+            <span>
+              <strong>Production Mode Guard:</strong> Statutory live production transmission is permanently locked until authorized by management.
+            </span>
+          </div>
+          <Badge variant="secondary" className="text-[10px] uppercase font-mono">
+            Safety Lock Active
+          </Badge>
+        </div>
+
+        {/* Diagnostic Lookup Tools Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+          {/* Tool 1: GSTIN Lookup */}
+          <div className="p-4 bg-slate-50/70 border border-slate-200 rounded-xl space-y-3">
+            <div className="flex items-center gap-2">
+              <Search className="w-4 h-4 text-[#F26522]" />
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Diagnostic GSTIN Lookup</h4>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                value={gstinQuery}
+                onChange={(e) => setGstinQuery(e.target.value.toUpperCase())}
+                placeholder="15-digit GSTIN"
+                maxLength={15}
+                className="font-mono uppercase text-xs h-9 bg-white"
+              />
+              <Button
+                size="sm"
+                onClick={handleLookupGstin}
+                disabled={lookingUpGstin}
+                className="bg-[#0B1E36] hover:bg-[#071424] text-white text-xs h-9 shrink-0"
+              >
+                {lookingUpGstin ? "Checking..." : "Verify"}
+              </Button>
+            </div>
+
+            {gstinResult && (
+              <div className="bg-white p-3 rounded-lg border border-slate-200 text-xs space-y-1">
+                <p className="font-bold text-slate-900">{gstinResult.tradeName || gstinResult.legalName || "Active Taxpayer"}</p>
+                <p className="text-[11px] text-slate-500 font-mono">GSTIN: {gstinResult.gstin} · Status: {gstinResult.status || "ACTIVE"}</p>
+                {gstinResult.address?.location && (
+                  <p className="text-[11px] text-slate-600">{gstinResult.address.location}, PIN: {gstinResult.address.pincode}</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Tool 2: HSN Lookup */}
+          <div className="p-4 bg-slate-50/70 border border-slate-200 rounded-xl space-y-3">
+            <div className="flex items-center gap-2">
+              <Hash className="w-4 h-4 text-[#F26522]" />
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Diagnostic HSN Tariff Lookup</h4>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                value={hsnQuery}
+                onChange={(e) => setHsnQuery(e.target.value)}
+                placeholder="HSN Code (e.g. 7308)"
+                maxLength={8}
+                className="font-mono text-xs h-9 bg-white"
+              />
+              <Button
+                size="sm"
+                onClick={handleLookupHsn}
+                disabled={lookingUpHsn}
+                className="bg-[#0B1E36] hover:bg-[#071424] text-white text-xs h-9 shrink-0"
+              >
+                {lookingUpHsn ? "Checking..." : "Verify"}
+              </Button>
+            </div>
+
+            {hsnResult && (
+              <div className="bg-white p-3 rounded-lg border border-slate-200 text-xs space-y-1">
+                <p className="font-bold text-slate-900">HSN {hsnResult.hsnCode} · GST Rate: {hsnResult.gstRate || 18}%</p>
+                <p className="text-[11px] text-slate-600 leading-snug">{hsnResult.description}</p>
+              </div>
+            )}
+          </div>
         </div>
       </Card>
 
