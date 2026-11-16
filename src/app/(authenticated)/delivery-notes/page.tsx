@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dialog";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { TableSkeleton } from "@/components/ui/loading-states";
+import { fetchWithClientCache, invalidateClientCache } from "@/lib/client-cache";
 import { toast } from "sonner";
 
 export default function DeliveryNotesPage() {
@@ -100,27 +101,33 @@ export default function DeliveryNotesPage() {
     distanceKm: 25,
   });
 
-  const loadData = React.useCallback(async () => {
+  const loadData = React.useCallback(async (forceRefresh = false) => {
     try {
-      setLoading(true);
-      const [dnRes, custRes, whRes, varRes] = await Promise.all([
-        fetch("/api/v1/delivery-notes"),
-        fetch("/api/v1/customers"),
-        fetch("/api/v1/warehouses"),
-        fetch("/api/v1/materials/variants"),
-      ]);
-
       const [dnData, custData, whData, varData] = await Promise.all([
-        dnRes.json(),
-        custRes.json(),
-        whRes.json(),
-        varRes.json(),
+        fetchWithClientCache("/api/v1/delivery-notes", {
+          forceRefresh,
+          onBackgroundUpdate: (fresh) => setDeliveryNotes(Array.isArray(fresh) ? fresh : []),
+        }),
+        fetchWithClientCache("/api/v1/customers", {
+          forceRefresh,
+          onBackgroundUpdate: (fresh) => setCustomers(Array.isArray(fresh) ? fresh : []),
+        }),
+        fetchWithClientCache("/api/v1/warehouses", {
+          forceRefresh,
+          ttlMs: 60_000,
+          onBackgroundUpdate: (fresh) => setWarehouses(Array.isArray(fresh) ? fresh : []),
+        }),
+        fetchWithClientCache("/api/v1/materials/variants", {
+          forceRefresh,
+          ttlMs: 60_000,
+          onBackgroundUpdate: (fresh) => setVariants(Array.isArray(fresh) ? fresh : []),
+        }),
       ]);
 
-      if (dnData.success) setDeliveryNotes(Array.isArray(dnData.data) ? dnData.data : []);
-      if (custData.success) setCustomers(Array.isArray(custData.data) ? custData.data : []);
-      if (whData.success) setWarehouses(Array.isArray(whData.data) ? whData.data : []);
-      if (varData.success) setVariants(Array.isArray(varData.data) ? varData.data : []);
+      if (dnData) setDeliveryNotes(Array.isArray(dnData) ? dnData : []);
+      if (custData) setCustomers(Array.isArray(custData) ? custData : []);
+      if (whData) setWarehouses(Array.isArray(whData) ? whData : []);
+      if (varData) setVariants(Array.isArray(varData) ? varData : []);
     } catch {
       toast.error("Failed to load delivery notes.");
     } finally {
@@ -213,7 +220,8 @@ export default function DeliveryNotesPage() {
 
       toast.success(`Delivery Note ${data.data.dnNumber} created!`);
       setIsCreateModalOpen(false);
-      loadData();
+      invalidateClientCache("/api/v1/delivery-notes");
+      loadData(true);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -240,7 +248,8 @@ export default function DeliveryNotesPage() {
       toast.success(`Delivery Note ${dispatchTarget.dnNumber} marked DISPATCHED! Stock deducted.`);
       setIsDispatchModalOpen(false);
       setDispatchTarget(null);
-      await loadData();
+      invalidateClientCache("/api/v1/delivery-notes");
+      await loadData(true);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -281,7 +290,8 @@ export default function DeliveryNotesPage() {
 
       toast.success(`Delivery Note ${selectedDN.dnNumber} marked DELIVERED with receiver acknowledgement!`);
       setIsDeliverModalOpen(false);
-      loadData();
+      invalidateClientCache("/api/v1/delivery-notes");
+      loadData(true);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -329,7 +339,8 @@ export default function DeliveryNotesPage() {
       setIsEwbModalOpen(false);
       setShowRegenerateForm(false);
       setSelectedDN(null);
-      await loadData();
+      invalidateClientCache("/api/v1/delivery-notes");
+      await loadData(true);
     } catch (err: any) {
       toast.error(err.message);
     } finally {

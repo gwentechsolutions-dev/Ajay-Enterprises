@@ -30,19 +30,22 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QuickActionDialog } from "@/components/dashboard/quick-action-dialog";
+import { fetchWithClientCache } from "@/lib/client-cache";
 
 export default function OwnerDashboardPage() {
   const [data, setData] = React.useState<any | null>(null);
   const [period, setPeriod] = React.useState<"THIS_MONTH" | "PREV_MONTH" | "THIS_FY" | "PREV_FY">("THIS_MONTH");
   const [isLoading, setIsLoading] = React.useState(true);
 
-  const fetchDashboardData = React.useCallback(async (p: string) => {
-    setIsLoading(true);
+  const fetchDashboardData = React.useCallback(async (p: string, forceRefresh = false) => {
     try {
-      const res = await fetch(`/api/v1/dashboard?period=${p}`);
-      const json = await res.json();
-      if (json.success) {
-        setData(json.data);
+      const json = await fetchWithClientCache(`/api/v1/dashboard?period=${p}`, {
+        forceRefresh,
+        ttlMs: 20_000,
+        onBackgroundUpdate: (fresh) => setData(fresh),
+      });
+      if (json) {
+        setData(json);
       }
     } catch (err) {
       console.error("Failed to load dashboard data", err);
@@ -139,7 +142,7 @@ export default function OwnerDashboardPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => fetchDashboardData(period)}
+            onClick={() => fetchDashboardData(period, true)}
             disabled={isLoading}
             isLoading={isLoading}
             loadingText="Refreshing..."

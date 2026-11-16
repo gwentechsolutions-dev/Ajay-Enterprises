@@ -38,7 +38,14 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ success: true, data: site });
+    return NextResponse.json(
+      { success: true, data: site },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=15, stale-while-revalidate=30",
+        },
+      }
+    );
   } catch (error: any) {
     const status = error.message.startsWith("UNAUTHORIZED") ? 401 : error.message.startsWith("FORBIDDEN") ? 403 : 500;
     return NextResponse.json({ success: false, error: { message: error.message } }, { status });

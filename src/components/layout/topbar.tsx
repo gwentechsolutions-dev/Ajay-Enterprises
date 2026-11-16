@@ -46,12 +46,14 @@ export function Topbar({ user, onMenuToggle }: TopbarProps) {
   const [signingOut, setSigningOut] = React.useState(false);
   const profileRef = React.useRef<HTMLDivElement>(null);
 
-  // Search Palette State
+  // Search Palette State & Client-Side Cache
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [searchResults, setSearchResults] = React.useState<any[]>([]);
   const [isSearching, setIsSearching] = React.useState(false);
   const [selectedIndex, setSelectedIndex] = React.useState(0);
+  const searchCacheRef = React.useRef<Map<string, any[]>>(new Map());
+  const abortControllerRef = React.useRef<AbortController | null>(null);
 
   // Close profile dropdown on outside click
   React.useEffect(() => {
@@ -76,28 +78,58 @@ export function Topbar({ user, onMenuToggle }: TopbarProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Debounced search query
+  // Debounced search query with client cache and AbortController to prevent serverless queuing
   React.useEffect(() => {
-    if (!searchQuery.trim() || searchQuery.trim().length < 2) {
+    const trimmed = searchQuery.trim().toLowerCase();
+    if (!trimmed || trimmed.length < 2) {
       setSearchResults([]);
+      setIsSearching(false);
       return;
     }
+
+    // 1. Instant cache hit check (0ms response)
+    if (searchCacheRef.current.has(trimmed)) {
+      setSearchResults(searchCacheRef.current.get(trimmed) || []);
+      setSelectedIndex(0);
+      setIsSearching(false);
+      return;
+    }
+
+    // 2. Abort previous in-flight request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    setIsSearching(true);
     const timer = setTimeout(async () => {
       try {
-        setIsSearching(true);
-        const res = await fetch(`/api/v1/search?q=${encodeURIComponent(searchQuery.trim())}`);
+        const res = await fetch(`/api/v1/search?q=${encodeURIComponent(trimmed)}`, {
+          signal: controller.signal,
+        });
         const data = await res.json();
         if (data.success) {
-          setSearchResults(data.data.results || []);
+          const results = data.data.results || [];
+          searchCacheRef.current.set(trimmed, results);
+          setSearchResults(results);
           setSelectedIndex(0);
         }
-      } catch (err) {
-        console.error("Global search failed:", err);
+      } catch (err: any) {
+        if (err.name !== "AbortError") {
+          console.error("Global search failed:", err);
+        }
       } finally {
-        setIsSearching(false);
+        if (!controller.signal.aborted) {
+          setIsSearching(false);
+        }
       }
-    }, 180);
-    return () => clearTimeout(timer);
+    }, 240);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [searchQuery]);
 
   const handleSelectResult = (href: string) => {

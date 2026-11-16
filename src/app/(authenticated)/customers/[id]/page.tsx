@@ -46,6 +46,7 @@ import { FormFieldError } from "@/components/ui/form-field-error";
 import { FormErrorSummary } from "@/components/ui/form-error-summary";
 import { GoogleMapsLocationInput } from "@/components/forms/google-maps-location-input";
 import { useFormValidation } from "@/lib/forms";
+import { fetchWithClientCache, invalidateClientCache } from "@/lib/client-cache";
 import { toast } from "sonner";
 
 export default function CustomerDetailPage() {
@@ -111,16 +112,16 @@ export default function CustomerDetailPage() {
   const [siteForm, setSiteForm] = React.useState(initialSiteForm);
   const [contactForm, setContactForm] = React.useState(initialContactForm);
 
-  const fetchCustomer = React.useCallback(async () => {
+  const fetchCustomer = React.useCallback(async (forceRefresh = false) => {
     if (!id) return;
     try {
-      setLoading(true);
-      const res = await fetch(`/api/v1/customers/${id}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || "Failed to load customer");
-      setCustomer(data.data);
+      const data = await fetchWithClientCache(`/api/v1/customers/${id}`, {
+        forceRefresh,
+        onBackgroundUpdate: (fresh) => setCustomer(fresh),
+      });
+      setCustomer(data);
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error(err.message || "Failed to load customer");
     } finally {
       setLoading(false);
     }
@@ -224,7 +225,8 @@ export default function CustomerDetailPage() {
       setEditingSiteId(null);
       siteValidation.clearErrors();
       setSiteForm(initialSiteForm);
-      await fetchCustomer();
+      invalidateClientCache(`/api/v1/customers/${id}`);
+      await fetchCustomer(true);
     } catch (err: any) {
       toast.error(err.message || (editingSiteId ? "Failed to update site" : "Failed to add site"));
     } finally {
@@ -258,7 +260,8 @@ export default function CustomerDetailPage() {
       setIsContactModalOpen(false);
       contactValidation.clearErrors();
       setContactForm(initialContactForm);
-      await fetchCustomer();
+      invalidateClientCache(`/api/v1/customers/${id}`);
+      await fetchCustomer(true);
     } catch (err: any) {
       toast.error(err.message || "Failed to add contact");
     } finally {

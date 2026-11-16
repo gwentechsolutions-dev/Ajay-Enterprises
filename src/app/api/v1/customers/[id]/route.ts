@@ -19,18 +19,43 @@ export async function GET(
       where: { id },
       include: {
         sites: {
-          include: {
+          select: {
+            id: true,
+            siteCode: true,
+            siteName: true,
+            fullAddress: true,
+            district: true,
+            city: true,
+            state: true,
+            stateCode: true,
+            pinCode: true,
+            gpsLatitude: true,
+            gpsLongitude: true,
+            siteOwnerName: true,
+            siteOwnerContact: true,
+            siteInCharge: true,
+            siteContactDetails: true,
+            projectType: true,
+            deliveryInstructions: true,
+            status: true,
+            createdAt: true,
             contacts: true,
-            documents: true,
             stockBalances: {
-              include: {
+              select: {
+                id: true,
+                availableQty: true,
+                ownershipType: true,
                 materialVariant: {
-                  include: { materialType: true },
+                  select: {
+                    id: true,
+                    name: true,
+                    materialCode: true,
+                    uom: true,
+                    size: true,
+                    defaultRentalRate: true,
+                  },
                 },
               },
-            },
-            _count: {
-              select: { destinationMovements: true, sourceMovements: true },
             },
           },
           orderBy: { createdAt: "desc" },
@@ -38,18 +63,28 @@ export async function GET(
         contacts: {
           orderBy: { isPrimary: "desc" },
         },
-        documents: {
-          orderBy: { createdAt: "desc" },
-        },
         movements: {
-          include: {
-            materialVariant: true,
-            sourceWarehouse: true,
-            destinationSite: true,
-            sourceSite: true,
+          select: {
+            id: true,
+            movementNumber: true,
+            movementType: true,
+            movementDate: true,
+            quantity: true,
+            notes: true,
+            materialVariant: {
+              select: {
+                id: true,
+                name: true,
+                materialCode: true,
+                uom: true,
+              },
+            },
+            sourceWarehouse: { select: { id: true, name: true } },
+            destinationSite: { select: { id: true, siteName: true } },
+            sourceSite: { select: { id: true, siteName: true } },
           },
           orderBy: { movementDate: "desc" },
-          take: 50,
+          take: 25,
         },
       },
     });
@@ -61,7 +96,14 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ success: true, data: customer });
+    return NextResponse.json(
+      { success: true, data: customer },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=10, stale-while-revalidate=20",
+        },
+      }
+    );
   } catch (error: any) {
     const status = error.message.startsWith("UNAUTHORIZED") ? 401 : error.message.startsWith("FORBIDDEN") ? 403 : 500;
     return NextResponse.json({ success: false, error: { message: error.message } }, { status });

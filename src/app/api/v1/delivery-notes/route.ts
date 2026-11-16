@@ -55,12 +55,18 @@ export async function GET(req: NextRequest) {
           orderBy: { generatedAt: "desc" },
           take: 1,
         },
-        _count: { select: { evidences: true, eWayBills: true, returnNotes: true } },
       },
       orderBy: { deliveryDate: "desc" },
     });
 
-    return NextResponse.json({ success: true, data: deliveryNotes });
+    return NextResponse.json(
+      { success: true, data: deliveryNotes },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=10, stale-while-revalidate=20",
+        },
+      }
+    );
   } catch (error: any) {
     const status = error.message.startsWith("UNAUTHORIZED") ? 401 : error.message.startsWith("FORBIDDEN") ? 403 : 500;
     return NextResponse.json({ success: false, error: { message: error.message } }, { status });

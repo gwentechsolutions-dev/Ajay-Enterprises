@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
           customer: { select: { name: true } },
           customerSite: { select: { siteName: true } },
         },
-        take: 6,
+        take: 4,
         orderBy: { deliveryDate: "desc" },
       }),
 
@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
           customer: { select: { name: true } },
           customerSite: { select: { siteName: true } },
         },
-        take: 5,
+        take: 4,
         orderBy: { returnDate: "desc" },
       }),
 
@@ -113,7 +113,7 @@ export async function GET(req: NextRequest) {
           invoiceDate: true,
           customer: { select: { name: true } },
         },
-        take: 5,
+        take: 4,
         orderBy: { invoiceDate: "desc" },
       }),
 
@@ -132,7 +132,7 @@ export async function GET(req: NextRequest) {
           customer: { select: { name: true } },
           customerSite: { select: { siteName: true } },
         },
-        take: 5,
+        take: 4,
         orderBy: { createdAt: "desc" },
       }),
 
@@ -153,7 +153,7 @@ export async function GET(req: NextRequest) {
           state: true,
           sites: { select: { id: true } },
         },
-        take: 6,
+        take: 4,
         orderBy: { name: "asc" },
       }),
 
@@ -173,7 +173,7 @@ export async function GET(req: NextRequest) {
           customerId: true,
           customer: { select: { name: true } },
         },
-        take: 5,
+        take: 4,
       }),
 
       db.materialVariant.findMany({
@@ -192,7 +192,7 @@ export async function GET(req: NextRequest) {
           uom: true,
           defaultRentalRate: true,
         },
-        take: 5,
+        take: 4,
       }),
     ]);
 
@@ -310,13 +310,20 @@ export async function GET(req: NextRequest) {
       });
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        results,
-        count: results.length,
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          results,
+          count: results.length,
+        },
       },
-    });
+      {
+        headers: {
+          "Cache-Control": "private, max-age=20, stale-while-revalidate=40",
+        },
+      }
+    );
   } catch (error: any) {
     return NextResponse.json({ success: false, error: { message: error.message } }, { status: 500 });
   }

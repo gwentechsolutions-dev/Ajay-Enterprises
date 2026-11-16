@@ -34,6 +34,7 @@ import { TableSkeleton } from "@/components/ui/loading-states";
 import { FormFieldError } from "@/components/ui/form-field-error";
 import { FormErrorSummary } from "@/components/ui/form-error-summary";
 import { useFormValidation } from "@/lib/forms";
+import { fetchWithClientCache, invalidateClientCache } from "@/lib/client-cache";
 import { toast } from "sonner";
 
 export default function CustomersPage() {
@@ -80,12 +81,13 @@ export default function CustomersPage() {
 
   const [form, setForm] = React.useState(initialFormState);
 
-  const fetchCustomers = React.useCallback(async () => {
+  const fetchCustomers = React.useCallback(async (forceRefresh = false) => {
     try {
-      setLoading(true);
-      const res = await fetch("/api/v1/customers");
-      const data = await res.json();
-      if (data.success) setCustomers(data.data);
+      const data = await fetchWithClientCache("/api/v1/customers", {
+        forceRefresh,
+        onBackgroundUpdate: (fresh) => setCustomers(fresh),
+      });
+      setCustomers(data);
     } catch {
       toast.error("Failed to load customer directory.");
     } finally {
@@ -137,7 +139,8 @@ export default function CustomersPage() {
       setIsModalOpen(false);
       clearErrors();
       setForm(initialFormState);
-      await fetchCustomers();
+      invalidateClientCache("/api/v1/customers");
+      await fetchCustomers(true);
     } catch (err: any) {
       toast.error(err.message || "Failed to create customer");
     } finally {

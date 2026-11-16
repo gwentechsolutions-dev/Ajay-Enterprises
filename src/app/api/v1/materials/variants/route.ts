@@ -38,12 +38,18 @@ export async function GET(req: NextRequest) {
         materialType: { include: { category: true } },
         preferredSupplier: true,
         stockBalances: true,
-        _count: { select: { rateHistory: true, movements: true } },
       },
       orderBy: { materialCode: "asc" },
     });
 
-    return NextResponse.json({ success: true, data: variants });
+    return NextResponse.json(
+      { success: true, data: variants },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=60, stale-while-revalidate=120",
+        },
+      }
+    );
   } catch (error: any) {
     const status = error.message.startsWith("UNAUTHORIZED") ? 401 : error.message.startsWith("FORBIDDEN") ? 403 : 500;
     return NextResponse.json({ success: false, error: { message: error.message } }, { status });

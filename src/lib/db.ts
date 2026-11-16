@@ -17,10 +17,11 @@ function getResolvedDatabaseUrl(): string | undefined {
     url = `${url}${separator}pgbouncer=true`;
   }
 
-  // In production / serverless environments, constrain connection limit per container
+  // In production / serverless environments, allow up to 5 concurrent connections per container
+  // to prevent Promise.all queries from queuing sequentially on a single socket.
   if (process.env.NODE_ENV === "production" && !url.includes("connection_limit=")) {
     const separator = url.includes("?") ? "&" : "?";
-    url = `${url}${separator}connection_limit=1`;
+    url = `${url}${separator}connection_limit=5`;
   }
 
   return url;

@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
       where,
       include: {
         _count: {
-          select: { sites: true, contacts: true, documents: true, movements: true },
+          select: { sites: true },
         },
         sites: {
           select: { id: true, siteCode: true, siteName: true, status: true, city: true },
@@ -45,7 +45,14 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json({ success: true, data: customers });
+    return NextResponse.json(
+      { success: true, data: customers },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=15, stale-while-revalidate=30",
+        },
+      }
+    );
   } catch (error: any) {
     const status = error.message.startsWith("UNAUTHORIZED") ? 401 : error.message.startsWith("FORBIDDEN") ? 403 : 500;
     return NextResponse.json({ success: false, error: { message: error.message } }, { status });

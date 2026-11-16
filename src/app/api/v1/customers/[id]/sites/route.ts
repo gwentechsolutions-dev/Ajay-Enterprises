@@ -20,16 +20,32 @@ export async function GET(
       where: { customerId },
       include: {
         contacts: true,
-        documents: true,
         stockBalances: {
-          include: { materialVariant: true },
+          include: {
+            materialVariant: {
+              select: {
+                id: true,
+                name: true,
+                materialCode: true,
+                uom: true,
+                size: true,
+                defaultRentalRate: true,
+              },
+            },
+          },
         },
-        _count: { select: { destinationMovements: true, sourceMovements: true } },
       },
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json({ success: true, data: sites });
+    return NextResponse.json(
+      { success: true, data: sites },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=15, stale-while-revalidate=30",
+        },
+      }
+    );
   } catch (error: any) {
     const status = error.message.startsWith("UNAUTHORIZED") ? 401 : error.message.startsWith("FORBIDDEN") ? 403 : 500;
     return NextResponse.json({ success: false, error: { message: error.message } }, { status });
