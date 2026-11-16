@@ -5,7 +5,7 @@ import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import { generateNextDocumentNumber } from "@/lib/document-series";
 import { logAuditEvent } from "@/lib/audit";
-import { createDamageLossSchema } from "@/lib/schemas/rental";
+import { createDamageLossSchema, createDamageLossBatchSchema } from "@/lib/schemas/rental";
 
 export async function GET(req: NextRequest) {
   try {
@@ -45,6 +45,89 @@ export async function POST(req: NextRequest) {
     await requirePermission(session, "rentals", "create");
 
     const body = await req.json();
+    const actor = {
+      id: session!.id,
+      name: session!.name,
+      role: session!.role,
+      ipAddress: req.headers.get("x-forwarded-for") || undefined,
+    };
+
+    // 1. Check if batch request (multiple items)
+    if (body.items && Array.isArray(body.items)) {
+      const parsedBatch = createDamageLossBatchSchema.safeParse(body);
+      if (!parsedBatch.success) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "VALIDATION_FAILED",
+              message: "Validation failed",
+              details: parsedBatch.error.issues,
+            },
+          },
+          { status: 422 }
+        );
+      }
+
+      const input = parsedBatch.data;
+      const assessmentDate = input.assessmentDate ? new Date(input.assessmentDate) : new Date();
+
+      const createdList = await db.$transaction(async (tx) => {
+        const results = [];
+        for (const item of input.items) {
+          const assessmentNumber = await generateNextDocumentNumber("DLA", undefined, tx);
+          const dla = await tx.damageLossAssessment.create({
+            data: {
+              assessmentNumber,
+              customerId: input.customerId,
+              customerSiteId: input.customerSiteId,
+              materialReturnNoteId: input.materialReturnNoteId || null,
+              materialVariantId: item.materialVariantId,
+              assessmentType: item.assessmentType,
+              quantity: new Prisma.Decimal(item.quantity),
+              condition: item.condition,
+              assessmentDate,
+              approvedChargeAmount: new Prisma.Decimal(item.approvedChargeAmount),
+              status: "PENDING_APPROVAL",
+              remarks: item.remarks || null,
+              photographs: item.photographs ? (item.photographs as any) : null,
+              assessedById: actor.id,
+            },
+            include: {
+              customer: true,
+              customerSite: true,
+              materialVariant: true,
+            },
+          });
+
+          await logAuditEvent({
+            userId: actor.id,
+            userName: actor.name,
+            userRole: actor.role,
+            ipAddress: actor.ipAddress,
+            action: "CREATE",
+            module: "RENTALS",
+            entityType: "DamageLossAssessment",
+            entityId: dla.id,
+            notes: `Recorded Damage/Loss Assessment ${assessmentNumber} (${item.assessmentType}) for ${item.quantity} units. Proposed charge: ₹${item.approvedChargeAmount}`,
+          });
+
+          results.push(dla);
+        }
+        return results;
+      });
+
+      return NextResponse.json(
+        {
+          success: true,
+          data: createdList,
+          message: `${createdList.length} Damage/Loss Assessment(s) recorded successfully.`,
+        },
+        { status: 201 }
+      );
+    }
+
+    // 2. Fallback to single item request
     const parsed = createDamageLossSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
@@ -61,12 +144,6 @@ export async function POST(req: NextRequest) {
     }
 
     const input = parsed.data;
-    const actor = {
-      id: session!.id,
-      name: session!.name,
-      role: session!.role,
-      ipAddress: req.headers.get("x-forwarded-for") || undefined,
-    };
 
     const assessmentNumber = input.assessmentNumber || (await generateNextDocumentNumber("DLA"));
 

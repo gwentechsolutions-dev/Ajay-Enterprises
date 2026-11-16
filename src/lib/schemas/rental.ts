@@ -103,6 +103,28 @@ export const createDamageLossSchema = z.object({
 
 export type CreateDamageLossInput = z.infer<typeof createDamageLossSchema>;
 
+export const damageLossItemInputSchema = z.object({
+  materialVariantId: z.string().uuid("Material variant is required"),
+  assessmentType: z.enum(["DAMAGED_REPAIRABLE", "DAMAGED_SCRAP", "MISSING"]),
+  quantity: z.coerce.number().positive("Quantity must be greater than zero"),
+  condition: z.string().default("DAMAGED"),
+  approvedChargeAmount: z.coerce.number().min(0, "Charge amount must be positive or zero"),
+  remarks: z.string().optional().nullable(),
+  photographs: z.array(z.string()).optional(),
+});
+
+export type DamageLossItemInput = z.infer<typeof damageLossItemInputSchema>;
+
+export const createDamageLossBatchSchema = z.object({
+  customerId: z.string().uuid("Customer is required"),
+  customerSiteId: z.string().uuid("Customer Site is required"),
+  materialReturnNoteId: z.string().uuid().optional().nullable(),
+  assessmentDate: z.string().optional(),
+  items: z.array(damageLossItemInputSchema).min(1, "At least one material item is required"),
+});
+
+export type CreateDamageLossBatchInput = z.infer<typeof createDamageLossBatchSchema>;
+
 // ==============================================================================
 // 4. Rental Deposit Transaction Schemas
 // ==============================================================================
