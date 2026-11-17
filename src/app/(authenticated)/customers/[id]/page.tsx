@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -63,14 +64,40 @@ export default function CustomerDetailPage() {
   const [isSiteModalOpen, setIsSiteModalOpen] = React.useState(false);
   const [editingSiteId, setEditingSiteId] = React.useState<string | null>(null);
   const [isContactModalOpen, setIsContactModalOpen] = React.useState(false);
+  const [isEditCustomerModalOpen, setIsEditCustomerModalOpen] = React.useState(false);
   const [isSiteSubmitting, setIsSiteSubmitting] = React.useState(false);
   const [isContactSubmitting, setIsContactSubmitting] = React.useState(false);
+  const [isCustomerSubmitting, setIsCustomerSubmitting] = React.useState(false);
 
   const siteModalRef = React.useRef<HTMLDivElement>(null);
   const contactModalRef = React.useRef<HTMLDivElement>(null);
+  const customerModalRef = React.useRef<HTMLDivElement>(null);
 
   const siteValidation = useFormValidation({ containerRef: siteModalRef });
   const contactValidation = useFormValidation({ containerRef: contactModalRef });
+  const customerValidation = useFormValidation({ containerRef: customerModalRef });
+
+  const initialCustomerForm = {
+    name: "",
+    customerType: "COMPANY",
+    legalBusinessName: "",
+    primaryMobile: "",
+    alternateMobile: "",
+    whatsappNumber: "",
+    email: "",
+    gstStatus: "UNREGISTERED",
+    gstin: "",
+    pan: "",
+    billingAddress: "",
+    state: "Karnataka",
+    stateCode: "29",
+    pinCode: "",
+    businessType: "",
+    creditLimit: "",
+    paymentTermsDays: "30",
+    isActive: true,
+    notes: "",
+  };
 
   const initialSiteForm = {
     siteCode: "",
@@ -112,6 +139,7 @@ export default function CustomerDetailPage() {
   // Forms
   const [siteForm, setSiteForm] = React.useState(initialSiteForm);
   const [contactForm, setContactForm] = React.useState(initialContactForm);
+  const [customerForm, setCustomerForm] = React.useState(initialCustomerForm);
 
   const fetchCustomer = React.useCallback(async (forceRefresh = false) => {
     if (!id) return;
@@ -266,6 +294,89 @@ export default function CustomerDetailPage() {
     }
   };
 
+  const handleOpenEditCustomer = () => {
+    if (!customer) return;
+    customerValidation.clearErrors();
+    setCustomerForm({
+      name: customer.name || "",
+      customerType: customer.customerType || "COMPANY",
+      legalBusinessName: customer.legalBusinessName || "",
+      primaryMobile: customer.primaryMobile || "",
+      alternateMobile: customer.alternateMobile || "",
+      whatsappNumber: customer.whatsappNumber || "",
+      email: customer.email || "",
+      gstStatus: customer.gstStatus || "UNREGISTERED",
+      gstin: customer.gstin || "",
+      pan: customer.pan || "",
+      billingAddress: customer.billingAddress || "",
+      state: customer.state || "Karnataka",
+      stateCode: customer.stateCode || "29",
+      pinCode: customer.pinCode || "",
+      businessType: customer.businessType || "",
+      creditLimit:
+        customer.creditLimit !== null && customer.creditLimit !== undefined
+          ? String(customer.creditLimit)
+          : "",
+      paymentTermsDays: String(customer.paymentTermsDays ?? 30),
+      isActive: customer.isActive ?? true,
+      notes: customer.notes || "",
+    });
+    setIsEditCustomerModalOpen(true);
+  };
+
+  const handleSaveCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsCustomerSubmitting(true);
+    try {
+      const payload: any = {
+        name: customerForm.name.trim(),
+        customerType: customerForm.customerType,
+        legalBusinessName: customerForm.legalBusinessName?.trim() || null,
+        primaryMobile: customerForm.primaryMobile.trim(),
+        alternateMobile: customerForm.alternateMobile?.trim() || null,
+        whatsappNumber: customerForm.whatsappNumber?.trim() || null,
+        email: customerForm.email?.trim() || null,
+        gstStatus: customerForm.gstStatus,
+        gstin: customerForm.gstin?.trim() ? customerForm.gstin.trim().toUpperCase() : null,
+        pan: customerForm.pan?.trim() ? customerForm.pan.trim().toUpperCase() : null,
+        billingAddress: customerForm.billingAddress.trim(),
+        state: customerForm.state.trim(),
+        stateCode: customerForm.stateCode.trim(),
+        pinCode: customerForm.pinCode?.trim() || null,
+        businessType: customerForm.businessType?.trim() || null,
+        creditLimit: customerForm.creditLimit !== "" ? Number(customerForm.creditLimit) : null,
+        paymentTermsDays: Number(customerForm.paymentTermsDays) || 30,
+        isActive: Boolean(customerForm.isActive),
+        notes: customerForm.notes?.trim() || null,
+      };
+
+      const res = await fetch(`/api/v1/customers/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+
+      if (!customerValidation.handleApiResponse(res, data, customerModalRef.current)) {
+        toast.error(formatValidationToast(parseApiValidationErrors(data)));
+        return;
+      }
+
+      toast.success(
+        `Customer profile '${data.data?.name || customerForm.name}' updated successfully.`
+      );
+      setIsEditCustomerModalOpen(false);
+      customerValidation.clearErrors();
+      invalidateClientCache("/api/v1/customers");
+      invalidateClientCache(`/api/v1/customers/${id}`);
+      await fetchCustomer(true);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update customer");
+    } finally {
+      setIsCustomerSubmitting(false);
+    }
+  };
+
   if (loading) {
     return (
       <PageSkeleton
@@ -316,6 +427,11 @@ export default function CustomerDetailPage() {
               >
                 {customer.gstStatus}
               </Badge>
+              {!customer.isActive && (
+                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                  Inactive
+                </Badge>
+              )}
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
               {customer.customerType} • {customer.billingAddress}, {customer.state} ({customer.stateCode})
@@ -324,6 +440,14 @@ export default function CustomerDetailPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleOpenEditCustomer}
+            className="text-xs border-slate-300 font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400"
+          >
+            <Pencil className="h-3.5 w-3.5 mr-1.5 text-[#F26522]" /> Edit Customer
+          </Button>
           <Button
             size="sm"
             onClick={handleOpenAddSite}
@@ -360,9 +484,19 @@ export default function CustomerDetailPage() {
         <TabsContent value="overview" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="border-slate-200 shadow-sm p-5 bg-white space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Contact & Communication
-              </h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Contact & Communication
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleOpenEditCustomer}
+                  className="h-6 px-2 text-[11px] text-slate-500 hover:text-[#0B1E36] hover:bg-slate-100"
+                >
+                  <Pencil className="h-3 w-3 mr-1 text-[#F26522]" /> Edit
+                </Button>
+              </div>
               <div className="space-y-2 text-xs">
                 <div className="flex items-center gap-2 text-slate-700">
                   <Phone className="h-4 w-4 text-slate-400" />
@@ -394,9 +528,19 @@ export default function CustomerDetailPage() {
             </Card>
 
             <Card className="border-slate-200 shadow-sm p-5 bg-white space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Statutory & Tax Compliance
-              </h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Statutory & Tax Compliance
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleOpenEditCustomer}
+                  className="h-6 px-2 text-[11px] text-slate-500 hover:text-[#0B1E36] hover:bg-slate-100"
+                >
+                  <Pencil className="h-3 w-3 mr-1 text-[#F26522]" /> Edit
+                </Button>
+              </div>
               <div className="space-y-3 text-xs">
                 <div>
                   <div className="text-slate-400 text-[11px]">GST Status</div>
@@ -420,13 +564,31 @@ export default function CustomerDetailPage() {
                     {customer.legalBusinessName || customer.name}
                   </div>
                 </div>
+                {customer.businessType ? (
+                  <div>
+                    <div className="text-slate-400 text-[11px]">Business Classification</div>
+                    <div className="font-medium text-slate-800 mt-0.5">
+                      {customer.businessType}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </Card>
 
             <Card className="border-slate-200 shadow-sm p-5 bg-white space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Commercial Terms & Balances
-              </h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Commercial Terms & Balances
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleOpenEditCustomer}
+                  className="h-6 px-2 text-[11px] text-slate-500 hover:text-[#0B1E36] hover:bg-slate-100"
+                >
+                  <Pencil className="h-3 w-3 mr-1 text-[#F26522]" /> Edit
+                </Button>
+              </div>
               <div className="space-y-3 text-xs">
                 <div>
                   <div className="text-slate-400 text-[11px]">Credit Limit</div>
@@ -1174,6 +1336,488 @@ export default function CustomerDetailPage() {
                 className="bg-[#0B1E36] hover:bg-[#071424] text-white"
               >
                 Save Contact
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* EDIT CUSTOMER MODAL */}
+      <Dialog open={isEditCustomerModalOpen} onOpenChange={setIsEditCustomerModalOpen}>
+        <DialogContent ref={customerModalRef} className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-xl bg-orange-50 border border-orange-200 flex items-center justify-center text-[#F26522] shrink-0">
+                <Pencil className="h-4 w-4" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold text-slate-900">
+                  Edit Customer Profile
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-500">
+                  Update customer account details, GST compliance, communication numbers, and credit terms.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveCustomer} className="space-y-4 pt-2" noValidate>
+            <FormErrorSummary
+              errors={customerValidation.fieldErrors}
+              generalError={customerValidation.generalError}
+              onFieldClick={(field) => customerValidation.scrollToField(field, customerModalRef.current)}
+              containerRef={customerModalRef}
+            />
+
+            {/* Readonly Account Badge & Customer Type */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-500">Customer Code (Fixed Identifier)</Label>
+                <div className="font-mono text-xs font-bold text-slate-800 bg-white px-3 py-2 rounded-lg border border-slate-200">
+                  {customer.customerCode}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label required className="text-xs">Customer Classification</Label>
+                <SearchableCombobox
+                  options={[
+                    { value: "COMPANY", label: "Company / Corporate Entity" },
+                    { value: "CONTRACTOR", label: "Civil Contractor / Subcontractor" },
+                    { value: "INDIVIDUAL", label: "Individual / Property Owner" },
+                  ]}
+                  value={customerForm.customerType}
+                  error={!!customerValidation.fieldErrors.customerType}
+                  onChange={(val) => {
+                    setCustomerForm({ ...customerForm, customerType: val || "COMPANY" });
+                    customerValidation.clearFieldError("customerType");
+                  }}
+                  allowClear={false}
+                />
+                <FormFieldError id="custType-error" error={customerValidation.fieldErrors.customerType} />
+              </div>
+            </div>
+
+            {/* Trade & Legal Name */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="custEditName" required>Trade / Display Name</Label>
+                <Input
+                  id="custEditName"
+                  name="name"
+                  placeholder="e.g. Casaagrand / Prestige Infra"
+                  value={customerForm.name}
+                  error={!!customerValidation.fieldErrors.name}
+                  aria-invalid={!!customerValidation.fieldErrors.name}
+                  aria-describedby={customerValidation.fieldErrors.name ? "custEditName-error" : undefined}
+                  onChange={(e) => {
+                    setCustomerForm({ ...customerForm, name: e.target.value });
+                    customerValidation.clearFieldError("name");
+                  }}
+                  required
+                />
+                <FormFieldError id="custEditName-error" error={customerValidation.fieldErrors.name} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="custEditLegalName">Legal Registered Name (Optional)</Label>
+                <Input
+                  id="custEditLegalName"
+                  name="legalBusinessName"
+                  placeholder="e.g. Casaagrand Builder Private Limited"
+                  value={customerForm.legalBusinessName}
+                  error={!!customerValidation.fieldErrors.legalBusinessName}
+                  aria-invalid={!!customerValidation.fieldErrors.legalBusinessName}
+                  aria-describedby={customerValidation.fieldErrors.legalBusinessName ? "custEditLegalName-error" : undefined}
+                  onChange={(e) => {
+                    setCustomerForm({ ...customerForm, legalBusinessName: e.target.value });
+                    customerValidation.clearFieldError("legalBusinessName");
+                  }}
+                />
+                <FormFieldError id="custEditLegalName-error" error={customerValidation.fieldErrors.legalBusinessName} />
+              </div>
+            </div>
+
+            {/* Contact & Phone Numbers */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <Label htmlFor="custEditMobile" required>Primary Mobile</Label>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {customerForm.primaryMobile.length}/10
+                  </span>
+                </div>
+                <Input
+                  id="custEditMobile"
+                  name="primaryMobile"
+                  type="tel"
+                  maxLength={10}
+                  placeholder="10 digits"
+                  value={customerForm.primaryMobile}
+                  error={!!customerValidation.fieldErrors.primaryMobile}
+                  aria-invalid={!!customerValidation.fieldErrors.primaryMobile}
+                  aria-describedby={customerValidation.fieldErrors.primaryMobile ? "custEditMobile-error" : undefined}
+                  onChange={(e) => {
+                    const clean = e.target.value.replace(/\D/g, "").slice(0, 10);
+                    setCustomerForm({ ...customerForm, primaryMobile: clean });
+                    customerValidation.clearFieldError("primaryMobile");
+                  }}
+                  className="font-mono"
+                  required
+                />
+                <FormFieldError id="custEditMobile-error" error={customerValidation.fieldErrors.primaryMobile} />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <Label htmlFor="custEditAltMobile">Alternate Mobile</Label>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {customerForm.alternateMobile.length}/10
+                  </span>
+                </div>
+                <Input
+                  id="custEditAltMobile"
+                  name="alternateMobile"
+                  type="tel"
+                  maxLength={10}
+                  placeholder="Optional 10 digits"
+                  value={customerForm.alternateMobile}
+                  error={!!customerValidation.fieldErrors.alternateMobile}
+                  aria-invalid={!!customerValidation.fieldErrors.alternateMobile}
+                  aria-describedby={customerValidation.fieldErrors.alternateMobile ? "custEditAltMobile-error" : undefined}
+                  onChange={(e) => {
+                    const clean = e.target.value.replace(/\D/g, "").slice(0, 10);
+                    setCustomerForm({ ...customerForm, alternateMobile: clean });
+                    customerValidation.clearFieldError("alternateMobile");
+                  }}
+                  className="font-mono"
+                />
+                <FormFieldError id="custEditAltMobile-error" error={customerValidation.fieldErrors.alternateMobile} />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <Label htmlFor="custEditWhatsapp">WhatsApp Number</Label>
+                  {customerForm.primaryMobile && customerForm.whatsappNumber !== customerForm.primaryMobile && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomerForm({ ...customerForm, whatsappNumber: customerForm.primaryMobile });
+                        customerValidation.clearFieldError("whatsappNumber");
+                      }}
+                      className="text-[10px] text-[#F26522] hover:underline font-medium"
+                    >
+                      Same as mobile
+                    </button>
+                  )}
+                </div>
+                <Input
+                  id="custEditWhatsapp"
+                  name="whatsappNumber"
+                  type="tel"
+                  maxLength={10}
+                  placeholder="WhatsApp 10 digits"
+                  value={customerForm.whatsappNumber}
+                  error={!!customerValidation.fieldErrors.whatsappNumber}
+                  aria-invalid={!!customerValidation.fieldErrors.whatsappNumber}
+                  aria-describedby={customerValidation.fieldErrors.whatsappNumber ? "custEditWhatsapp-error" : undefined}
+                  onChange={(e) => {
+                    const clean = e.target.value.replace(/\D/g, "").slice(0, 10);
+                    setCustomerForm({ ...customerForm, whatsappNumber: clean });
+                    customerValidation.clearFieldError("whatsappNumber");
+                  }}
+                  className="font-mono"
+                />
+                <FormFieldError id="custEditWhatsapp-error" error={customerValidation.fieldErrors.whatsappNumber} />
+              </div>
+            </div>
+
+            {/* Email & Business Type */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="custEditEmail">Billing / Accounts Email</Label>
+                <Input
+                  id="custEditEmail"
+                  name="email"
+                  type="email"
+                  maxLength={100}
+                  placeholder="billing@customer.com"
+                  value={customerForm.email}
+                  error={!!customerValidation.fieldErrors.email}
+                  aria-invalid={!!customerValidation.fieldErrors.email}
+                  aria-describedby={customerValidation.fieldErrors.email ? "custEditEmail-error" : undefined}
+                  onChange={(e) => {
+                    setCustomerForm({ ...customerForm, email: e.target.value });
+                    customerValidation.clearFieldError("email");
+                  }}
+                />
+                <FormFieldError id="custEditEmail-error" error={customerValidation.fieldErrors.email} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Business Project Type</Label>
+                <SearchableCombobox
+                  options={[
+                    { value: "RESIDENTIAL", label: "Residential Construction" },
+                    { value: "COMMERCIAL", label: "Commercial / IT Parks" },
+                    { value: "INFRASTRUCTURE", label: "Infrastructure / Public Works" },
+                    { value: "INDUSTRIAL", label: "Industrial & Manufacturing" },
+                  ]}
+                  value={customerForm.businessType}
+                  placeholder="Select project classification..."
+                  onChange={(val) => {
+                    setCustomerForm({ ...customerForm, businessType: val || "" });
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Statutory & GST */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label required>GST Registration</Label>
+                <SearchableCombobox
+                  options={[
+                    { value: "REGISTERED", label: "Registered (Regular GST)" },
+                    { value: "UNREGISTERED", label: "Unregistered (Non-GST)" },
+                    { value: "COMPOSITION", label: "Composition Dealer" },
+                  ]}
+                  value={customerForm.gstStatus}
+                  error={!!customerValidation.fieldErrors.gstStatus}
+                  onChange={(val) => {
+                    setCustomerForm({ ...customerForm, gstStatus: val || "UNREGISTERED" });
+                    customerValidation.clearFieldError("gstStatus");
+                  }}
+                  allowClear={false}
+                />
+                <FormFieldError id="custEditGstStatus-error" error={customerValidation.fieldErrors.gstStatus} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="custEditGstin">GSTIN</Label>
+                <Input
+                  id="custEditGstin"
+                  name="gstin"
+                  maxLength={15}
+                  placeholder="15-character GSTIN"
+                  value={customerForm.gstin}
+                  error={!!customerValidation.fieldErrors.gstin}
+                  aria-invalid={!!customerValidation.fieldErrors.gstin}
+                  aria-describedby={customerValidation.fieldErrors.gstin ? "custEditGstin-error" : undefined}
+                  onChange={(e) => {
+                    const val = e.target.value.toUpperCase();
+                    const updates: any = { gstin: val };
+                    // Auto-extract PAN from GSTIN if 15 chars and PAN is blank or was previous subpart
+                    if (val.length >= 12 && (!customerForm.pan || customerForm.pan === customerForm.gstin.slice(2, 12))) {
+                      updates.pan = val.slice(2, 12);
+                    }
+                    if (val.length >= 2 && !customerForm.stateCode) {
+                      updates.stateCode = val.slice(0, 2);
+                    }
+                    if (val.length > 0 && customerForm.gstStatus === "UNREGISTERED") {
+                      updates.gstStatus = "REGISTERED";
+                    }
+                    setCustomerForm({ ...customerForm, ...updates });
+                    customerValidation.clearFieldError("gstin");
+                    if (updates.pan) customerValidation.clearFieldError("pan");
+                  }}
+                  className="font-mono uppercase"
+                />
+                <FormFieldError id="custEditGstin-error" error={customerValidation.fieldErrors.gstin} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="custEditPan">Permanent Account Number (PAN)</Label>
+                <Input
+                  id="custEditPan"
+                  name="pan"
+                  maxLength={10}
+                  placeholder="10-digit PAN"
+                  value={customerForm.pan}
+                  error={!!customerValidation.fieldErrors.pan}
+                  aria-invalid={!!customerValidation.fieldErrors.pan}
+                  aria-describedby={customerValidation.fieldErrors.pan ? "custEditPan-error" : undefined}
+                  onChange={(e) => {
+                    setCustomerForm({ ...customerForm, pan: e.target.value.toUpperCase() });
+                    customerValidation.clearFieldError("pan");
+                  }}
+                  className="font-mono uppercase"
+                />
+                <FormFieldError id="custEditPan-error" error={customerValidation.fieldErrors.pan} />
+              </div>
+            </div>
+
+            {/* Billing Address */}
+            <div className="space-y-1.5">
+              <Label htmlFor="custEditBilling" required>Full Registered Billing Address</Label>
+              <Textarea
+                id="custEditBilling"
+                name="billingAddress"
+                rows={2}
+                placeholder="Door/Plot No., Street, Area, City, etc."
+                value={customerForm.billingAddress}
+                error={!!customerValidation.fieldErrors.billingAddress}
+                aria-invalid={!!customerValidation.fieldErrors.billingAddress}
+                aria-describedby={customerValidation.fieldErrors.billingAddress ? "custEditBilling-error" : undefined}
+                onChange={(e) => {
+                  setCustomerForm({ ...customerForm, billingAddress: e.target.value });
+                  customerValidation.clearFieldError("billingAddress");
+                }}
+                required
+              />
+              <FormFieldError id="custEditBilling-error" error={customerValidation.fieldErrors.billingAddress} />
+            </div>
+
+            {/* State, State Code, PIN Code */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="custEditState" required>State</Label>
+                <Input
+                  id="custEditState"
+                  name="state"
+                  placeholder="e.g. Tamil Nadu"
+                  value={customerForm.state}
+                  error={!!customerValidation.fieldErrors.state}
+                  aria-invalid={!!customerValidation.fieldErrors.state}
+                  aria-describedby={customerValidation.fieldErrors.state ? "custEditState-error" : undefined}
+                  onChange={(e) => {
+                    setCustomerForm({ ...customerForm, state: e.target.value });
+                    customerValidation.clearFieldError("state");
+                  }}
+                  required
+                />
+                <FormFieldError id="custEditState-error" error={customerValidation.fieldErrors.state} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="custEditStateCode" required>State Code (2 Digits)</Label>
+                <Input
+                  id="custEditStateCode"
+                  name="stateCode"
+                  maxLength={2}
+                  placeholder="e.g. 33"
+                  value={customerForm.stateCode}
+                  error={!!customerValidation.fieldErrors.stateCode}
+                  aria-invalid={!!customerValidation.fieldErrors.stateCode}
+                  aria-describedby={customerValidation.fieldErrors.stateCode ? "custEditStateCode-error" : undefined}
+                  onChange={(e) => {
+                    setCustomerForm({ ...customerForm, stateCode: e.target.value });
+                    customerValidation.clearFieldError("stateCode");
+                  }}
+                  className="font-mono"
+                  required
+                />
+                <FormFieldError id="custEditStateCode-error" error={customerValidation.fieldErrors.stateCode} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="custEditPin">PIN Code</Label>
+                <Input
+                  id="custEditPin"
+                  name="pinCode"
+                  maxLength={6}
+                  placeholder="6 digits"
+                  value={customerForm.pinCode}
+                  error={!!customerValidation.fieldErrors.pinCode}
+                  aria-invalid={!!customerValidation.fieldErrors.pinCode}
+                  aria-describedby={customerValidation.fieldErrors.pinCode ? "custEditPin-error" : undefined}
+                  onChange={(e) => {
+                    const clean = e.target.value.replace(/\D/g, "").slice(0, 6);
+                    setCustomerForm({ ...customerForm, pinCode: clean });
+                    customerValidation.clearFieldError("pinCode");
+                  }}
+                  className="font-mono"
+                />
+                <FormFieldError id="custEditPin-error" error={customerValidation.fieldErrors.pinCode} />
+              </div>
+            </div>
+
+            {/* Commercial Terms & Status */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="custEditLimit">Credit Limit (₹)</Label>
+                <Input
+                  id="custEditLimit"
+                  name="creditLimit"
+                  type="number"
+                  placeholder="Empty for unrestricted"
+                  value={customerForm.creditLimit}
+                  error={!!customerValidation.fieldErrors.creditLimit}
+                  aria-invalid={!!customerValidation.fieldErrors.creditLimit}
+                  aria-describedby={customerValidation.fieldErrors.creditLimit ? "custEditLimit-error" : undefined}
+                  onChange={(e) => {
+                    setCustomerForm({ ...customerForm, creditLimit: e.target.value });
+                    customerValidation.clearFieldError("creditLimit");
+                  }}
+                />
+                <FormFieldError id="custEditLimit-error" error={customerValidation.fieldErrors.creditLimit} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="custEditTerms">Payment Terms (Days)</Label>
+                <Input
+                  id="custEditTerms"
+                  name="paymentTermsDays"
+                  type="number"
+                  placeholder="30"
+                  value={customerForm.paymentTermsDays}
+                  error={!!customerValidation.fieldErrors.paymentTermsDays}
+                  aria-invalid={!!customerValidation.fieldErrors.paymentTermsDays}
+                  aria-describedby={customerValidation.fieldErrors.paymentTermsDays ? "custEditTerms-error" : undefined}
+                  onChange={(e) => {
+                    setCustomerForm({ ...customerForm, paymentTermsDays: e.target.value });
+                    customerValidation.clearFieldError("paymentTermsDays");
+                  }}
+                />
+                <FormFieldError id="custEditTerms-error" error={customerValidation.fieldErrors.paymentTermsDays} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Account Status</Label>
+                <SearchableCombobox
+                  options={[
+                    { value: "true", label: "Active Account" },
+                    { value: "false", label: "Inactive / Suspended" },
+                  ]}
+                  value={customerForm.isActive ? "true" : "false"}
+                  onChange={(val) => {
+                    setCustomerForm({ ...customerForm, isActive: val === "true" });
+                  }}
+                  allowClear={false}
+                />
+              </div>
+            </div>
+
+            {/* Notes / Internal Remarks */}
+            <div className="space-y-1.5">
+              <Label htmlFor="custEditNotes">Internal Operational Notes / Remarks</Label>
+              <Textarea
+                id="custEditNotes"
+                name="notes"
+                rows={2}
+                placeholder="Special billing instructions, payment follow-up preferences, customer relationship notes..."
+                value={customerForm.notes}
+                error={!!customerValidation.fieldErrors.notes}
+                aria-invalid={!!customerValidation.fieldErrors.notes}
+                aria-describedby={customerValidation.fieldErrors.notes ? "custEditNotes-error" : undefined}
+                onChange={(e) => {
+                  setCustomerForm({ ...customerForm, notes: e.target.value });
+                  customerValidation.clearFieldError("notes");
+                }}
+              />
+              <FormFieldError id="custEditNotes-error" error={customerValidation.fieldErrors.notes} />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setIsEditCustomerModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                isLoading={isCustomerSubmitting}
+                loadingText="Saving Changes..."
+                className="bg-[#0B1E36] hover:bg-[#071424] text-white"
+              >
+                Save Changes
               </Button>
             </DialogFooter>
           </form>
