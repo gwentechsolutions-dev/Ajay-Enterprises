@@ -91,39 +91,48 @@ export default function MaterialReturnsPage() {
   const loadData = React.useCallback(async () => {
     try {
       setLoading(true);
-      const [mrnRes, custRes, whRes, varRes] = await Promise.all([
-        fetch("/api/v1/return-notes"),
-        fetch("/api/v1/customers"),
-        fetch("/api/v1/warehouses"),
-        fetch("/api/v1/materials/variants"),
-      ]);
-
-      const [mrnData, custData, whData, varData] = await Promise.all([
-        mrnRes.json(),
-        custRes.json(),
-        whRes.json(),
-        varRes.json(),
-      ]);
-
+      // 1. Primary: Fetch Return Notes
+      const mrnRes = await fetch("/api/v1/return-notes");
+      const mrnData = await mrnRes.json();
       if (mrnData.success) setReturnNotes(Array.isArray(mrnData.data) ? mrnData.data : []);
-      if (custData.success) setCustomers(Array.isArray(custData.data) ? custData.data : []);
-      if (whData.success) {
-        const whList = Array.isArray(whData.data) ? whData.data : [];
-        setWarehouses(whList);
-        if (whList.length > 0) {
-          setMrnForm((prev) => ({
-            ...prev,
-            receivingWarehouseId: prev.receivingWarehouseId || whList[0].id,
-          }));
-        }
-      }
-      if (varData.success) setVariants(Array.isArray(varData.data) ? varData.data : []);
     } catch {
       toast.error("Failed to load material return notes.");
     } finally {
       setLoading(false);
     }
-  }, []);
+
+    // 2. Auxiliary master data: Only needed if user can create return notes
+    if (canCreateReturnNote) {
+      try {
+        const [custRes, whRes, varRes] = await Promise.all([
+          fetch("/api/v1/customers").catch(() => null),
+          fetch("/api/v1/warehouses").catch(() => null),
+          fetch("/api/v1/materials/variants").catch(() => null),
+        ]);
+
+        const [custData, whData, varData] = await Promise.all([
+          custRes ? custRes.json().catch(() => null) : null,
+          whRes ? whRes.json().catch(() => null) : null,
+          varRes ? varRes.json().catch(() => null) : null,
+        ]);
+
+        if (custData?.success) setCustomers(Array.isArray(custData.data) ? custData.data : []);
+        if (whData?.success) {
+          const whList = Array.isArray(whData.data) ? whData.data : [];
+          setWarehouses(whList);
+          if (whList.length > 0) {
+            setMrnForm((prev) => ({
+              ...prev,
+              receivingWarehouseId: prev.receivingWarehouseId || whList[0].id,
+            }));
+          }
+        }
+        if (varData?.success) setVariants(Array.isArray(varData.data) ? varData.data : []);
+      } catch (err) {
+        console.warn("Could not pre-load auxiliary return note master data:", err);
+      }
+    }
+  }, [canCreateReturnNote]);
 
   React.useEffect(() => {
     loadData();

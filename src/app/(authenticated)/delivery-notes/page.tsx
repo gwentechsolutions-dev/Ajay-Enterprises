@@ -43,7 +43,7 @@ import { fetchWithClientCache, invalidateClientCache } from "@/lib/client-cache"
 import { useCurrentUser } from "@/lib/auth-context";
 import { stampGpsWatermarkOnPhoto } from "@/lib/gps-watermark";
 import { FormFieldError } from "@/components/ui/form-field-error";
-import { parseApiValidationErrors, formatValidationToast, getApiErrorMessage } from "@/lib/forms/validation-mapper";
+import { parseApiValidationErrors, formatValidationToast } from "@/lib/forms/validation-mapper";
 import { toast } from "sonner";
 
 export default function DeliveryNotesPage() {
@@ -133,64 +133,74 @@ export default function DeliveryNotesPage() {
 
   const loadData = React.useCallback(async (forceRefresh = false) => {
     try {
-      const [dnData, custData, whData, varData, vehData, drvData] = await Promise.all([
-        fetchWithClientCache("/api/v1/delivery-notes", {
-          forceRefresh,
-          onBackgroundUpdate: (fresh) => setDeliveryNotes(Array.isArray(fresh) ? fresh : []),
-        }),
-        fetchWithClientCache("/api/v1/customers", {
-          forceRefresh,
-          onBackgroundUpdate: (fresh) => setCustomers(Array.isArray(fresh) ? fresh : []),
-        }),
-        fetchWithClientCache("/api/v1/warehouses", {
-          forceRefresh,
-          ttlMs: 60_000,
-          onBackgroundUpdate: (fresh) => setWarehouses(Array.isArray(fresh) ? fresh : []),
-        }),
-        fetchWithClientCache("/api/v1/materials/variants", {
-          forceRefresh,
-          ttlMs: 60_000,
-          onBackgroundUpdate: (fresh) => setVariants(Array.isArray(fresh) ? fresh : []),
-        }),
-        fetchWithClientCache("/api/v1/fleet/vehicles", {
-          forceRefresh,
-          ttlMs: 60_000,
-          onBackgroundUpdate: (fresh) => {
-            if (Array.isArray(fresh)) setFleetVehicles(fresh);
-          },
-        }).catch(() => null),
-        fetchWithClientCache("/api/v1/fleet/drivers", {
-          forceRefresh,
-          ttlMs: 60_000,
-          onBackgroundUpdate: (fresh) => {
-            if (Array.isArray(fresh)) setFleetDrivers(fresh);
-          },
-        }).catch(() => null),
-      ]);
-
+      // 1. Primary: Fetch delivery notes
+      const dnData = await fetchWithClientCache("/api/v1/delivery-notes", {
+        forceRefresh,
+        onBackgroundUpdate: (fresh) => setDeliveryNotes(Array.isArray(fresh) ? fresh : []),
+      });
       if (dnData) setDeliveryNotes(Array.isArray(dnData) ? dnData : []);
-      if (custData) setCustomers(Array.isArray(custData) ? custData : []);
-      if (whData && Array.isArray(whData)) {
-        setWarehouses(whData);
-        setDnForm((prev) => {
-          if (prev.sourceWarehouseId) return prev;
-          const mainYard = whData.find((w: any) => w.warehouseType === "MAIN_YARD") || whData[0];
-          return mainYard ? { ...prev, sourceWarehouseId: mainYard.id } : prev;
-        });
-      }
-      if (varData) setVariants(Array.isArray(varData) ? varData : []);
-      if (vehData && Array.isArray(vehData)) setFleetVehicles(vehData);
-      if (drvData && Array.isArray(drvData)) setFleetDrivers(drvData);
-    } catch {
+    } catch (err) {
+      console.error("Failed to load delivery notes:", err);
       toast.error("Failed to load delivery notes.");
     } finally {
       setLoading(false);
     }
-  }, []);
+
+    // 2. Auxiliary master data for Create/Edit Modal: Only needed if user can create/edit notes
+    if (canCreateDeliveryNote) {
+      try {
+        const [custData, whData, varData, vehData, drvData] = await Promise.all([
+          fetchWithClientCache("/api/v1/customers", {
+            forceRefresh,
+            onBackgroundUpdate: (fresh) => setCustomers(Array.isArray(fresh) ? fresh : []),
+          }).catch(() => null),
+          fetchWithClientCache("/api/v1/warehouses", {
+            forceRefresh,
+            ttlMs: 60_000,
+            onBackgroundUpdate: (fresh) => setWarehouses(Array.isArray(fresh) ? fresh : []),
+          }).catch(() => null),
+          fetchWithClientCache("/api/v1/materials/variants", {
+            forceRefresh,
+            ttlMs: 60_000,
+            onBackgroundUpdate: (fresh) => setVariants(Array.isArray(fresh) ? fresh : []),
+          }).catch(() => null),
+          fetchWithClientCache("/api/v1/fleet/vehicles", {
+            forceRefresh,
+            ttlMs: 60_000,
+            onBackgroundUpdate: (fresh) => {
+              if (Array.isArray(fresh)) setFleetVehicles(fresh);
+            },
+          }).catch(() => null),
+          fetchWithClientCache("/api/v1/fleet/drivers", {
+            forceRefresh,
+            ttlMs: 60_000,
+            onBackgroundUpdate: (fresh) => {
+              if (Array.isArray(fresh)) setFleetDrivers(fresh);
+            },
+          }).catch(() => null),
+        ]);
+
+        if (custData) setCustomers(Array.isArray(custData) ? custData : []);
+        if (whData && Array.isArray(whData)) {
+          setWarehouses(whData);
+          setDnForm((prev) => {
+            if (prev.sourceWarehouseId) return prev;
+            const mainYard = whData.find((w: any) => w.warehouseType === "MAIN_YARD") || whData[0];
+            return mainYard ? { ...prev, sourceWarehouseId: mainYard.id } : prev;
+          });
+        }
+        if (varData) setVariants(Array.isArray(varData) ? varData : []);
+        if (vehData && Array.isArray(vehData)) setFleetVehicles(vehData);
+        if (drvData && Array.isArray(drvData)) setFleetDrivers(drvData);
+      } catch (err) {
+        console.warn("Could not pre-load auxiliary master data:", err);
+      }
+    }
+  }, [canCreateDeliveryNote]);
 
   // Fetch stock balances for selected source yard in Create/Edit form
   React.useEffect(() => {
-    if (!dnForm.sourceWarehouseId) return;
+    if (!canCreateDeliveryNote || !dnForm.sourceWarehouseId) return;
     let isMounted = true;
     fetchWithClientCache(`/api/v1/inventory/stock-balances?warehouseId=${dnForm.sourceWarehouseId}&locationType=WAREHOUSE`, {
       ttlMs: 30_000,
@@ -211,7 +221,7 @@ export default function DeliveryNotesPage() {
         }
         setYardStocks(map);
       })
-      .catch(() => {});
+      .catch(() => { });
 
     return () => {
       isMounted = false;
@@ -358,7 +368,7 @@ export default function DeliveryNotesPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(getApiErrorMessage(data, `Failed to ${editingDnId ? "update" : "create"} Delivery Note`));
+      if (!res.ok) throw new Error(data.error?.message || `Failed to ${editingDnId ? "update" : "create"} Delivery Note`);
 
       toast.success(`Delivery Note ${data.data.dnNumber} ${editingDnId ? "updated" : "created"}!`);
       setIsCreateModalOpen(false);
@@ -409,7 +419,7 @@ export default function DeliveryNotesPage() {
           .then((data) => {
             if (Array.isArray(data)) setSites(data);
           })
-          .catch(() => {});
+          .catch(() => { });
       }
     }
 
@@ -655,7 +665,7 @@ export default function DeliveryNotesPage() {
           setActiveEwbProvider(data.data.activeProvider);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const openEwbModal = (dn: any) => {
@@ -735,6 +745,11 @@ export default function DeliveryNotesPage() {
   const handleUpdateVehicle = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDN?.eWayBillNumber) return;
+    if (selectedDN?.status === "DELIVERED") {
+      toast.error("Cannot update Part-B: Goods have already been delivered at site.");
+      setIsUpdateVehicleModalOpen(false);
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -763,6 +778,11 @@ export default function DeliveryNotesPage() {
   const handleCancelEwb = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDN?.eWayBillNumber) return;
+    if (selectedDN?.status === "DELIVERED") {
+      toast.error("Cannot cancel E-Way Bill: Goods have already been delivered at site.");
+      setIsCancelEwbModalOpen(false);
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -1015,8 +1035,8 @@ export default function DeliveryNotesPage() {
                           dn.status === "DELIVERED"
                             ? "bg-emerald-100 text-emerald-800"
                             : dn.status === "DISPATCHED"
-                            ? "bg-sky-100 text-sky-800"
-                            : "bg-amber-100 text-amber-800"
+                              ? "bg-sky-100 text-sky-800"
+                              : "bg-amber-100 text-amber-800"
                         }
                       >
                         {dn.status}
@@ -1042,11 +1062,10 @@ export default function DeliveryNotesPage() {
                           size="sm"
                           variant={dn.eWayBillNumber ? "secondary" : "outline"}
                           onClick={() => openEwbModal(dn)}
-                          className={`text-xs h-7 px-2.5 inline-flex items-center gap-1 font-medium ${
-                            dn.eWayBillNumber
-                              ? "bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
-                              : "text-slate-700"
-                          }`}
+                          className={`text-xs h-7 px-2.5 inline-flex items-center gap-1 font-medium ${dn.eWayBillNumber
+                            ? "bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
+                            : "text-slate-700"
+                            }`}
                         >
                           <FileDigit className="h-3.5 w-3.5" />
                           <span>{dn.eWayBillNumber ? "View EWB" : "E-Way Bill"}</span>
@@ -1202,10 +1221,8 @@ export default function DeliveryNotesPage() {
                 ) : (
                   <Input
                     placeholder="KA-01-AB-1234"
-                    maxLength={20}
                     value={dnForm.vehicleNumber}
-                    onChange={(e) => setDnForm({ ...dnForm, vehicleNumber: e.target.value.toUpperCase().slice(0, 20) })}
-                    className="uppercase font-mono"
+                    onChange={(e) => setDnForm({ ...dnForm, vehicleNumber: e.target.value })}
                     required
                   />
                 )}
@@ -1222,11 +1239,10 @@ export default function DeliveryNotesPage() {
                   )}
                 </div>
                 <Input
-                  maxLength={100}
                   placeholder="e.g. Ramesh Kumar (type or select)"
                   value={dnForm.driverName}
                   onChange={(e) => {
-                    setDnForm({ ...dnForm, driverName: e.target.value.slice(0, 100) });
+                    setDnForm({ ...dnForm, driverName: e.target.value });
                     setShowDriverSuggestions(true);
                   }}
                   onFocus={() => setShowDriverSuggestions(true)}
@@ -1732,7 +1748,7 @@ export default function DeliveryNotesPage() {
                 <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                   <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">E-Way Bill Number</span>
                   <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-xs font-medium">
-                    ACTIVE / VERIFIED
+                    {selectedDN.status === "DELIVERED" ? "ACTIVE · TRANSIT CONCLUDED" : "ACTIVE / VERIFIED"}
                   </Badge>
                 </div>
 
@@ -1777,6 +1793,18 @@ export default function DeliveryNotesPage() {
                 </div>
               </div>
 
+              {selectedDN.status === "DELIVERED" && (
+                <div className="rounded-lg bg-emerald-50 border border-emerald-200/80 p-3 text-xs text-emerald-900 flex items-start gap-2.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-semibold block text-emerald-900">Transit Concluded • Material Delivered</span>
+                    <p className="text-[11px] text-emerald-700 leading-relaxed mt-0.5">
+                      Physical custody handover is completed at customer construction site. In accordance with statutory E-Way Bill regulations, Part-B conveyance update and document cancellation are disabled once transit has terminated.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Button
                   asChild
@@ -1799,40 +1827,72 @@ export default function DeliveryNotesPage() {
                   </a>
                 </Button>
 
-                <div className="grid grid-cols-3 gap-2 pt-1">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsUpdateVehicleModalOpen(true)}
-                    className="text-xs text-slate-700 border-slate-300 flex items-center justify-center gap-1.5"
-                  >
-                    <Truck className="w-3.5 h-3.5 text-[#F26522]" />
-                    Update Part-B
-                  </Button>
+                {selectedDN.status !== "DELIVERED" ? (
+                  <div className="grid grid-cols-3 gap-2 pt-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsUpdateVehicleModalOpen(true)}
+                      className="text-xs text-slate-700 border-slate-300 flex items-center justify-center gap-1.5"
+                    >
+                      <Truck className="w-3.5 h-3.5 text-[#F26522]" />
+                      Update Part-B
+                    </Button>
 
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleRefreshEwb}
-                    disabled={refreshingEwb}
-                    className="text-xs text-slate-700 border-slate-300 flex items-center justify-center gap-1.5"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 text-blue-600 ${refreshingEwb ? "animate-spin" : ""}`} />
-                    Refresh
-                  </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleRefreshEwb}
+                      disabled={refreshingEwb}
+                      className="text-xs text-slate-700 border-slate-300 flex items-center justify-center gap-1.5"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 text-blue-600 ${refreshingEwb ? "animate-spin" : ""}`} />
+                      Refresh
+                    </Button>
 
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsCancelEwbModalOpen(true)}
-                    className="text-xs text-red-600 border-red-200 hover:bg-red-50 flex items-center justify-center gap-1.5"
-                  >
-                    <Ban className="w-3.5 h-3.5" />
-                    Cancel EWB
-                  </Button>
-                </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsCancelEwbModalOpen(true)}
+                      className="text-xs text-red-600 border-red-200 hover:bg-red-50 flex items-center justify-center gap-1.5"
+                    >
+                      <Ban className="w-3.5 h-3.5" />
+                      Cancel EWB
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="pt-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleRefreshEwb}
+                      disabled={refreshingEwb}
+                      className="w-full text-xs text-slate-700 border-slate-300 flex items-center justify-center gap-1.5"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 text-blue-600 ${refreshingEwb ? "animate-spin" : ""}`} />
+                      Refresh E-Way Bill Status
+                    </Button>
+                  </div>
+                )}
               </div>
 
+              <DialogFooter className="pt-2">
+                <Button type="button" variant="outline" onClick={() => setIsEwbModalOpen(false)} className="w-full text-xs">
+                  Close
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : selectedDN?.status === "DELIVERED" ? (
+            <div className="space-y-4 pt-1">
+              <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-xs text-amber-900 space-y-2">
+                <div className="flex items-center gap-2 font-semibold text-amber-900">
+                  <AlertTriangle className="w-4 h-4 text-amber-600" />
+                  <span>Delivery Already Concluded</span>
+                </div>
+                <p className="text-amber-800 leading-relaxed text-[11px]">
+                  This delivery note ({selectedDN?.dnNumber}) has already been marked as DELIVERED at the customer site. Statutory E-Way Bills are movement transit documents and cannot be generated retrospectively once physical custody is locked.
+                </p>
+              </div>
               <DialogFooter className="pt-2">
                 <Button type="button" variant="outline" onClick={() => setIsEwbModalOpen(false)} className="w-full text-xs">
                   Close

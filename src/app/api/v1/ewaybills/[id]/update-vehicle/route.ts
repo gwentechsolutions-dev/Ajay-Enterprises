@@ -28,10 +28,26 @@ export async function POST(
       where: isUuid
         ? { OR: [{ id }, { ewbNumber: id }] }
         : { ewbNumber: id },
+      include: {
+        deliveryNote: { select: { id: true, status: true, dnNumber: true } },
+      },
     });
 
     if (!ewb) {
       return NextResponse.json({ success: false, error: { message: "E-Way Bill not found" } }, { status: 404 });
+    }
+
+    if (ewb.deliveryNote?.status === "DELIVERED") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "TRANSIT_COMPLETED",
+            message: `Cannot update Part-B conveyance details: Material custody for ${ewb.deliveryNote.dnNumber} has already been confirmed and delivered at destination site. Transit is concluded.`,
+          },
+        },
+        { status: 400 }
+      );
     }
 
     const actor = {
