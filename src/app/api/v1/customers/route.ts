@@ -39,7 +39,17 @@ export async function GET(req: NextRequest) {
           select: { sites: true },
         },
         sites: {
-          select: { id: true, siteCode: true, siteName: true, status: true, city: true },
+          select: {
+            id: true,
+            siteCode: true,
+            siteName: true,
+            status: true,
+            city: true,
+            fullAddress: true,
+            pinCode: true,
+            siteInCharge: true,
+            siteContactDetails: true,
+          },
         },
       },
       orderBy: { createdAt: "desc" },

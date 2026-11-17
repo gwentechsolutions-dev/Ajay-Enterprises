@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, ChevronsUpDown, Search, X } from "lucide-react";
+import { Check, ChevronsUpDown, Search, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface ComboboxOption {
@@ -25,6 +25,7 @@ export interface SearchableComboboxProps {
   className?: string;
   triggerClassName?: string;
   allowClear?: boolean;
+  isLoading?: boolean;
 }
 
 export function SearchableCombobox({
@@ -39,6 +40,7 @@ export function SearchableCombobox({
   className,
   triggerClassName,
   allowClear = true,
+  isLoading = false,
 }: SearchableComboboxProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -128,7 +130,11 @@ export function SearchableCombobox({
               <X className="h-3.5 w-3.5" />
             </span>
           )}
-          <ChevronsUpDown className="h-4 w-4 text-slate-400" />
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+          ) : (
+            <ChevronsUpDown className="h-4 w-4 text-slate-400" />
+          )}
         </div>
       </button>
 
@@ -159,7 +165,12 @@ export function SearchableCombobox({
 
           {/* Options List */}
           <div className="max-h-56 overflow-y-auto p-1">
-            {filteredOptions.length === 0 ? (
+            {isLoading ? (
+              <div className="py-6 flex items-center justify-center gap-2 text-xs text-slate-500">
+                <Loader2 className="h-4 w-4 animate-spin text-[#F26522]" />
+                <span>Loading options...</span>
+              </div>
+            ) : filteredOptions.length === 0 ? (
               <div className="py-6 text-center text-xs text-slate-500">
                 {emptyText}
               </div>

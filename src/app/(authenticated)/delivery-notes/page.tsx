@@ -184,22 +184,31 @@ export default function DeliveryNotesPage() {
   // Fetch stock balances for selected source yard in Create/Edit form
   React.useEffect(() => {
     if (!dnForm.sourceWarehouseId) return;
-    async function fetchYardStock() {
-      try {
-        const res = await fetch(`/api/v1/inventory/stock-balances?warehouseId=${dnForm.sourceWarehouseId}&locationType=WAREHOUSE`);
-        const data = await res.json();
-        if (data.success && Array.isArray(data.data)) {
-          const map: Record<string, number> = {};
-          for (const b of data.data) {
-            map[b.materialVariantId] = (map[b.materialVariantId] || 0) + Number(b.availableQty);
-          }
-          setYardStocks(map);
+    let isMounted = true;
+    fetchWithClientCache(`/api/v1/inventory/stock-balances?warehouseId=${dnForm.sourceWarehouseId}&locationType=WAREHOUSE`, {
+      ttlMs: 30_000,
+      onBackgroundUpdate: (fresh) => {
+        if (!isMounted || !Array.isArray(fresh)) return;
+        const map: Record<string, number> = {};
+        for (const b of fresh) {
+          map[b.materialVariantId] = (map[b.materialVariantId] || 0) + Number(b.availableQty);
         }
-      } catch {
-        // ignore
-      }
-    }
-    fetchYardStock();
+        setYardStocks(map);
+      },
+    })
+      .then((data) => {
+        if (!isMounted || !Array.isArray(data)) return;
+        const map: Record<string, number> = {};
+        for (const b of data) {
+          map[b.materialVariantId] = (map[b.materialVariantId] || 0) + Number(b.availableQty);
+        }
+        setYardStocks(map);
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
   }, [dnForm.sourceWarehouseId]);
 
   React.useEffect(() => {
@@ -255,25 +264,37 @@ export default function DeliveryNotesPage() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [variants]);
 
-  // Load sites when customer changes
-  const handleCustomerChange = async (customerId: string) => {
+  // Load sites when customer changes (instant from in-memory customer object)
+  const handleCustomerChange = (customerId: string) => {
     setDnForm((prev) => ({ ...prev, customerId, customerSiteId: "" }));
     if (!customerId) {
       setSites([]);
       return;
     }
-    try {
-      const res = await fetch(`/api/v1/customers/${customerId}/sites`);
-      const data = await res.json();
-      if (data.success) {
-        setSites(data.data);
-        if (data.data.length > 0) {
-          setDnForm((prev) => ({ ...prev, customerSiteId: data.data[0].id }));
-        }
-      }
-    } catch {
-      toast.error("Failed to load customer sites");
+
+    // 1. Instant 0ms memory lookup from already-loaded customer tree
+    const selectedCust = customers.find((c) => c.id === customerId);
+    if (selectedCust?.sites && Array.isArray(selectedCust.sites) && selectedCust.sites.length > 0) {
+      setSites(selectedCust.sites);
+      setDnForm((prev) => ({ ...prev, customerId, customerSiteId: selectedCust.sites[0].id }));
+      return;
     }
+
+    // 2. Fallback to cached API request if not already embedded
+    fetchWithClientCache(`/api/v1/customers/${customerId}/sites`, {
+      ttlMs: 60_000,
+    })
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setSites(data);
+          if (data.length > 0) {
+            setDnForm((prev) => ({ ...prev, customerSiteId: data[0].id }));
+          }
+        }
+      })
+      .catch(() => {
+        toast.error("Failed to load customer sites");
+      });
   };
 
   const handleAddLine = () => {
@@ -370,14 +391,17 @@ export default function DeliveryNotesPage() {
     });
 
     if (dn.customerId) {
-      try {
-        const res = await fetch(`/api/v1/customers/${dn.customerId}/sites`);
-        const data = await res.json();
-        if (data.success) {
-          setSites(data.data);
-        }
-      } catch {
-        // ignore
+      const cust = customers.find((c) => c.id === dn.customerId);
+      if (cust?.sites && Array.isArray(cust.sites) && cust.sites.length > 0) {
+        setSites(cust.sites);
+      } else {
+        fetchWithClientCache(`/api/v1/customers/${dn.customerId}/sites`, {
+          ttlMs: 60_000,
+        })
+          .then((data) => {
+            if (Array.isArray(data)) setSites(data);
+          })
+          .catch(() => {});
       }
     }
 
@@ -1042,6 +1066,7 @@ export default function DeliveryNotesPage() {
                   value={dnForm.customerId}
                   onChange={handleCustomerChange}
                   placeholder="Select Customer"
+                  isLoading={loading && customers.length === 0}
                 />
               </div>
 
@@ -1053,6 +1078,7 @@ export default function DeliveryNotesPage() {
                   onChange={(val) => setDnForm({ ...dnForm, customerSiteId: val })}
                   placeholder={dnForm.customerId ? "Select Construction Site" : "Select Customer First"}
                   disabled={!dnForm.customerId}
+                  isLoading={Boolean(dnForm.customerId && sites.length === 0)}
                 />
               </div>
 
@@ -1063,6 +1089,7 @@ export default function DeliveryNotesPage() {
                   value={dnForm.sourceWarehouseId}
                   onChange={(val) => setDnForm({ ...dnForm, sourceWarehouseId: val })}
                   placeholder="Select Dispatch Yard"
+                  isLoading={loading && warehouses.length === 0}
                 />
               </div>
             </div>
