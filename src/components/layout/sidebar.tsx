@@ -163,7 +163,6 @@ const NAVIGATION: NavGroup[] = [
       { title: "Cutover & Go-Live Hub", href: "/cutover", icon: ShieldCheck, badge: "Owner" },
       { title: "Demo Data Manager", href: "/demo-data", icon: Database, badge: "Demo" },
       { title: "Pilot Operations", href: "/pilot", icon: Compass },
-      { title: "Staff Training & SOPs", href: "/training", icon: BookOpen },
     ],
   },
   {

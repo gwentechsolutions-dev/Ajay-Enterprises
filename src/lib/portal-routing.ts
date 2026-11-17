@@ -101,7 +101,6 @@ export function isNavItemAllowedForRole(role?: string | null, href?: string): bo
       "/return-notes",
       "/fleet/trips",
       "/fleet/fuel",
-      "/training",
     ];
     return allowed.some((allowedHref) => href === allowedHref || href?.startsWith(allowedHref + "/"));
   }

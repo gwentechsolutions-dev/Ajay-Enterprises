@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { TableSkeleton } from "@/components/ui/loading-states";
+import { useCurrentUser } from "@/lib/auth-context";
 import { toast } from "sonner";
 
 interface MRNLineItem {
@@ -50,6 +51,7 @@ interface MRNLineItem {
 }
 
 export default function MaterialReturnsPage() {
+  const { isDeliveryPerson, canCreateReturnNote } = useCurrentUser();
   const [returnNotes, setReturnNotes] = React.useState<any[]>([]);
   const [customers, setCustomers] = React.useState<any[]>([]);
   const [sites, setSites] = React.useState<any[]>([]);
@@ -124,13 +126,13 @@ export default function MaterialReturnsPage() {
 
   React.useEffect(() => {
     loadData();
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && canCreateReturnNote) {
       const params = new URLSearchParams(window.location.search);
       if (params.get("action") === "new") {
         setIsCreateModalOpen(true);
       }
     }
-  }, [loadData]);
+  }, [loadData, canCreateReturnNote]);
 
   // Load delivered materials held at a specific customer site
   const loadSiteDeliveredMaterials = React.useCallback(
@@ -373,18 +375,20 @@ export default function MaterialReturnsPage() {
             Inward centering material return custody transfer from customer sites back to AJAY ENTERPRISES yards
           </p>
         </div>
-        <Button
-          onClick={() => {
-            setIsCreateModalOpen(true);
-            if (mrnForm.customerSiteId && mrnForm.items.length === 0) {
-              loadSiteDeliveredMaterials(mrnForm.customerSiteId);
-            }
-          }}
-          className="bg-[#0B1E36] hover:bg-[#0B1E36]/90 text-white shadow-sm flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          Create Return Note
-        </Button>
+        {canCreateReturnNote && (
+          <Button
+            onClick={() => {
+              setIsCreateModalOpen(true);
+              if (mrnForm.customerSiteId && mrnForm.items.length === 0) {
+                loadSiteDeliveredMaterials(mrnForm.customerSiteId);
+              }
+            }}
+            className="bg-[#0B1E36] hover:bg-[#0B1E36]/90 text-white shadow-sm flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Create Return Note
+          </Button>
+        )}
       </div>
 
       {/* KPI Cards */}

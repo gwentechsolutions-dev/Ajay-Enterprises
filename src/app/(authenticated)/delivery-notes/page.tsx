@@ -40,9 +40,11 @@ import {
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { TableSkeleton } from "@/components/ui/loading-states";
 import { fetchWithClientCache, invalidateClientCache } from "@/lib/client-cache";
+import { useCurrentUser } from "@/lib/auth-context";
 import { toast } from "sonner";
 
 export default function DeliveryNotesPage() {
+  const { isDeliveryPerson, canCreateDeliveryNote } = useCurrentUser();
   const [deliveryNotes, setDeliveryNotes] = React.useState<any[]>([]);
   const [customers, setCustomers] = React.useState<any[]>([]);
   const [sites, setSites] = React.useState<any[]>([]);
@@ -213,13 +215,13 @@ export default function DeliveryNotesPage() {
 
   React.useEffect(() => {
     loadData();
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && canCreateDeliveryNote) {
       const params = new URLSearchParams(window.location.search);
       if (params.get("action") === "new") {
         setIsCreateModalOpen(true);
       }
     }
-  }, [loadData]);
+  }, [loadData, canCreateDeliveryNote]);
 
   // Click outside to close driver suggestions popover
   React.useEffect(() => {
@@ -776,13 +778,15 @@ export default function DeliveryNotesPage() {
             Outward centering material custody transfer from AJAY ENTERPRISES yards to customer construction sites
           </p>
         </div>
-        <Button
-          onClick={() => setIsCreateModalOpen(true)}
-          className="bg-[#0B1E36] hover:bg-[#0B1E36]/90 text-white shadow-sm flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          Create Delivery Note
-        </Button>
+        {canCreateDeliveryNote && (
+          <Button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="bg-[#0B1E36] hover:bg-[#0B1E36]/90 text-white shadow-sm flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Create Delivery Note
+          </Button>
+        )}
       </div>
 
       {/* KPI Cards */}
@@ -993,7 +997,7 @@ export default function DeliveryNotesPage() {
                         </Button>
 
                         {/* Edit Action for DRAFT */}
-                        {dn.status === "DRAFT" ? (
+                        {dn.status === "DRAFT" && !isDeliveryPerson ? (
                           <Button
                             size="sm"
                             variant="outline"
@@ -1007,7 +1011,7 @@ export default function DeliveryNotesPage() {
                         ) : null}
 
                         {/* Dispatch Action */}
-                        {dn.status === "DRAFT" ? (
+                        {dn.status === "DRAFT" && !isDeliveryPerson ? (
                           <Button
                             size="sm"
                             onClick={() => handleOpenDispatch(dn)}
@@ -1019,7 +1023,7 @@ export default function DeliveryNotesPage() {
                         ) : null}
 
                         {/* Discard Action for DRAFT */}
-                        {dn.status === "DRAFT" ? (
+                        {dn.status === "DRAFT" && !isDeliveryPerson ? (
                           <Button
                             size="sm"
                             variant="ghost"
