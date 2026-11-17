@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { Warehouse as WarehouseIcon, Plus, Edit2, Trash2, MapPin, Phone, Compass, GitBranch } from "lucide-react";
 import { toast } from "sonner";
+import { setReactHookFormErrors, formatValidationToast, parseApiValidationErrors } from "@/lib/forms/validation-mapper";
 
 const WAREHOUSE_TYPES = [
   { value: "MAIN_YARD", label: "Main Centering Storage Yard" },
@@ -33,6 +34,7 @@ export default function WarehousesPage() {
     reset,
     setValue,
     watch,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<WarehouseInput>({
     resolver: zodResolver(warehouseSchema),
@@ -139,7 +141,8 @@ export default function WarehousesPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error?.message || "Operation failed");
+        setReactHookFormErrors(setError, data);
+        toast.error(formatValidationToast(parseApiValidationErrors(data)));
         return;
       }
 
@@ -294,6 +297,7 @@ export default function WarehousesPage() {
                 <Label htmlFor="warehouseCode" required>Yard Code</Label>
                 <Input
                   id="warehouseCode"
+                  maxLength={20}
                   placeholder="WH-01"
                   className="uppercase font-mono"
                   {...register("warehouseCode")}
@@ -318,6 +322,7 @@ export default function WarehousesPage() {
               <Label htmlFor="wName" required>Yard / Warehouse Name</Label>
               <Input
                 id="wName"
+                maxLength={100}
                 placeholder="e.g. Whitefield Centering Yard"
                 {...register("name")}
                 error={!!errors.name}
@@ -336,32 +341,66 @@ export default function WarehousesPage() {
 
             <div className="space-y-1.5">
               <Label htmlFor="wAddress" required>Address Line 1</Label>
-              <Input id="wAddress" placeholder="Survey No., Industrial Zone" {...register("addressLine1")} error={!!errors.addressLine1} />
+              <Input
+                id="wAddress"
+                maxLength={200}
+                placeholder="Survey No., Industrial Zone"
+                {...register("addressLine1")}
+                error={!!errors.addressLine1}
+              />
             </div>
 
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="wCity" required>City</Label>
-                <Input id="wCity" placeholder="Bengaluru" {...register("city")} error={!!errors.city} />
+                <Input id="wCity" maxLength={50} placeholder="Bengaluru" {...register("city")} error={!!errors.city} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="wState" required>State</Label>
-                <Input id="wState" placeholder="Karnataka" {...register("state")} error={!!errors.state} />
+                <Input id="wState" maxLength={50} placeholder="Karnataka" {...register("state")} error={!!errors.state} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="wPin" required>PIN Code</Label>
-                <Input id="wPin" placeholder="560066" maxLength={6} className="font-mono" {...register("pinCode")} error={!!errors.pinCode} />
+                <Input
+                  id="wPin"
+                  placeholder="560066"
+                  maxLength={6}
+                  className="font-mono"
+                  {...register("pinCode", {
+                    onChange: (e) => {
+                      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6);
+                    },
+                  })}
+                  error={!!errors.pinCode}
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="wContact" required>Yard In-Charge</Label>
-                <Input id="wContact" placeholder="Yard Supervisor" {...register("contactPerson")} error={!!errors.contactPerson} />
+                <Input
+                  id="wContact"
+                  maxLength={100}
+                  placeholder="Yard Supervisor"
+                  {...register("contactPerson")}
+                  error={!!errors.contactPerson}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="wMobile" required>Mobile Number</Label>
-                <Input id="wMobile" placeholder="9876543210" {...register("mobile")} error={!!errors.mobile} />
+                <Input
+                  id="wMobile"
+                  maxLength={10}
+                  placeholder="9876543210"
+                  {...register("mobile", {
+                    onChange: (e) => {
+                      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
+                    },
+                  })}
+                  className="font-mono"
+                  error={!!errors.mobile}
+                />
                 {errors.mobile && <p className="text-xs text-red-600">{errors.mobile.message}</p>}
               </div>
             </div>

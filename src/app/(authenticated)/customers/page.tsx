@@ -456,13 +456,15 @@ export default function CustomersPage() {
                 <Input
                   id="custMobile"
                   name="primaryMobile"
+                  type="tel"
+                  maxLength={10}
                   placeholder="10 digits (9876543210)"
                   value={form.primaryMobile}
                   error={!!fieldErrors.primaryMobile}
                   aria-invalid={!!fieldErrors.primaryMobile}
                   aria-describedby={fieldErrors.primaryMobile ? "custMobile-error" : undefined}
                   onChange={(e) => {
-                    setForm({ ...form, primaryMobile: e.target.value });
+                    setForm({ ...form, primaryMobile: e.target.value.replace(/\D/g, "").slice(0, 10) });
                     clearFieldError("primaryMobile");
                   }}
                   required
@@ -474,13 +476,15 @@ export default function CustomersPage() {
                 <Input
                   id="custAlt"
                   name="alternateMobile"
-                  placeholder="Optional"
+                  type="tel"
+                  maxLength={10}
+                  placeholder="Optional (10 digits)"
                   value={form.alternateMobile}
                   error={!!fieldErrors.alternateMobile}
                   aria-invalid={!!fieldErrors.alternateMobile}
                   aria-describedby={fieldErrors.alternateMobile ? "custAlt-error" : undefined}
                   onChange={(e) => {
-                    setForm({ ...form, alternateMobile: e.target.value });
+                    setForm({ ...form, alternateMobile: e.target.value.replace(/\D/g, "").slice(0, 10) });
                     clearFieldError("alternateMobile");
                   }}
                 />
@@ -492,13 +496,14 @@ export default function CustomersPage() {
                   id="custEmail"
                   name="email"
                   type="email"
+                  maxLength={100}
                   placeholder="billing@company.com"
                   value={form.email}
                   error={!!fieldErrors.email}
                   aria-invalid={!!fieldErrors.email}
                   aria-describedby={fieldErrors.email ? "custEmail-error" : undefined}
                   onChange={(e) => {
-                    setForm({ ...form, email: e.target.value });
+                    setForm({ ...form, email: e.target.value.slice(0, 100) });
                     clearFieldError("email");
                   }}
                 />

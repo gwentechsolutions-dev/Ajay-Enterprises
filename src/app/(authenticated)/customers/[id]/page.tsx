@@ -46,6 +46,7 @@ import { FormFieldError } from "@/components/ui/form-field-error";
 import { FormErrorSummary } from "@/components/ui/form-error-summary";
 import { GoogleMapsLocationInput } from "@/components/forms/google-maps-location-input";
 import { useFormValidation } from "@/lib/forms";
+import { formatValidationToast, parseApiValidationErrors } from "@/lib/forms/validation-mapper";
 import { fetchWithClientCache, invalidateClientCache } from "@/lib/client-cache";
 import { toast } from "sonner";
 
@@ -210,9 +211,7 @@ export default function CustomerDetailPage() {
       const data = await res.json();
 
       if (!siteValidation.handleApiResponse(res, data, siteModalRef.current)) {
-        if (data.error?.message && !data.error?.details && !data.error?.issues) {
-          toast.error(data.error.message);
-        }
+        toast.error(formatValidationToast(parseApiValidationErrors(data)));
         return;
       }
 
@@ -250,9 +249,7 @@ export default function CustomerDetailPage() {
       const data = await res.json();
 
       if (!contactValidation.handleApiResponse(res, data, contactModalRef.current)) {
-        if (data.error?.message && !data.error?.details && !data.error?.issues) {
-          toast.error(data.error.message);
-        }
+        toast.error(formatValidationToast(parseApiValidationErrors(data)));
         return;
       }
 
@@ -771,6 +768,7 @@ export default function CustomerDetailPage() {
                 <Input
                   id="siteName"
                   name="siteName"
+                  maxLength={100}
                   placeholder="e.g. Prestige Tech Park Tower 3"
                   value={siteForm.siteName}
                   error={!!siteValidation.fieldErrors.siteName}
@@ -791,6 +789,7 @@ export default function CustomerDetailPage() {
               <Input
                 id="siteAddress"
                 name="fullAddress"
+                maxLength={300}
                 placeholder="Plot #, Street, Landmark"
                 value={siteForm.fullAddress}
                 error={!!siteValidation.fieldErrors.fullAddress}
@@ -811,6 +810,7 @@ export default function CustomerDetailPage() {
                 <Input
                   id="siteCity"
                   name="city"
+                  maxLength={50}
                   placeholder="e.g. Bengaluru"
                   value={siteForm.city}
                   error={!!siteValidation.fieldErrors.city}
@@ -829,6 +829,7 @@ export default function CustomerDetailPage() {
                 <Input
                   id="siteDistrict"
                   name="district"
+                  maxLength={50}
                   placeholder="e.g. Bengaluru Urban"
                   value={siteForm.district}
                   error={!!siteValidation.fieldErrors.district}
@@ -847,13 +848,15 @@ export default function CustomerDetailPage() {
                 <Input
                   id="sitePin"
                   name="pinCode"
+                  maxLength={6}
                   placeholder="6 digits"
                   value={siteForm.pinCode}
                   error={!!siteValidation.fieldErrors.pinCode}
                   aria-invalid={!!siteValidation.fieldErrors.pinCode}
                   aria-describedby={siteValidation.fieldErrors.pinCode ? "sitePin-error" : undefined}
                   onChange={(e) => {
-                    setSiteForm({ ...siteForm, pinCode: e.target.value });
+                    const clean = e.target.value.replace(/\D/g, "").slice(0, 6);
+                    setSiteForm({ ...siteForm, pinCode: clean });
                     siteValidation.clearFieldError("pinCode");
                   }}
                   required
@@ -897,6 +900,7 @@ export default function CustomerDetailPage() {
                 <Input
                   id="siteInCharge"
                   name="siteInCharge"
+                  maxLength={100}
                   placeholder="e.g. Suresh Kumar"
                   value={siteForm.siteInCharge}
                   error={!!siteValidation.fieldErrors.siteInCharge}
@@ -910,19 +914,27 @@ export default function CustomerDetailPage() {
                 <FormFieldError id="siteInCharge-error" error={siteValidation.fieldErrors.siteInCharge} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="siteContact">Supervisor Phone</Label>
+                <div className="flex justify-between items-center">
+                  <Label htmlFor="siteContact">Supervisor Phone</Label>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {siteForm.siteContactDetails.length}/10
+                  </span>
+                </div>
                 <Input
                   id="siteContact"
                   name="siteContactDetails"
+                  maxLength={10}
                   placeholder="e.g. 9845012345"
                   value={siteForm.siteContactDetails}
                   error={!!siteValidation.fieldErrors.siteContactDetails}
                   aria-invalid={!!siteValidation.fieldErrors.siteContactDetails}
                   aria-describedby={siteValidation.fieldErrors.siteContactDetails ? "siteContact-error" : undefined}
                   onChange={(e) => {
-                    setSiteForm({ ...siteForm, siteContactDetails: e.target.value });
+                    const clean = e.target.value.replace(/\D/g, "").slice(0, 10);
+                    setSiteForm({ ...siteForm, siteContactDetails: clean });
                     siteValidation.clearFieldError("siteContactDetails");
                   }}
+                  className="font-mono"
                 />
                 <FormFieldError id="siteContact-error" error={siteValidation.fieldErrors.siteContactDetails} />
               </div>
@@ -933,6 +945,7 @@ export default function CustomerDetailPage() {
               <Input
                 id="siteInstructions"
                 name="deliveryInstructions"
+                maxLength={300}
                 placeholder="Gate #, vehicle height limits, unloading timings"
                 value={siteForm.deliveryInstructions}
                 error={!!siteValidation.fieldErrors.deliveryInstructions}
@@ -987,6 +1000,7 @@ export default function CustomerDetailPage() {
                 <Input
                   id="cntName"
                   name="name"
+                  maxLength={100}
                   placeholder="e.g. Ramesh Babu"
                   value={contactForm.name}
                   error={!!contactValidation.fieldErrors.name}
@@ -1005,6 +1019,7 @@ export default function CustomerDetailPage() {
                 <Input
                   id="cntDesig"
                   name="designation"
+                  maxLength={100}
                   placeholder="e.g. Project Manager / Site Engineer"
                   value={contactForm.designation}
                   error={!!contactValidation.fieldErrors.designation}
@@ -1022,19 +1037,27 @@ export default function CustomerDetailPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="cntMobile" required>Mobile Number</Label>
+                <div className="flex justify-between items-center">
+                  <Label htmlFor="cntMobile" required>Mobile Number</Label>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {contactForm.mobile.length}/10
+                  </span>
+                </div>
                 <Input
                   id="cntMobile"
                   name="mobile"
+                  maxLength={10}
                   placeholder="10 digits"
                   value={contactForm.mobile}
                   error={!!contactValidation.fieldErrors.mobile}
                   aria-invalid={!!contactValidation.fieldErrors.mobile}
                   aria-describedby={contactValidation.fieldErrors.mobile ? "cntMobile-error" : undefined}
                   onChange={(e) => {
-                    setContactForm({ ...contactForm, mobile: e.target.value });
+                    const clean = e.target.value.replace(/\D/g, "").slice(0, 10);
+                    setContactForm({ ...contactForm, mobile: clean });
                     contactValidation.clearFieldError("mobile");
                   }}
+                  className="font-mono"
                   required
                 />
                 <FormFieldError id="cntMobile-error" error={contactValidation.fieldErrors.mobile} />
@@ -1045,6 +1068,7 @@ export default function CustomerDetailPage() {
                   id="cntEmail"
                   name="email"
                   type="email"
+                  maxLength={100}
                   placeholder="ramesh@company.com"
                   value={contactForm.email}
                   error={!!contactValidation.fieldErrors.email}

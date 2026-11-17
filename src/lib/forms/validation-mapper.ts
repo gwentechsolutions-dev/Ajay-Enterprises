@@ -134,6 +134,34 @@ export const FIELD_LABELS: Record<string, string> = {
   oldPassword: "Current Password",
   newPassword: "New Password",
   role: "Role",
+
+  // Site Delivery & Handover Proof
+  receiverName: "Receiver Full Name",
+  receiverPhone: "Receiver Mobile Phone",
+  receiverDesignation: "Receiver Designation",
+  driverPhone: "Driver Mobile Phone",
+  driverName: "Driver Name",
+  photoUrl: "Site Delivery Proof Photo",
+  remarks: "Notes / Remarks",
+
+  // Branches & Warehouses
+  branchCode: "Branch Code",
+  warehouseCode: "Warehouse / Yard Code",
+  branchId: "Branch",
+  warehouseId: "Warehouse / Yard",
+  addressLine1: "Address Line 1",
+  addressLine2: "Address Line 2",
+  warehouseType: "Yard Classification",
+  branchType: "Branch Type",
+
+  // Financial & Banking
+  accountNumber: "Bank Account Number",
+  bankName: "Bank Name",
+  ifscCode: "IFSC Code",
+  emergencyContact: "Emergency Contact Mobile",
+  salaryAmount: "Salary Amount",
+  salaryType: "Salary Type",
+  licenseClass: "Licence Class",
 };
 
 /**
@@ -362,4 +390,43 @@ export function setReactHookFormErrors(
     errorList: parsed.errorList,
   };
 }
+
+/**
+ * Formats parsed validation errors into a clear, informative toast notification.
+ * Instead of generic "Validation failed", it highlights the exact offending field and requirement.
+ */
+export function formatValidationToast(parsed: ParsedValidationErrors): string {
+  if (parsed.errorList && parsed.errorList.length > 0) {
+    const first = parsed.errorList[0];
+    const moreCount = parsed.errorList.length - 1;
+    return `${first.label}: ${first.message}${moreCount > 0 ? ` (and ${moreCount} other field error${moreCount > 1 ? "s" : ""})` : ""}`;
+  }
+  return parsed.generalError || "Validation failed: please review the highlighted fields.";
+}
+
+/**
+ * Universal error extractor for API responses, errors, or objects.
+ * Guarantees that if validation issues are returned from the server,
+ * a clear human-readable field-specific message is returned.
+ */
+export function getApiErrorMessage(data: any, fallback = "Operation failed"): string {
+  if (!data) return fallback;
+  if (typeof data === "string") return data;
+  if (data instanceof Error) return data.message;
+
+  const parsed = parseApiValidationErrors(data);
+  if (parsed.hasErrors && parsed.errorList.length > 0) {
+    return formatValidationToast(parsed);
+  }
+
+  if (data.error?.message && data.error.message !== "Validation failed") {
+    return data.error.message;
+  }
+  if (data.message && data.message !== "Validation failed") {
+    return data.message;
+  }
+  return fallback;
+}
+
+
 

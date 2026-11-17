@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import { warehouseSchema } from "@/lib/schemas/branch";
+import { validationErrorResponse } from "@/lib/api-validation";
 import { logAuditEvent } from "@/lib/audit";
 
 export async function GET() {
@@ -40,10 +41,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsed = warehouseSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_FAILED", message: "Validation failed", details: parsed.error.issues } },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     const data = parsed.data;

@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { GitBranch, Plus, Edit2, Trash2, Building2, MapPin, Phone, Mail, Warehouse } from "lucide-react";
 import { toast } from "sonner";
+import { setReactHookFormErrors, formatValidationToast, parseApiValidationErrors } from "@/lib/forms/validation-mapper";
 
 const BRANCH_TYPES = [
   { value: "MAIN_OFFICE", label: "Main Head Office" },
@@ -32,6 +33,7 @@ export default function BranchesPage() {
     reset,
     setValue,
     watch,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<BranchInput>({
     resolver: zodResolver(branchSchema),
@@ -121,7 +123,8 @@ export default function BranchesPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error?.message || "Operation failed");
+        setReactHookFormErrors(setError, data);
+        toast.error(formatValidationToast(parseApiValidationErrors(data)));
         return;
       }
 
@@ -266,6 +269,7 @@ export default function BranchesPage() {
                 <Label htmlFor="branchCode" required>Branch Code</Label>
                 <Input
                   id="branchCode"
+                  maxLength={20}
                   placeholder="BR-01"
                   className="uppercase font-mono"
                   {...register("branchCode")}
@@ -288,6 +292,7 @@ export default function BranchesPage() {
               <Label htmlFor="name" required>Branch Name</Label>
               <Input
                 id="name"
+                maxLength={100}
                 placeholder="e.g. Bangalore Main Branch"
                 {...register("name")}
                 error={!!errors.name}
@@ -299,6 +304,7 @@ export default function BranchesPage() {
               <Label htmlFor="addressLine1" required>Address Line 1</Label>
               <Input
                 id="addressLine1"
+                maxLength={200}
                 placeholder="Plot No., Industrial Area"
                 {...register("addressLine1")}
                 error={!!errors.addressLine1}
@@ -308,33 +314,67 @@ export default function BranchesPage() {
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="city" required>City</Label>
-                <Input id="city" placeholder="Bengaluru" {...register("city")} error={!!errors.city} />
+                <Input id="city" maxLength={50} placeholder="Bengaluru" {...register("city")} error={!!errors.city} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="state" required>State</Label>
-                <Input id="state" placeholder="Karnataka" {...register("state")} error={!!errors.state} />
+                <Input id="state" maxLength={50} placeholder="Karnataka" {...register("state")} error={!!errors.state} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="pinCode" required>PIN Code</Label>
-                <Input id="pinCode" placeholder="560001" maxLength={6} className="font-mono" {...register("pinCode")} error={!!errors.pinCode} />
+                <Input
+                  id="pinCode"
+                  placeholder="560001"
+                  maxLength={6}
+                  className="font-mono"
+                  {...register("pinCode", {
+                    onChange: (e) => {
+                      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6);
+                    },
+                  })}
+                  error={!!errors.pinCode}
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="contactPerson" required>Contact Person</Label>
-                <Input id="contactPerson" placeholder="Branch In-Charge" {...register("contactPerson")} error={!!errors.contactPerson} />
+                <Input
+                  id="contactPerson"
+                  maxLength={100}
+                  placeholder="Branch In-Charge"
+                  {...register("contactPerson")}
+                  error={!!errors.contactPerson}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="mobile" required>Mobile Number</Label>
-                <Input id="mobile" placeholder="9876543210" {...register("mobile")} error={!!errors.mobile} />
+                <Input
+                  id="mobile"
+                  maxLength={10}
+                  placeholder="9876543210"
+                  {...register("mobile", {
+                    onChange: (e) => {
+                      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
+                    },
+                  })}
+                  className="font-mono"
+                  error={!!errors.mobile}
+                />
                 {errors.mobile && <p className="text-xs text-red-600">{errors.mobile.message}</p>}
               </div>
             </div>
 
             <div className="space-y-1.5">
               <Label htmlFor="email">Email (Optional)</Label>
-              <Input id="email" type="email" placeholder="branch@ajayenterprises.com" {...register("email")} />
+              <Input
+                id="email"
+                type="email"
+                maxLength={100}
+                placeholder="branch@ajayenterprises.com"
+                {...register("email")}
+              />
             </div>
 
             <div className="flex items-center gap-2 pt-2">

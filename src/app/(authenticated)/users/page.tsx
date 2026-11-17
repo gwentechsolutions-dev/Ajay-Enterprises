@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDateTime } from "@/lib/utils";
+import { setReactHookFormErrors, formatValidationToast, parseApiValidationErrors } from "@/lib/forms/validation-mapper";
 
 const ROLE_OPTIONS = [
   { value: "ALL", label: "All Roles" },
@@ -79,6 +80,7 @@ export default function UsersPage() {
     reset,
     setValue,
     watch,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<any>({
     resolver: zodResolver(editingUser ? updateUserSchema : createUserSchema),
@@ -215,7 +217,8 @@ export default function UsersPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error?.message || "Failed to save user");
+        setReactHookFormErrors(setError, data);
+        toast.error(formatValidationToast(parseApiValidationErrors(data)));
         return;
       }
 
@@ -461,26 +464,56 @@ export default function UsersPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="uFullName" required>Full Name</Label>
-                <Input id="uFullName" placeholder="e.g. Ramesh Kumar" {...register("name")} error={!!errors.name} />
+                <Input
+                  id="uFullName"
+                  maxLength={100}
+                  placeholder="e.g. Ramesh Kumar"
+                  {...register("name")}
+                  error={!!errors.name}
+                />
                 {errors.name && <p className="text-xs text-red-600">{String(errors.name.message)}</p>}
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="uUsername">Username (Optional)</Label>
-                <Input id="uUsername" placeholder="e.g. ramesh" {...register("username")} error={!!errors.username} />
+                <Input
+                  id="uUsername"
+                  maxLength={50}
+                  placeholder="e.g. ramesh"
+                  {...register("username")}
+                  error={!!errors.username}
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="uEmail" required>Corporate Email</Label>
-                <Input id="uEmail" type="email" placeholder="ramesh@ajayenterprises.com" {...register("email")} error={!!errors.email} />
+                <Input
+                  id="uEmail"
+                  type="email"
+                  maxLength={100}
+                  placeholder="ramesh@ajayenterprises.com"
+                  {...register("email")}
+                  error={!!errors.email}
+                />
                 {errors.email && <p className="text-xs text-red-600">{String(errors.email.message)}</p>}
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="uMobile" required>Indian Mobile</Label>
-                <Input id="uMobile" placeholder="9876543210" {...register("mobile")} error={!!errors.mobile} />
+                <Input
+                  id="uMobile"
+                  maxLength={10}
+                  placeholder="9876543210"
+                  {...register("mobile", {
+                    onChange: (e) => {
+                      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
+                    },
+                  })}
+                  className="font-mono"
+                  error={!!errors.mobile}
+                />
                 {errors.mobile && <p className="text-xs text-red-600">{String(errors.mobile.message)}</p>}
               </div>
             </div>
@@ -492,6 +525,7 @@ export default function UsersPage() {
               <Input
                 id="uPassword"
                 type="password"
+                maxLength={100}
                 placeholder={editingUser ? "••••••••••••" : "Min 8 chars, 1 uppercase, 1 digit"}
                 {...register("password")}
                 error={!!errors.password}

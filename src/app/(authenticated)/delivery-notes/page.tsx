@@ -42,6 +42,8 @@ import { TableSkeleton } from "@/components/ui/loading-states";
 import { fetchWithClientCache, invalidateClientCache } from "@/lib/client-cache";
 import { useCurrentUser } from "@/lib/auth-context";
 import { stampGpsWatermarkOnPhoto } from "@/lib/gps-watermark";
+import { FormFieldError } from "@/components/ui/form-field-error";
+import { parseApiValidationErrors, formatValidationToast, getApiErrorMessage } from "@/lib/forms/validation-mapper";
 import { toast } from "sonner";
 
 export default function DeliveryNotesPage() {
@@ -65,6 +67,8 @@ export default function DeliveryNotesPage() {
   const [selectedDN, setSelectedDN] = React.useState<any>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [editingDnId, setEditingDnId] = React.useState<string | null>(null);
+  const [deliverErrors, setDeliverErrors] = React.useState<Record<string, string>>({});
+  const [dnErrors, setDnErrors] = React.useState<Record<string, string>>({});
 
   // Fleet vehicles state for registered company vehicles
   const [fleetVehicles, setFleetVehicles] = React.useState<any[]>([]);
@@ -354,7 +358,7 @@ export default function DeliveryNotesPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || `Failed to ${editingDnId ? "update" : "create"} Delivery Note`);
+      if (!res.ok) throw new Error(getApiErrorMessage(data, `Failed to ${editingDnId ? "update" : "create"} Delivery Note`));
 
       toast.success(`Delivery Note ${data.data.dnNumber} ${editingDnId ? "updated" : "created"}!`);
       setIsCreateModalOpen(false);
@@ -539,9 +543,11 @@ export default function DeliveryNotesPage() {
   const openDeliverModal = (dn: any) => {
     setSelectedDN(dn);
     setDeliverPhotoPreview(null);
+    setDeliverErrors({});
+    const initialPhone = (dn.customerSite?.siteContactDetails || "").replace(/\D/g, "").slice(0, 10);
     setDeliverForm({
-      receiverName: dn.customerSite?.siteInCharge || "",
-      receiverPhone: dn.customerSite?.siteContactDetails || "",
+      receiverName: (dn.customerSite?.siteInCharge || "").slice(0, 100),
+      receiverPhone: initialPhone,
       receiverDesignation: "Site In-Charge",
       photoUrl: "",
       gpsLatitude: 12.9716,
@@ -557,16 +563,54 @@ export default function DeliveryNotesPage() {
     e.preventDefault();
     if (!selectedDN) return;
 
+    // Strict client-side validation
+    const newErrors: Record<string, string> = {};
+    if (!deliverForm.receiverName || deliverForm.receiverName.trim().length < 2) {
+      newErrors.receiverName = "Receiver full name is required (minimum 2 characters)";
+    }
+    const cleanPhone = (deliverForm.receiverPhone || "").replace(/\D/g, "");
+    if (!cleanPhone) {
+      newErrors.receiverPhone = "Receiver mobile phone is required";
+    } else if (cleanPhone.length !== 10) {
+      newErrors.receiverPhone = `Must be exactly 10 digits (currently ${cleanPhone.length} digits)`;
+    } else if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+      newErrors.receiverPhone = "Must start with 6, 7, 8, or 9 (valid Indian mobile)";
+    }
+
+    if (!deliverForm.photoUrl) {
+      newErrors.photo = "Site delivery proof photo is required before confirming delivery";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setDeliverErrors(newErrors);
+      const firstError = Object.values(newErrors)[0];
+      return toast.error(firstError);
+    }
+
+    setDeliverErrors({});
+
     try {
       setSubmitting(true);
       const res = await fetch(`/api/v1/delivery-notes/${selectedDN.id}/deliver`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(deliverForm),
+        body: JSON.stringify({
+          ...deliverForm,
+          receiverName: deliverForm.receiverName.trim(),
+          receiverPhone: cleanPhone,
+        }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || "Failed to deliver note");
+      if (!res.ok) {
+        const parsed = parseApiValidationErrors(data);
+        if (parsed.hasErrors) {
+          setDeliverErrors(parsed.fieldErrors);
+          toast.error(formatValidationToast(parsed));
+          return;
+        }
+        throw new Error(data.error?.message || "Failed to deliver note");
+      }
 
       toast.success(`Delivery Note ${selectedDN.dnNumber} marked DELIVERED with receiver acknowledgement!`);
       setIsDeliverModalOpen(false);
@@ -1158,8 +1202,10 @@ export default function DeliveryNotesPage() {
                 ) : (
                   <Input
                     placeholder="KA-01-AB-1234"
+                    maxLength={20}
                     value={dnForm.vehicleNumber}
-                    onChange={(e) => setDnForm({ ...dnForm, vehicleNumber: e.target.value })}
+                    onChange={(e) => setDnForm({ ...dnForm, vehicleNumber: e.target.value.toUpperCase().slice(0, 20) })}
+                    className="uppercase font-mono"
                     required
                   />
                 )}
@@ -1176,10 +1222,11 @@ export default function DeliveryNotesPage() {
                   )}
                 </div>
                 <Input
+                  maxLength={100}
                   placeholder="e.g. Ramesh Kumar (type or select)"
                   value={dnForm.driverName}
                   onChange={(e) => {
-                    setDnForm({ ...dnForm, driverName: e.target.value });
+                    setDnForm({ ...dnForm, driverName: e.target.value.slice(0, 100) });
                     setShowDriverSuggestions(true);
                   }}
                   onFocus={() => setShowDriverSuggestions(true)}
@@ -1228,9 +1275,11 @@ export default function DeliveryNotesPage() {
               <div>
                 <Label className="text-xs font-semibold mb-1 block">Driver Phone</Label>
                 <Input
-                  placeholder="9876543210"
+                  type="tel"
+                  placeholder="10-digit mobile (e.g. 9876543210)"
+                  maxLength={10}
                   value={dnForm.driverPhone}
-                  onChange={(e) => setDnForm({ ...dnForm, driverPhone: e.target.value })}
+                  onChange={(e) => setDnForm({ ...dnForm, driverPhone: e.target.value.replace(/\D/g, "").slice(0, 10) })}
                 />
               </div>
             </div>
@@ -1489,23 +1538,54 @@ export default function DeliveryNotesPage() {
           <form onSubmit={handleCompleteDelivery} className="space-y-4 pt-2">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs font-semibold">Receiver Full Name *</Label>
+                <Label className="text-xs font-semibold" required>Receiver Full Name *</Label>
                 <Input
                   value={deliverForm.receiverName}
-                  onChange={(e) => setDeliverForm({ ...deliverForm, receiverName: e.target.value })}
+                  maxLength={100}
+                  error={!!deliverErrors.receiverName}
+                  onChange={(e) => {
+                    setDeliverForm({ ...deliverForm, receiverName: e.target.value.slice(0, 100) });
+                    if (deliverErrors.receiverName) {
+                      setDeliverErrors((prev) => {
+                        const cp = { ...prev };
+                        delete cp.receiverName;
+                        return cp;
+                      });
+                    }
+                  }}
                   placeholder="e.g. Suresh Kumar"
                   required
                 />
+                <FormFieldError error={deliverErrors.receiverName} />
               </div>
 
               <div>
-                <Label className="text-xs font-semibold">Receiver Mobile *</Label>
+                <div className="flex justify-between items-center mb-1">
+                  <Label className="text-xs font-semibold" required>Receiver Mobile *</Label>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {deliverForm.receiverPhone.length}/10 digits
+                  </span>
+                </div>
                 <Input
+                  type="tel"
                   value={deliverForm.receiverPhone}
-                  onChange={(e) => setDeliverForm({ ...deliverForm, receiverPhone: e.target.value })}
-                  placeholder="9876543210"
+                  maxLength={10}
+                  error={!!deliverErrors.receiverPhone}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                    setDeliverForm({ ...deliverForm, receiverPhone: val });
+                    if (deliverErrors.receiverPhone) {
+                      setDeliverErrors((prev) => {
+                        const cp = { ...prev };
+                        delete cp.receiverPhone;
+                        return cp;
+                      });
+                    }
+                  }}
+                  placeholder="10-digit mobile (e.g. 9876543210)"
                   required
                 />
+                <FormFieldError error={deliverErrors.receiverPhone} />
               </div>
             </div>
 
@@ -1514,7 +1594,8 @@ export default function DeliveryNotesPage() {
                 <Label className="text-xs font-semibold">Designation</Label>
                 <Input
                   value={deliverForm.receiverDesignation}
-                  onChange={(e) => setDeliverForm({ ...deliverForm, receiverDesignation: e.target.value })}
+                  maxLength={100}
+                  onChange={(e) => setDeliverForm({ ...deliverForm, receiverDesignation: e.target.value.slice(0, 100) })}
                   placeholder="Site Supervisor / Engineer"
                 />
               </div>
@@ -1581,14 +1662,21 @@ export default function DeliveryNotesPage() {
                   </div>
                 </button>
               )}
+              <FormFieldError error={deliverErrors.photo} />
             </div>
 
             <div>
-              <Label className="text-xs font-semibold">Receiver Notes / Remarks</Label>
+              <div className="flex justify-between items-center mb-1">
+                <Label className="text-xs font-semibold">Receiver Notes / Remarks</Label>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  {(deliverForm.remarks || "").length}/500
+                </span>
+              </div>
               <Input
                 value={deliverForm.remarks}
-                onChange={(e) => setDeliverForm({ ...deliverForm, remarks: e.target.value })}
-                placeholder="Unloading remarks"
+                maxLength={500}
+                onChange={(e) => setDeliverForm({ ...deliverForm, remarks: e.target.value.slice(0, 500) })}
+                placeholder="Unloading remarks (max 500 characters)"
               />
             </div>
 

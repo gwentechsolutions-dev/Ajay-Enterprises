@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FormFieldError } from "@/components/ui/form-field-error";
+import { parseApiValidationErrors, formatValidationToast } from "@/lib/forms/validation-mapper";
 
 export default function FleetDriversPage() {
   const [drivers, setDrivers] = React.useState<any[]>([]);
@@ -38,6 +40,7 @@ export default function FleetDriversPage() {
   });
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [formError, setFormError] = React.useState("");
+  const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
 
   const loadDrivers = async () => {
     setIsLoading(true);
@@ -60,18 +63,44 @@ export default function FleetDriversPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
     setFormError("");
+    const errors: Record<string, string> = {};
+
+    if (!formData.name.trim()) {
+      errors.name = "Driver name is required";
+    }
+    const cleanMobile = formData.mobileNumber.replace(/\D/g, "");
+    if (!/^[6-9]\d{9}$/.test(cleanMobile)) {
+      errors.mobileNumber = "Must be a valid 10-digit Indian mobile number (e.g. 9876543210)";
+    }
+    if (!formData.licenseNumber.trim() || formData.licenseNumber.trim().length < 6) {
+      errors.licenseNumber = "Valid driving licence number is required (min 6 characters)";
+    }
+    if (!formData.licenseExpiryDate) {
+      errors.licenseExpiryDate = "Licence expiry date is required";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      const firstKey = Object.keys(errors)[0];
+      setFormError(errors[firstKey]);
+      return;
+    }
+
+    setIsSubmitting(true);
+    setFieldErrors({});
 
     try {
       const res = await fetch("/api/v1/fleet/drivers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, mobileNumber: cleanMobile }),
       });
       const data = await res.json();
       if (!data.success) {
-        setFormError(data.error?.message || "Failed to create driver");
+        const parsed = parseApiValidationErrors(data);
+        setFieldErrors(parsed.fieldErrors);
+        setFormError(formatValidationToast(parsed));
         return;
       }
       setShowCreateModal(false);
@@ -88,6 +117,7 @@ export default function FleetDriversPage() {
         status: "ACTIVE",
         notes: "",
       });
+      setFieldErrors({});
       loadDrivers();
     } catch (err: any) {
       setFormError(err.message || "An unexpected error occurred");
@@ -236,21 +266,39 @@ export default function FleetDriversPage() {
                   <label className="text-xs font-semibold text-slate-700">Driver Name *</label>
                   <Input
                     required
+                    maxLength={100}
                     placeholder="Full name"
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    error={!!fieldErrors.name}
+                    onChange={(e) => {
+                      setFormData({ ...formData, name: e.target.value });
+                      if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: "" }));
+                    }}
                     className="mt-1"
                   />
+                  <FormFieldError error={fieldErrors.name} />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-700">Mobile Number *</label>
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-semibold text-slate-700">Mobile Number *</label>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      {formData.mobileNumber.length}/10
+                    </span>
+                  </div>
                   <Input
                     required
+                    maxLength={10}
                     placeholder="10-digit mobile"
                     value={formData.mobileNumber}
-                    onChange={(e) => setFormData({ ...formData, mobileNumber: e.target.value })}
+                    error={!!fieldErrors.mobileNumber}
+                    onChange={(e) => {
+                      const clean = e.target.value.replace(/\D/g, "").slice(0, 10);
+                      setFormData({ ...formData, mobileNumber: clean });
+                      if (fieldErrors.mobileNumber) setFieldErrors((prev) => ({ ...prev, mobileNumber: "" }));
+                    }}
                     className="mt-1 font-mono"
                   />
+                  <FormFieldError error={fieldErrors.mobileNumber} />
                 </div>
               </div>
 
@@ -259,11 +307,17 @@ export default function FleetDriversPage() {
                   <label className="text-xs font-semibold text-slate-700">Licence Number *</label>
                   <Input
                     required
+                    maxLength={25}
                     placeholder="DL-XXXXXXXXXXXXX"
                     value={formData.licenseNumber}
-                    onChange={(e) => setFormData({ ...formData, licenseNumber: e.target.value })}
+                    error={!!fieldErrors.licenseNumber}
+                    onChange={(e) => {
+                      setFormData({ ...formData, licenseNumber: e.target.value.toUpperCase().slice(0, 25) });
+                      if (fieldErrors.licenseNumber) setFieldErrors((prev) => ({ ...prev, licenseNumber: "" }));
+                    }}
                     className="mt-1 uppercase font-mono"
                   />
+                  <FormFieldError error={fieldErrors.licenseNumber} />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-slate-700">Licence Expiry *</label>
@@ -271,9 +325,14 @@ export default function FleetDriversPage() {
                     required
                     type="date"
                     value={formData.licenseExpiryDate}
-                    onChange={(e) => setFormData({ ...formData, licenseExpiryDate: e.target.value })}
+                    error={!!fieldErrors.licenseExpiryDate}
+                    onChange={(e) => {
+                      setFormData({ ...formData, licenseExpiryDate: e.target.value });
+                      if (fieldErrors.licenseExpiryDate) setFieldErrors((prev) => ({ ...prev, licenseExpiryDate: "" }));
+                    }}
                     className="mt-1"
                   />
+                  <FormFieldError error={fieldErrors.licenseExpiryDate} />
                 </div>
               </div>
 
@@ -295,9 +354,14 @@ export default function FleetDriversPage() {
                   <Input
                     type="number"
                     value={formData.salaryAmount}
-                    onChange={(e) => setFormData({ ...formData, salaryAmount: Number(e.target.value) })}
+                    error={!!fieldErrors.salaryAmount}
+                    onChange={(e) => {
+                      setFormData({ ...formData, salaryAmount: Number(e.target.value) });
+                      if (fieldErrors.salaryAmount) setFieldErrors((prev) => ({ ...prev, salaryAmount: "" }));
+                    }}
                     className="mt-1 font-mono"
                   />
+                  <FormFieldError error={fieldErrors.salaryAmount} />
                 </div>
               </div>
 

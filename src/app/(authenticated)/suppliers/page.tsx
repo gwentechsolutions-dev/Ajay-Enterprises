@@ -33,6 +33,7 @@ import { TableSkeleton } from "@/components/ui/loading-states";
 import { FormFieldError } from "@/components/ui/form-field-error";
 import { FormErrorSummary } from "@/components/ui/form-error-summary";
 import { useFormValidation } from "@/lib/forms";
+import { formatValidationToast, parseApiValidationErrors } from "@/lib/forms/validation-mapper";
 import { toast } from "sonner";
 
 export default function SuppliersPage() {
@@ -118,9 +119,7 @@ export default function SuppliersPage() {
       const data = await res.json();
 
       if (!handleApiResponse(res, data, modalContainerRef.current)) {
-        if (data.error?.message && !data.error?.details && !data.error?.issues) {
-          toast.error(data.error.message);
-        }
+        toast.error(formatValidationToast(parseApiValidationErrors(data)));
         return;
       }
 
@@ -350,6 +349,7 @@ export default function SuppliersPage() {
               <Input
                 id="supName"
                 name="name"
+                maxLength={100}
                 placeholder="e.g. Jindal Steel / National Scaffolding Works"
                 value={form.name}
                 error={!!fieldErrors.name}
@@ -370,6 +370,7 @@ export default function SuppliersPage() {
                 <Input
                   id="supContact"
                   name="contactPerson"
+                  maxLength={100}
                   placeholder="e.g. Rajesh Sharma"
                   value={form.contactPerson}
                   error={!!fieldErrors.contactPerson}
@@ -384,19 +385,27 @@ export default function SuppliersPage() {
                 <FormFieldError id="supContact-error" error={fieldErrors.contactPerson} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="supMobile" required>Primary Mobile</Label>
+                <div className="flex justify-between items-center">
+                  <Label htmlFor="supMobile" required>Primary Mobile</Label>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {form.primaryMobile.length}/10
+                  </span>
+                </div>
                 <Input
                   id="supMobile"
                   name="primaryMobile"
+                  maxLength={10}
                   placeholder="10 digits"
                   value={form.primaryMobile}
                   error={!!fieldErrors.primaryMobile}
                   aria-invalid={!!fieldErrors.primaryMobile}
                   aria-describedby={fieldErrors.primaryMobile ? "supMobile-error" : undefined}
                   onChange={(e) => {
-                    setForm({ ...form, primaryMobile: e.target.value });
+                    const clean = e.target.value.replace(/\D/g, "").slice(0, 10);
+                    setForm({ ...form, primaryMobile: clean });
                     clearFieldError("primaryMobile");
                   }}
+                  className="font-mono"
                   required
                 />
                 <FormFieldError id="supMobile-error" error={fieldErrors.primaryMobile} />
@@ -409,15 +418,17 @@ export default function SuppliersPage() {
                 <Input
                   id="supGstin"
                   name="gstin"
+                  maxLength={15}
                   placeholder="15 digits"
                   value={form.gstin}
                   error={!!fieldErrors.gstin}
                   aria-invalid={!!fieldErrors.gstin}
                   aria-describedby={fieldErrors.gstin ? "supGstin-error" : undefined}
                   onChange={(e) => {
-                    setForm({ ...form, gstin: e.target.value.toUpperCase() });
+                    setForm({ ...form, gstin: e.target.value.toUpperCase().slice(0, 15) });
                     clearFieldError("gstin");
                   }}
+                  className="uppercase font-mono"
                 />
                 <FormFieldError id="supGstin-error" error={fieldErrors.gstin} />
               </div>
@@ -426,15 +437,17 @@ export default function SuppliersPage() {
                 <Input
                   id="supPan"
                   name="pan"
+                  maxLength={10}
                   placeholder="10 digits"
                   value={form.pan}
                   error={!!fieldErrors.pan}
                   aria-invalid={!!fieldErrors.pan}
                   aria-describedby={fieldErrors.pan ? "supPan-error" : undefined}
                   onChange={(e) => {
-                    setForm({ ...form, pan: e.target.value.toUpperCase() });
+                    setForm({ ...form, pan: e.target.value.toUpperCase().slice(0, 10) });
                     clearFieldError("pan");
                   }}
+                  className="uppercase font-mono"
                 />
                 <FormFieldError id="supPan-error" error={fieldErrors.pan} />
               </div>
@@ -444,12 +457,14 @@ export default function SuppliersPage() {
                   id="supEmail"
                   name="email"
                   type="email"
+                  maxLength={100}
+                  placeholder="vendor@company.com"
                   value={form.email}
                   error={!!fieldErrors.email}
                   aria-invalid={!!fieldErrors.email}
                   aria-describedby={fieldErrors.email ? "supEmail-error" : undefined}
                   onChange={(e) => {
-                    setForm({ ...form, email: e.target.value });
+                    setForm({ ...form, email: e.target.value.slice(0, 100) });
                     clearFieldError("email");
                   }}
                 />
@@ -462,13 +477,14 @@ export default function SuppliersPage() {
               <Input
                 id="supAddress"
                 name="billingAddress"
+                maxLength={300}
                 placeholder="Factory / Office Address"
                 value={form.billingAddress}
                 error={!!fieldErrors.billingAddress}
                 aria-invalid={!!fieldErrors.billingAddress}
                 aria-describedby={fieldErrors.billingAddress ? "supAddress-error" : undefined}
                 onChange={(e) => {
-                  setForm({ ...form, billingAddress: e.target.value });
+                  setForm({ ...form, billingAddress: e.target.value.slice(0, 300) });
                   clearFieldError("billingAddress");
                 }}
                 required
@@ -482,12 +498,13 @@ export default function SuppliersPage() {
                 <Input
                   id="supState"
                   name="state"
+                  maxLength={50}
                   value={form.state}
                   error={!!fieldErrors.state}
                   aria-invalid={!!fieldErrors.state}
                   aria-describedby={fieldErrors.state ? "supState-error" : undefined}
                   onChange={(e) => {
-                    setForm({ ...form, state: e.target.value });
+                    setForm({ ...form, state: e.target.value.slice(0, 50) });
                     clearFieldError("state");
                   }}
                   required
@@ -499,12 +516,13 @@ export default function SuppliersPage() {
                 <Input
                   id="supStateCode"
                   name="stateCode"
+                  maxLength={2}
                   value={form.stateCode}
                   error={!!fieldErrors.stateCode}
                   aria-invalid={!!fieldErrors.stateCode}
                   aria-describedby={fieldErrors.stateCode ? "supStateCode-error" : undefined}
                   onChange={(e) => {
-                    setForm({ ...form, stateCode: e.target.value });
+                    setForm({ ...form, stateCode: e.target.value.slice(0, 2) });
                     clearFieldError("stateCode");
                   }}
                   required
@@ -516,15 +534,18 @@ export default function SuppliersPage() {
                 <Input
                   id="supPin"
                   name="pinCode"
+                  maxLength={6}
                   placeholder="6 digits"
                   value={form.pinCode}
                   error={!!fieldErrors.pinCode}
                   aria-invalid={!!fieldErrors.pinCode}
                   aria-describedby={fieldErrors.pinCode ? "supPin-error" : undefined}
                   onChange={(e) => {
-                    setForm({ ...form, pinCode: e.target.value });
+                    const clean = e.target.value.replace(/\D/g, "").slice(0, 6);
+                    setForm({ ...form, pinCode: clean });
                     clearFieldError("pinCode");
                   }}
+                  className="font-mono"
                   required
                 />
                 <FormFieldError id="supPin-error" error={fieldErrors.pinCode} />
@@ -539,33 +560,36 @@ export default function SuppliersPage() {
               <div className="grid grid-cols-3 gap-2">
                 <Input
                   name="bankName"
+                  maxLength={100}
                   placeholder="Bank Name"
                   value={form.bankName}
                   onChange={(e) => {
-                    setForm({ ...form, bankName: e.target.value });
+                    setForm({ ...form, bankName: e.target.value.slice(0, 100) });
                     clearFieldError("bankName");
                   }}
                   className="text-xs"
                 />
                 <Input
                   name="accountNumber"
+                  maxLength={30}
                   placeholder="Account Number"
                   value={form.accountNumber}
                   onChange={(e) => {
-                    setForm({ ...form, accountNumber: e.target.value });
+                    setForm({ ...form, accountNumber: e.target.value.slice(0, 30) });
                     clearFieldError("accountNumber");
                   }}
-                  className="text-xs"
+                  className="text-xs font-mono"
                 />
                 <Input
                   name="ifscCode"
+                  maxLength={11}
                   placeholder="IFSC Code"
                   value={form.ifscCode}
                   onChange={(e) => {
-                    setForm({ ...form, ifscCode: e.target.value.toUpperCase() });
+                    setForm({ ...form, ifscCode: e.target.value.toUpperCase().slice(0, 11) });
                     clearFieldError("ifscCode");
                   }}
-                  className="text-xs"
+                  className="text-xs uppercase font-mono"
                 />
               </div>
             </div>

@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FormFieldError } from "@/components/ui/form-field-error";
+import { parseApiValidationErrors, formatValidationToast } from "@/lib/forms/validation-mapper";
 
 export default function FleetVehiclesPage() {
   const [vehicles, setVehicles] = React.useState<any[]>([]);
@@ -43,6 +45,7 @@ export default function FleetVehiclesPage() {
   });
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [formError, setFormError] = React.useState("");
+  const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
 
   const loadVehicles = async () => {
     setIsLoading(true);
@@ -65,18 +68,43 @@ export default function FleetVehiclesPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
     setFormError("");
+    const errors: Record<string, string> = {};
+
+    if (!formData.vehicleNumber.trim() || formData.vehicleNumber.trim().length < 5) {
+      errors.vehicleNumber = "Vehicle registration number must be at least 5 characters";
+    }
+    if (!formData.make.trim()) {
+      errors.make = "Vehicle make is required";
+    }
+    if (!formData.model.trim()) {
+      errors.model = "Vehicle model is required";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      const first = Object.keys(errors)[0];
+      setFormError(errors[first]);
+      return;
+    }
+
+    setIsSubmitting(true);
+    setFieldErrors({});
 
     try {
       const res = await fetch("/api/v1/fleet/vehicles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          vehicleNumber: formData.vehicleNumber.toUpperCase().trim(),
+        }),
       });
       const data = await res.json();
       if (!data.success) {
-        setFormError(data.error?.message || "Failed to create vehicle");
+        const parsed = parseApiValidationErrors(data);
+        setFieldErrors(parsed.fieldErrors);
+        setFormError(formatValidationToast(parsed));
         return;
       }
       setShowCreateModal(false);
@@ -95,6 +123,7 @@ export default function FleetVehiclesPage() {
         pollutionExpiryDate: "",
         notes: "",
       });
+      setFieldErrors({});
       loadVehicles();
     } catch (err: any) {
       setFormError(err.message || "An unexpected error occurred");
@@ -268,11 +297,17 @@ export default function FleetVehiclesPage() {
                   <label className="text-xs font-semibold text-slate-700">Vehicle Number *</label>
                   <Input
                     required
+                    maxLength={20}
                     placeholder="TN-01-AB-1234"
                     value={formData.vehicleNumber}
-                    onChange={(e) => setFormData({ ...formData, vehicleNumber: e.target.value })}
+                    error={!!fieldErrors.vehicleNumber}
+                    onChange={(e) => {
+                      setFormData({ ...formData, vehicleNumber: e.target.value.toUpperCase().slice(0, 20) });
+                      if (fieldErrors.vehicleNumber) setFieldErrors((prev) => ({ ...prev, vehicleNumber: "" }));
+                    }}
                     className="mt-1 uppercase font-mono"
                   />
+                  <FormFieldError error={fieldErrors.vehicleNumber} />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-slate-700">Category *</label>
@@ -296,21 +331,33 @@ export default function FleetVehiclesPage() {
                   <label className="text-xs font-semibold text-slate-700">Make *</label>
                   <Input
                     required
+                    maxLength={50}
                     placeholder="Tata, Mahindra..."
                     value={formData.make}
-                    onChange={(e) => setFormData({ ...formData, make: e.target.value })}
+                    error={!!fieldErrors.make}
+                    onChange={(e) => {
+                      setFormData({ ...formData, make: e.target.value.slice(0, 50) });
+                      if (fieldErrors.make) setFieldErrors((prev) => ({ ...prev, make: "" }));
+                    }}
                     className="mt-1"
                   />
+                  <FormFieldError error={fieldErrors.make} />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-slate-700">Model *</label>
                   <Input
                     required
+                    maxLength={50}
                     placeholder="407, Bolero..."
                     value={formData.model}
-                    onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                    error={!!fieldErrors.model}
+                    onChange={(e) => {
+                      setFormData({ ...formData, model: e.target.value.slice(0, 50) });
+                      if (fieldErrors.model) setFieldErrors((prev) => ({ ...prev, model: "" }));
+                    }}
                     className="mt-1"
                   />
+                  <FormFieldError error={fieldErrors.model} />
                 </div>
               </div>
 

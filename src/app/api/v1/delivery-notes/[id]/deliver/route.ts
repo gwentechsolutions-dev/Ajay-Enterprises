@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import { logAuditEvent } from "@/lib/audit";
 import { deliverNoteWithEvidenceSchema } from "@/lib/schemas/delivery-note";
+import { validationErrorResponse } from "@/lib/api-validation";
 import { sendWhatsAppNotification } from "@/lib/notifications/whatsapp";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -36,10 +37,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const body = await req.json();
     const parsed = deliverNoteWithEvidenceSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_FAILED", message: "Validation failed", details: parsed.error.issues } },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     const input = parsed.data;

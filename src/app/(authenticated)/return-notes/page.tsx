@@ -32,6 +32,7 @@ import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { TableSkeleton } from "@/components/ui/loading-states";
 import { useCurrentUser } from "@/lib/auth-context";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/forms/validation-mapper";
 
 interface MRNLineItem {
   materialVariantId: string;
@@ -337,7 +338,7 @@ export default function MaterialReturnsPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || "Failed to post Material Return Note");
+      if (!res.ok) throw new Error(getApiErrorMessage(data, "Failed to post Material Return Note"));
 
       toast.success(`MRN ${data.data.mrnNumber} posted! Site stock deducted & yard stock credited.`);
       setIsCreateModalOpen(false);
@@ -632,8 +633,11 @@ export default function MaterialReturnsPage() {
               <div>
                 <Label className="text-xs font-semibold">Company Vehicle No. *</Label>
                 <Input
+                  maxLength={20}
+                  placeholder="KA-01-AB-1234"
                   value={mrnForm.vehicleNumber}
-                  onChange={(e) => setMrnForm({ ...mrnForm, vehicleNumber: e.target.value })}
+                  onChange={(e) => setMrnForm({ ...mrnForm, vehicleNumber: e.target.value.toUpperCase().slice(0, 20) })}
+                  className="uppercase font-mono"
                   required
                 />
               </div>
@@ -641,8 +645,10 @@ export default function MaterialReturnsPage() {
               <div>
                 <Label className="text-xs font-semibold">Yard Receiver Name *</Label>
                 <Input
+                  maxLength={100}
+                  placeholder="e.g. Ramesh Kumar"
                   value={mrnForm.receiverName}
-                  onChange={(e) => setMrnForm({ ...mrnForm, receiverName: e.target.value })}
+                  onChange={(e) => setMrnForm({ ...mrnForm, receiverName: e.target.value.slice(0, 100) })}
                   required
                 />
               </div>

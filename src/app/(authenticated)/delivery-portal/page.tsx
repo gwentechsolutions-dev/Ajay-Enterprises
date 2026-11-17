@@ -32,6 +32,8 @@ import {
 import { toast } from "sonner";
 import { queueOfflineDraft, getOfflineQueue, syncPendingDrafts } from "@/lib/offline/drafts";
 import { stampGpsWatermarkOnPhoto } from "@/lib/gps-watermark";
+import { FormFieldError } from "@/components/ui/form-field-error";
+import { parseApiValidationErrors, formatValidationToast } from "@/lib/forms/validation-mapper";
 
 export default function DeliveryPortalPage() {
   const [data, setData] = React.useState<any>(null);
@@ -47,6 +49,7 @@ export default function DeliveryPortalPage() {
   const [uploadingPhoto, setUploadingPhoto] = React.useState(false);
   const [photoPreview, setPhotoPreview] = React.useState<string | null>(null);
   const cameraInputRef = React.useRef<HTMLInputElement>(null);
+  const [deliverErrors, setDeliverErrors] = React.useState<Record<string, string>>({});
 
   // Delivery Proof Form
   const [proofForm, setProofForm] = React.useState({
@@ -169,9 +172,11 @@ export default function DeliveryPortalPage() {
   const openProofModal = (dn: any) => {
     setSelectedDN(dn);
     setPhotoPreview(null);
+    setDeliverErrors({});
+    const initialPhone = (dn.customerSite?.siteContactDetails || "").replace(/\D/g, "").slice(0, 10);
     setProofForm({
-      receiverName: dn.customerSite?.siteInCharge || "",
-      receiverPhone: dn.customerSite?.siteContactDetails || "",
+      receiverName: (dn.customerSite?.siteInCharge || "").slice(0, 100),
+      receiverPhone: initialPhone,
       receiverDesignation: "Site Supervisor",
       photoUrl: "",
       gpsLatitude: 12.9716,
@@ -188,9 +193,31 @@ export default function DeliveryPortalPage() {
     e.preventDefault();
     if (!selectedDN) return;
 
-    if (!proofForm.receiverName || !proofForm.receiverPhone) {
-      return toast.error("Receiver name and mobile number are required");
+    // Strict client-side validation
+    const newErrors: Record<string, string> = {};
+    if (!proofForm.receiverName || proofForm.receiverName.trim().length < 2) {
+      newErrors.receiverName = "Receiver full name is required (minimum 2 characters)";
     }
+    const cleanPhone = (proofForm.receiverPhone || "").replace(/\D/g, "");
+    if (!cleanPhone) {
+      newErrors.receiverPhone = "Receiver mobile phone is required";
+    } else if (cleanPhone.length !== 10) {
+      newErrors.receiverPhone = `Must be exactly 10 digits (currently ${cleanPhone.length} digits)`;
+    } else if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+      newErrors.receiverPhone = "Must start with 6, 7, 8, or 9 (valid Indian mobile)";
+    }
+
+    if (!proofForm.photoUrl) {
+      newErrors.photo = "Site delivery proof photo is required before confirming handover";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setDeliverErrors(newErrors);
+      const firstError = Object.values(newErrors)[0];
+      return toast.error(firstError);
+    }
+
+    setDeliverErrors({});
 
     try {
       setSubmitting(true);
@@ -202,6 +229,7 @@ export default function DeliveryPortalPage() {
           payload: {
             dnId: selectedDN.id,
             ...proofForm,
+            receiverPhone: cleanPhone,
           },
         });
         toast.warning("Network offline! Saved to local queue. Will sync automatically when connected.");
@@ -215,8 +243,8 @@ export default function DeliveryPortalPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          receiverName: proofForm.receiverName,
-          receiverPhone: proofForm.receiverPhone,
+          receiverName: proofForm.receiverName.trim(),
+          receiverPhone: cleanPhone,
           receiverDesignation: proofForm.receiverDesignation,
           photoUrl: proofForm.photoUrl,
           gpsLatitude: proofForm.gpsLatitude,
@@ -228,7 +256,15 @@ export default function DeliveryPortalPage() {
       });
 
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error?.message || "Delivery submission failed");
+      if (!res.ok) {
+        const parsed = parseApiValidationErrors(json);
+        if (parsed.hasErrors) {
+          setDeliverErrors(parsed.fieldErrors);
+          toast.error(formatValidationToast(parsed));
+          return;
+        }
+        throw new Error(json.error?.message || "Delivery submission failed");
+      }
 
       toast.success(`Delivery Note ${selectedDN.dnNumber} completed! Custody confirmed.`);
       setIsDeliverModalOpen(false);
@@ -419,23 +455,54 @@ export default function DeliveryPortalPage() {
 
           <form onSubmit={handleCompleteDelivery} className="space-y-3 pt-1">
             <div>
-              <Label className="text-xs font-semibold">Receiver Full Name *</Label>
+              <Label className="text-xs font-semibold" required>Receiver Full Name *</Label>
               <Input
                 value={proofForm.receiverName}
-                onChange={(e) => setProofForm({ ...proofForm, receiverName: e.target.value })}
-                placeholder="Receiver name"
+                maxLength={100}
+                error={!!deliverErrors.receiverName}
+                onChange={(e) => {
+                  setProofForm({ ...proofForm, receiverName: e.target.value.slice(0, 100) });
+                  if (deliverErrors.receiverName) {
+                    setDeliverErrors((prev) => {
+                      const cp = { ...prev };
+                      delete cp.receiverName;
+                      return cp;
+                    });
+                  }
+                }}
+                placeholder="Receiver name (max 100 characters)"
                 required
               />
+              <FormFieldError error={deliverErrors.receiverName} />
             </div>
 
             <div>
-              <Label className="text-xs font-semibold">Receiver Mobile Phone *</Label>
+              <div className="flex justify-between items-center mb-1">
+                <Label className="text-xs font-semibold" required>Receiver Mobile Phone *</Label>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  {proofForm.receiverPhone.length}/10 digits
+                </span>
+              </div>
               <Input
+                type="tel"
                 value={proofForm.receiverPhone}
-                onChange={(e) => setProofForm({ ...proofForm, receiverPhone: e.target.value })}
-                placeholder="9876543210"
+                maxLength={10}
+                error={!!deliverErrors.receiverPhone}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                  setProofForm({ ...proofForm, receiverPhone: val });
+                  if (deliverErrors.receiverPhone) {
+                    setDeliverErrors((prev) => {
+                      const cp = { ...prev };
+                      delete cp.receiverPhone;
+                      return cp;
+                    });
+                  }
+                }}
+                placeholder="10-digit Indian mobile (e.g. 9876543210)"
                 required
               />
+              <FormFieldError error={deliverErrors.receiverPhone} />
             </div>
 
             <div>
@@ -509,13 +576,21 @@ export default function DeliveryPortalPage() {
                   </div>
                 </button>
               )}
+              <FormFieldError error={deliverErrors.photo} />
             </div>
 
             <div>
-              <Label className="text-xs font-semibold">Notes</Label>
+              <div className="flex justify-between items-center mb-1">
+                <Label className="text-xs font-semibold">Notes / Handover Remarks</Label>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  {(proofForm.remarks || "").length}/500
+                </span>
+              </div>
               <Input
                 value={proofForm.remarks}
-                onChange={(e) => setProofForm({ ...proofForm, remarks: e.target.value })}
+                maxLength={500}
+                placeholder="e.g. Materials verified against checklist and delivered."
+                onChange={(e) => setProofForm({ ...proofForm, remarks: e.target.value.slice(0, 500) })}
               />
             </div>
 

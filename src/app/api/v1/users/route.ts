@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import { createUserSchema } from "@/lib/schemas/user";
+import { validationErrorResponse } from "@/lib/api-validation";
 import { logAuditEvent } from "@/lib/audit";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -92,17 +93,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsed = createUserSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "VALIDATION_FAILED",
-            message: "User validation failed",
-            details: parsed.error.issues,
-          },
-        },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     const { name, email, username, mobile, password, role, scope, branchId, warehouseId, isActive } =

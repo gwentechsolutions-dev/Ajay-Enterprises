@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import { contactPersonSchema } from "@/lib/schemas/customer";
+import { validationErrorResponse } from "@/lib/api-validation";
 import { logAuditEvent } from "@/lib/audit";
 
 export async function POST(
@@ -18,10 +19,7 @@ export async function POST(
 
     const parsed = contactPersonSchema.safeParse({ ...body, customerId });
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_FAILED", message: "Validation failed", details: parsed.error.issues } },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     const data = parsed.data;
