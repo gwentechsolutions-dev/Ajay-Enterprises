@@ -173,7 +173,7 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
       <span style="font-family: monospace; font-size: 13px; color: #94a3b8;">${data.documentNumber}</span>
       ${
         data.transportDetails?.eWayBillNumber
-          ? `<span style="background: #2563eb; color: white; font-size: 11px; padding: 3px 8px; border-radius: 4px; font-family: monospace; font-weight: 600;">EWB: ${data.transportDetails.eWayBillNumber}</span>`
+          ? `<a href="/api/v1/ewaybills/${data.transportDetails.eWayBillNumber}/print" target="_blank" style="text-decoration: none; display: inline-flex; align-items: center; gap: 4px; background: #2563eb; color: #ffffff; font-size: 11px; padding: 4px 10px; border-radius: 4px; font-family: monospace; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.2);" title="Click to view official Form GST EWB-01 Statutory E-Way Bill"><span>EWB: ${data.transportDetails.eWayBillNumber}</span><span style="font-size: 10px; opacity: 0.9;">&bull; View E-Way Bill &nearr;</span></a>`
           : ""
       }
     </div>
@@ -239,7 +239,7 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
       ${data.transportDetails.vehicleNumber ? ` &bull; Vehicle: <strong>${data.transportDetails.vehicleNumber}</strong>` : ""}
       ${data.transportDetails.driverName ? ` &bull; Driver: <strong>${data.transportDetails.driverName}</strong>` : ""}
       ${data.transportDetails.driverPhone ? ` (+91 ${data.transportDetails.driverPhone})` : ""}
-      ${data.transportDetails.eWayBillNumber ? ` &bull; E-Way Bill: <strong>${data.transportDetails.eWayBillNumber}</strong>` : ""}
+      ${data.transportDetails.eWayBillNumber ? ` &bull; E-Way Bill: <a href="/api/v1/ewaybills/${data.transportDetails.eWayBillNumber}/print" target="_blank" style="color: #2563eb; font-weight: 700; text-decoration: underline;" title="View official Form GST EWB-01">${data.transportDetails.eWayBillNumber}</a> <span style="color: #64748b; font-size: 8pt;">(View Form GST EWB-01 &nearr;)</span>` : ""}
     </div>
   `
       : ""

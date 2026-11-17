@@ -836,16 +836,26 @@ export default function DeliveryNotesPage() {
                     <td className="px-6 py-4 font-mono font-medium text-slate-900">
                       <div>{dn.dnNumber}</div>
                       {dn.eWayBillNumber ? (
-                        <div className="mt-1">
+                        <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                           <button
                             type="button"
                             onClick={() => openEwbModal(dn)}
-                            title={`Click to view E-Way Bill ${dn.eWayBillNumber}`}
+                            title={`Manage E-Way Bill ${dn.eWayBillNumber}`}
                             className="inline-flex items-center gap-1 text-[11px] font-mono font-semibold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors cursor-pointer"
                           >
                             <FileDigit className="h-3 w-3 text-blue-600" />
                             EWB: {dn.eWayBillNumber}
                           </button>
+                          <a
+                            href={`/api/v1/ewaybills/${dn.eWayBillNumber}/print`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="View Official Statutory Form GST EWB-01"
+                            className="inline-flex items-center gap-0.5 text-[11px] font-medium text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-1.5 py-0.5 rounded-md"
+                          >
+                            <span>EWB Slip</span>
+                            <ExternalLink className="h-2.5 w-2.5" />
+                          </a>
                         </div>
                       ) : null}
                     </td>
@@ -1549,11 +1559,22 @@ export default function DeliveryNotesPage() {
               <div className="space-y-2">
                 <Button
                   asChild
-                  className="w-full bg-[#0B1E36] hover:bg-[#0B1E36]/90 text-white flex items-center justify-center gap-2 text-xs"
+                  className="w-full bg-[#F26522] hover:bg-[#ea580c] text-white flex items-center justify-center gap-2 text-xs font-semibold py-2.5 shadow-sm cursor-pointer"
+                >
+                  <a href={`/api/v1/ewaybills/${selectedDN.eWayBillNumber}/print`} target="_blank" rel="noopener noreferrer">
+                    <FileText className="w-4 h-4" />
+                    View / Print Official Statutory E-Way Bill (Form GST EWB-01)
+                  </a>
+                </Button>
+
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full border-slate-300 hover:bg-slate-100 text-slate-800 flex items-center justify-center gap-2 text-xs cursor-pointer"
                 >
                   <a href={`/api/v1/delivery-notes/${selectedDN.id}/print`} target="_blank" rel="noopener noreferrer">
-                    <Printer className="w-4 h-4" />
-                    Open Printable Delivery Note (with E-Way Bill)
+                    <Printer className="w-4 h-4 text-slate-600" />
+                    Print Material Delivery Note (DN)
                   </a>
                 </Button>
 
