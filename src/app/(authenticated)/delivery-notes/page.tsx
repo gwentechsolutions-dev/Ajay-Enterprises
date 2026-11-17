@@ -41,6 +41,7 @@ import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { TableSkeleton } from "@/components/ui/loading-states";
 import { fetchWithClientCache, invalidateClientCache } from "@/lib/client-cache";
 import { useCurrentUser } from "@/lib/auth-context";
+import { stampGpsWatermarkOnPhoto } from "@/lib/gps-watermark";
 import { toast } from "sonner";
 
 export default function DeliveryNotesPage() {
@@ -494,16 +495,27 @@ export default function DeliveryNotesPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setDeliverPhotoPreview(ev.target?.result as string);
-    };
-    reader.readAsDataURL(file);
-
     try {
       setUploadingDeliveryPhoto(true);
+
+      // Burn indelible GPS Camera watermark banner onto the bottom of the photo
+      const { watermarkedFile, dataUrl } = await stampGpsWatermarkOnPhoto({
+        file,
+        latitude: deliverForm.gpsLatitude,
+        longitude: deliverForm.gpsLongitude,
+        accuracy: deliverForm.gpsAccuracy,
+        siteName: selectedDN?.customerSite?.siteName || "Construction Site",
+        customerName: selectedDN?.customer?.name || "",
+        documentNumber: selectedDN?.dnNumber || "DELIVERY-NOTE",
+        timestamp: new Date(),
+      });
+
+      // Show watermarked photo immediately in the preview
+      setDeliverPhotoPreview(dataUrl);
+
+      // Upload watermarked photo file to private storage
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", watermarkedFile);
       formData.append("folder", "delivery-proofs");
 
       const res = await fetch("/api/v1/storage/upload", {
@@ -516,7 +528,7 @@ export default function DeliveryNotesPage() {
 
       const uploadedPath = json.data?.url || (json.data?.storagePath ? `/api/v1/storage/download?path=${encodeURIComponent(json.data.storagePath)}` : "");
       setDeliverForm((prev) => ({ ...prev, photoUrl: uploadedPath }));
-      toast.success("Delivery photo uploaded successfully!");
+      toast.success("Delivery photo uploaded with GPS watermark!");
     } catch (err: any) {
       toast.error(`Photo upload error: ${err.message}`);
     } finally {
@@ -1529,21 +1541,21 @@ export default function DeliveryNotesPage() {
               />
 
               {deliverPhotoPreview ? (
-                <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-50 mb-1">
+                <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-900 mb-1">
                   <img
                     src={deliverPhotoPreview}
-                    alt="Delivery proof preview"
-                    className="w-full h-36 object-cover"
+                    alt="Delivery proof with GPS watermark"
+                    className="w-full max-h-56 object-contain bg-slate-900"
                   />
-                  <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between bg-black/60 backdrop-blur-xs text-white text-[11px] px-2.5 py-1.5 rounded">
-                    <span className="flex items-center gap-1 font-medium">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-                      {uploadingDeliveryPhoto ? "Uploading Photo..." : "Photo Ready"}
+                  <div className="absolute top-2 right-2 flex items-center gap-1.5">
+                    <span className="flex items-center gap-1 font-medium bg-emerald-600/90 text-white text-[10px] px-2 py-0.5 rounded-full shadow-sm">
+                      <CheckCircle2 className="h-3 w-3" />
+                      {uploadingDeliveryPhoto ? "Uploading..." : "GPS Watermarked"}
                     </span>
                     <button
                       type="button"
                       onClick={() => deliverCameraInputRef.current?.click()}
-                      className="text-[#F26522] font-semibold hover:underline cursor-pointer"
+                      className="bg-black/70 hover:bg-black/90 text-white text-[10px] px-2.5 py-0.5 rounded-full font-medium shadow-sm cursor-pointer"
                     >
                       Change Photo
                     </button>
