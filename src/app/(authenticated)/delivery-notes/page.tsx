@@ -809,16 +809,16 @@ export default function DeliveryNotesPage() {
       {/* Delivery Notes Table */}
       <Card className="border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-600">
+          <table className="w-full text-left text-sm text-slate-600 min-w-[1050px]">
             <thead className="bg-slate-50 text-xs uppercase font-semibold text-slate-700 border-b border-slate-200">
               <tr>
-                <th className="px-6 py-4">DN Number</th>
-                <th className="px-6 py-4">Customer</th>
-                <th className="px-6 py-4">Construction Site</th>
-                <th className="px-6 py-4">Source Yard</th>
-                <th className="px-6 py-4">Dispatch Date</th>
-                <th className="px-6 py-4 text-center">Status</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                <th className="px-6 py-4 whitespace-nowrap min-w-[210px]">DN Number</th>
+                <th className="px-6 py-4 min-w-[180px]">Customer</th>
+                <th className="px-6 py-4 min-w-[180px]">Construction Site</th>
+                <th className="px-6 py-4 min-w-[140px]">Source Yard</th>
+                <th className="px-6 py-4 whitespace-nowrap min-w-[110px]">Dispatch Date</th>
+                <th className="px-6 py-4 text-center whitespace-nowrap min-w-[100px]">Status</th>
+                <th className="px-6 py-4 text-right whitespace-nowrap min-w-[160px]">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 bg-white">
@@ -833,28 +833,28 @@ export default function DeliveryNotesPage() {
               ) : (
                 filteredDNs.map((dn) => (
                   <tr key={dn.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="px-6 py-4 font-mono font-medium text-slate-900">
-                      <div>{dn.dnNumber}</div>
+                    <td className="px-6 py-4 font-mono font-medium text-slate-900 whitespace-nowrap min-w-[210px]">
+                      <div className="font-semibold text-slate-900 tracking-tight whitespace-nowrap">{dn.dnNumber}</div>
                       {dn.eWayBillNumber ? (
-                        <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                        <div className="mt-1 flex items-center gap-1.5 whitespace-nowrap">
                           <button
                             type="button"
                             onClick={() => openEwbModal(dn)}
                             title={`Manage E-Way Bill ${dn.eWayBillNumber}`}
-                            className="inline-flex items-center gap-1 text-[11px] font-mono font-semibold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors cursor-pointer whitespace-nowrap shrink-0 shadow-2xs"
                           >
-                            <FileDigit className="h-3 w-3 text-blue-600" />
-                            EWB: {dn.eWayBillNumber}
+                            <FileDigit className="h-3 w-3 text-blue-600 shrink-0" />
+                            <span className="whitespace-nowrap">EWB: {dn.eWayBillNumber}</span>
                           </button>
                           <a
                             href={`/api/v1/ewaybills/${dn.eWayBillNumber}/print`}
                             target="_blank"
                             rel="noopener noreferrer"
                             title="View Official Statutory Form GST EWB-01"
-                            className="inline-flex items-center gap-0.5 text-[11px] font-medium text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-1.5 py-0.5 rounded-md"
+                            className="inline-flex items-center gap-0.5 text-[10px] font-medium text-blue-700 hover:text-blue-900 bg-white hover:bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-full transition-colors whitespace-nowrap shrink-0"
                           >
-                            <span>EWB Slip</span>
-                            <ExternalLink className="h-2.5 w-2.5" />
+                            <span>Slip</span>
+                            <ExternalLink className="h-2.5 w-2.5 shrink-0" />
                           </a>
                         </div>
                       ) : null}
@@ -1515,8 +1515,8 @@ export default function DeliveryNotesPage() {
                   </Badge>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-xl font-bold text-[#0B1E36] tracking-wider">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-lg sm:text-xl font-bold text-[#0B1E36] tracking-wider whitespace-nowrap">
                     {selectedDN.eWayBillNumber}
                   </span>
                   <Button
