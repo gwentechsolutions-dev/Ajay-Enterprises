@@ -78,8 +78,9 @@ export async function fetchWithClientCache<T = any>(
   if (cached && !options?.forceRefresh) {
     const isStale = now - cached.timestamp > ttl;
     if (isStale) {
-      // Transparent background revalidation
-      fetch(url)
+      // Transparent background revalidation (bypasses browser HTTP cache)
+      const bustUrl = `${url}${url.includes("?") ? "&" : "?"}_t=${Date.now()}`;
+      fetch(bustUrl, { cache: "no-store" })
         .then((res) => (res.ok ? res.json() : null))
         .then((json) => {
           if (json?.success) {
@@ -94,7 +95,13 @@ export async function fetchWithClientCache<T = any>(
     return cached.data as T;
   }
 
-  const res = await fetch(url);
+  // Network fetch: always use no-store and bust cache when forceRefresh is requested
+  const fetchUrl = options?.forceRefresh
+    ? `${url}${url.includes("?") ? "&" : "?"}_t=${Date.now()}`
+    : url;
+  const res = await fetch(fetchUrl, {
+    cache: "no-store",
+  });
   const json = await res.json();
   if (!res.ok || !json.success) {
     throw new Error(json.error?.message || `Request to ${url} failed`);
@@ -115,7 +122,7 @@ export function invalidateClientCache(urlPrefix?: string) {
     removeSessionStorageCache();
     return;
   }
-  for (const key of memoryCache.keys()) {
+  for (const key of Array.from(memoryCache.keys())) {
     if (key.startsWith(urlPrefix)) {
       memoryCache.delete(key);
     }

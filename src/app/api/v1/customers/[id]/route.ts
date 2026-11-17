@@ -100,7 +100,7 @@ export async function GET(
       { success: true, data: customer },
       {
         headers: {
-          "Cache-Control": "private, max-age=10, stale-while-revalidate=20",
+          "Cache-Control": "no-store, no-cache, must-revalidate",
         },
       }
     );

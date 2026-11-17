@@ -357,7 +357,8 @@ export default function DeliveryNotesPage() {
       setIsCreateModalOpen(false);
       setEditingDnId(null);
       invalidateClientCache("/api/v1/delivery-notes");
-      loadData(true);
+      invalidateClientCache("/api/v1/dashboard");
+      await loadData(true);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -410,6 +411,10 @@ export default function DeliveryNotesPage() {
 
   const handleDiscardDraft = async (dn: any) => {
     if (!confirm(`Are you sure you want to discard draft Delivery Note ${dn.dnNumber}?`)) return;
+
+    // 1. Optimistic UI removal (0ms): instantly remove from table and KPI cards so it never lingers
+    setDeliveryNotes((prev) => prev.filter((d) => d.id !== dn.id));
+
     try {
       const res = await fetch(`/api/v1/delivery-notes/${dn.id}`, {
         method: "DELETE",
@@ -418,9 +423,12 @@ export default function DeliveryNotesPage() {
       if (!res.ok) throw new Error(data.error?.message || "Failed to discard draft");
       toast.success(`Draft Delivery Note ${dn.dnNumber} discarded.`);
       invalidateClientCache("/api/v1/delivery-notes");
-      loadData(true);
+      invalidateClientCache("/api/v1/dashboard");
+      await loadData(true);
     } catch (err: any) {
       toast.error(err.message);
+      // Revert optimistic removal on server failure
+      await loadData(true);
     }
   };
 
@@ -471,6 +479,7 @@ export default function DeliveryNotesPage() {
       setIsDispatchModalOpen(false);
       setDispatchTarget(null);
       invalidateClientCache("/api/v1/delivery-notes");
+      invalidateClientCache("/api/v1/dashboard");
       await loadData(true);
     } catch (err: any) {
       toast.error(err.message);
@@ -548,7 +557,8 @@ export default function DeliveryNotesPage() {
       toast.success(`Delivery Note ${selectedDN.dnNumber} marked DELIVERED with receiver acknowledgement!`);
       setIsDeliverModalOpen(false);
       invalidateClientCache("/api/v1/delivery-notes");
-      loadData(true);
+      invalidateClientCache("/api/v1/dashboard");
+      await loadData(true);
     } catch (err: any) {
       toast.error(err.message);
     } finally {

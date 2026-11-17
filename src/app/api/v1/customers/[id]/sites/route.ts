@@ -42,7 +42,7 @@ export async function GET(
       { success: true, data: sites },
       {
         headers: {
-          "Cache-Control": "private, max-age=15, stale-while-revalidate=30",
+          "Cache-Control": "no-store, no-cache, must-revalidate",
         },
       }
     );
