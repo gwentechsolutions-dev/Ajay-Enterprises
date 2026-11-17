@@ -42,6 +42,8 @@ import {
   Database,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SessionUser } from "@/lib/auth";
+import { getDefaultPortalForRole, isNavItemAllowedForRole } from "@/lib/portal-routing";
 
 interface NavItem {
   title: string;
@@ -177,14 +179,22 @@ const NAVIGATION: NavGroup[] = [
 ];
 
 interface SidebarProps {
+  user?: SessionUser;
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean) => void;
   mobileOpen: boolean;
   setMobileOpen: (open: boolean) => void;
 }
 
-export function Sidebar({ isCollapsed, setIsCollapsed, mobileOpen, setMobileOpen }: SidebarProps) {
+export function Sidebar({ user, isCollapsed, setIsCollapsed, mobileOpen, setMobileOpen }: SidebarProps) {
   const pathname = usePathname();
+
+  const filteredNavigation = React.useMemo(() => {
+    return NAVIGATION.map((group) => ({
+      ...group,
+      items: group.items.filter((item) => isNavItemAllowedForRole(user?.role, item.href)),
+    })).filter((group) => group.items.length > 0);
+  }, [user?.role]);
 
   return (
     <>
@@ -207,7 +217,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed, mobileOpen, setMobileOpen
         {/* Brand Header */}
         <div className="flex h-16 items-center justify-between border-b border-slate-800 px-4">
           <Link
-            href="/dashboard"
+            href={getDefaultPortalForRole(user?.role)}
             className="flex items-center gap-3 overflow-hidden"
             onClick={() => setMobileOpen(false)}
           >
@@ -245,7 +255,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed, mobileOpen, setMobileOpen
 
         {/* Navigation Links */}
         <div className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
-          {NAVIGATION.map((group) => (
+          {filteredNavigation.map((group) => (
             <div key={group.group} className="space-y-1">
               {!isCollapsed && (
                 <div className="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">

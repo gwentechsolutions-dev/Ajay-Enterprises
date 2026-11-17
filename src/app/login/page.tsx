@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Lock, Mail, ArrowRight, ShieldCheck, AlertCircle } from "lucide-react";
 import { Toaster, toast } from "sonner";
+import { getDefaultPortalForRole, isExecutiveRole } from "@/lib/portal-routing";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -75,18 +76,24 @@ export default function LoginPage() {
         return;
       }
 
-      let destination = "/dashboard";
+      const userRole = data.data?.user?.role;
+      let destination = getDefaultPortalForRole(userRole);
       if (typeof window !== "undefined") {
         const params = new URLSearchParams(window.location.search);
         const reqTarget = params.get("redirect");
         if (reqTarget && reqTarget.startsWith("/") && !reqTarget.startsWith("//")) {
-          destination = reqTarget;
+          // If the requested target is dashboard but role is non-executive, force role portal
+          if (reqTarget === "/dashboard" && !isExecutiveRole(userRole)) {
+            destination = getDefaultPortalForRole(userRole);
+          } else {
+            destination = reqTarget;
+          }
         }
       }
 
       toast.success(
         destination !== "/dashboard"
-          ? "Welcome back! Redirecting to your page..."
+          ? "Welcome back! Redirecting to your operational portal..."
           : "Welcome back! Redirecting to dashboard..."
       );
       router.push(destination);

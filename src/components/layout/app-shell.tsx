@@ -30,6 +30,7 @@ export function AppShell({ user, children }: AppShellProps) {
 
       {/* Main Collapsible Sidebar */}
       <Sidebar
+        user={user}
         isCollapsed={isCollapsed}
         setIsCollapsed={setIsCollapsed}
         mobileOpen={mobileOpen}

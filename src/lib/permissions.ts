@@ -221,7 +221,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     training: ["view", "edit"],
   },
   WAREHOUSE_STAFF: {
-    dashboard: ["view"],
+    dashboard: [],
     company: [],
     branches: [],
     warehouses: ["view"],
@@ -250,7 +250,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     training: ["view"],
   },
   DELIVERY_MANAGER: {
-    dashboard: ["view"],
+    dashboard: [],
     company: [],
     branches: ["view"],
     warehouses: ["view"],
@@ -280,7 +280,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     training: ["view"],
   },
   DELIVERY_PERSONNEL: {
-    dashboard: ["view"],
+    dashboard: [],
     company: [],
     branches: [],
     warehouses: [],
@@ -305,11 +305,11 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     fleet: ["view", "create"],
     labour: [],
     material_maintenance: [],
-    reports: ["view"],
+    reports: [],
     training: ["view"],
   },
   LABOUR_SUPERVISOR: {
-    dashboard: ["view"],
+    dashboard: [],
     company: [],
     branches: [],
     warehouses: [],
