@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import { dispatchDirectTransferSchema } from "@/lib/schemas/direct-transfer";
+import { validationErrorResponse } from "@/lib/api-validation";
 import {
   dispatchDirectTransfer,
   DirectTransferError,
@@ -20,17 +21,7 @@ export async function POST(
 
     const parsed = dispatchDirectTransferSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "VALIDATION_FAILED",
-            message: "Validation failed",
-            details: parsed.error.issues,
-          },
-        },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     const actor = {

@@ -14,6 +14,7 @@ import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { Warehouse as WarehouseIcon, Plus, Edit2, Trash2, MapPin, Phone, Compass, GitBranch } from "lucide-react";
 import { toast } from "sonner";
 import { setReactHookFormErrors, formatValidationToast, parseApiValidationErrors } from "@/lib/forms/validation-mapper";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 
 const WAREHOUSE_TYPES = [
   { value: "MAIN_YARD", label: "Main Centering Storage Yard" },
@@ -27,6 +28,13 @@ export default function WarehousesPage() {
   const [loading, setLoading] = React.useState(true);
   const [modalOpen, setModalOpen] = React.useState(false);
   const [editingWarehouse, setEditingWarehouse] = React.useState<any | null>(null);
+  const [deleteConfirmModal, setDeleteConfirmModal] = React.useState<{
+    isOpen: boolean;
+    warehouseId: string | null;
+  }>({
+    isOpen: false,
+    warehouseId: null,
+  });
 
   const {
     register,
@@ -154,8 +162,17 @@ export default function WarehousesPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this warehouse?")) return;
+  const handleDelete = (id: string) => {
+    setDeleteConfirmModal({
+      isOpen: true,
+      warehouseId: id,
+    });
+  };
+
+  const executeDelete = async () => {
+    const id = deleteConfirmModal.warehouseId;
+    if (!id) return;
+    setDeleteConfirmModal({ isOpen: false, warehouseId: null });
     try {
       const res = await fetch(`/api/v1/warehouses/${id}`, { method: "DELETE" });
       const data = await res.json();
@@ -442,6 +459,16 @@ export default function WarehousesPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmModal
+        isOpen={deleteConfirmModal.isOpen}
+        onClose={() => setDeleteConfirmModal({ isOpen: false, warehouseId: null })}
+        onConfirm={executeDelete}
+        title="Delete Centering Yard"
+        description="Are you sure you want to delete this storage yard? Yard stock and location records linked to this yard may be affected."
+        confirmText="Delete Yard"
+        variant="danger"
+      />
     </div>
   );
 }

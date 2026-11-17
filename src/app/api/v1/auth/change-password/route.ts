@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth";
 import { changePasswordSchema } from "@/lib/schemas/auth";
 import { logAuditEvent } from "@/lib/audit";
 import { createClient as createServerSupabaseClient } from "@/lib/supabase/server";
+import { validationErrorResponse } from "@/lib/api-validation";
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,17 +19,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsed = changePasswordSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "VALIDATION_FAILED",
-            message: "Validation failed",
-            details: parsed.error.issues,
-          },
-        },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     const { currentPassword, newPassword } = parsed.data;

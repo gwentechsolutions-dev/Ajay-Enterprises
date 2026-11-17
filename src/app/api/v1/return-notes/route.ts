@@ -28,8 +28,8 @@ export async function GET(req: NextRequest) {
         receivingWarehouseId: warehouseId,
       },
       include: {
-        customer: { select: { id: true, name: true, customerCode: true } },
-        customerSite: { select: { id: true, siteName: true, siteCode: true } },
+        customer: { select: { id: true, name: true, customerCode: true, primaryMobile: true, whatsappNumber: true } },
+        customerSite: { select: { id: true, siteName: true, siteCode: true, siteContactDetails: true, siteOwnerContact: true, siteInCharge: true } },
         receivingWarehouse: { select: { id: true, name: true, warehouseCode: true } },
         referenceDeliveryNote: { select: { id: true, dnNumber: true } },
         items: {

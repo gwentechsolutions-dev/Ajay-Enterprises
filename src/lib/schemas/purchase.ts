@@ -9,13 +9,27 @@ export const PO_STATUSES = [
   "CANCELLED",
 ] as const;
 
-export const purchaseOrderItemSchema = z.object({
-  materialVariantId: z.string().uuid("Material variant is required"),
-  quantity: z.coerce.number().positive("Quantity must be greater than zero"),
-  unitRate: z.coerce.number().min(0, "Unit rate cannot be negative"),
-  discountPercent: z.coerce.number().min(0).max(100).default(0),
-  taxPercent: z.coerce.number().min(0).max(100).default(18),
-});
+export const purchaseOrderItemSchema = z.preprocess(
+  (val: any) => {
+    if (val && typeof val === "object") {
+      const q = val.quantity !== undefined ? val.quantity : val.orderedQty;
+      const r = val.unitRate !== undefined ? val.unitRate : val.rate;
+      return {
+        ...val,
+        quantity: q,
+        unitRate: r,
+      };
+    }
+    return val;
+  },
+  z.object({
+    materialVariantId: z.string().uuid("Material variant is required"),
+    quantity: z.coerce.number().positive("Quantity must be greater than zero"),
+    unitRate: z.coerce.number().min(0, "Unit rate cannot be negative"),
+    discountPercent: z.coerce.number().min(0).max(100).default(0),
+    taxPercent: z.coerce.number().min(0).max(100).default(18),
+  })
+);
 
 export const createPurchaseOrderSchema = z.object({
   poNumber: z.string().optional(),

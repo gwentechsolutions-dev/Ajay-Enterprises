@@ -6,6 +6,7 @@ import { requirePermission } from "@/lib/permissions";
 import { logAuditEvent } from "@/lib/audit";
 import { closeFinancialYearSchema } from "@/lib/schemas/accounting";
 import { postJournalEntry } from "@/lib/accounting/ledger";
+import { validationErrorResponse } from "@/lib/api-validation";
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,10 +16,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsed = closeFinancialYearSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_FAILED", message: "Validation failed", details: parsed.error.issues } },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     const { fiscalYear, retainedEarningsAccountId, remarks } = parsed.data;

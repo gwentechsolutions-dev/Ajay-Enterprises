@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import { cancelEWayBillSchema } from "@/lib/schemas/ewaybill";
 import { ewayBillService } from "@/lib/ewaybill/service";
+import { validationErrorResponse } from "@/lib/api-validation";
 
 export async function POST(
   req: NextRequest,
@@ -17,10 +18,7 @@ export async function POST(
     const body = await req.json();
     const parsed = cancelEWayBillSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_FAILED", message: "Validation failed", details: parsed.error.issues } },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     // ID can be E-Way Bill UUID or ewbNumber (e.g. 12-digit number)

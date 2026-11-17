@@ -124,13 +124,37 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; background: #e2e8f0; }
     .status-paid { background: #dcfce7; color: #15803d; }
     .status-unpaid { background: #fee2e2; color: #b91c1c; }
-    .table-main { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 10px; }
-    .table-main th { background: #0B1E36; color: white; padding: 6px; text-align: left; border: 1px solid #0B1E36; }
+    .table-main { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 10px; table-layout: fixed; }
+    .table-main th {
+      background: #0B1E36;
+      color: white;
+      padding: 6px;
+      text-align: left;
+      border: 1px solid #0B1E36;
+      vertical-align: bottom;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .table-main td {
+      border: 1px solid #cbd5e1;
+      padding: 6px;
+      vertical-align: middle;
+      word-break: break-word;
+    }
     .tot-box { width: 340px; margin-left: auto; margin-top: 14px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; background: #f8fafc; }
     .tot-row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 11px; }
     .footer { margin-top: 25px; display: flex; justify-content: space-between; padding-top: 15px; border-top: 1px solid #e2e8f0; }
     .sig-box { width: 200px; text-align: center; border-top: 1px dashed #94a3b8; padding-top: 6px; font-size: 10px; }
-    @media print { .no-print { display: none; } body { padding: 0; } }
+    @media print {
+      .no-print { display: none; }
+      body { padding: 0; }
+      .table-main th {
+        background: #0B1E36 !important;
+        color: white !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+    }
   </style>
 </head>
 <body>

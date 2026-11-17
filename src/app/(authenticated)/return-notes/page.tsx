@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { TableSkeleton } from "@/components/ui/loading-states";
+import { WhatsAppShareButton } from "@/components/ui/whatsapp-share-button";
 import { fetchWithClientCache, invalidateClientCache } from "@/lib/client-cache";
 import { useCurrentUser } from "@/lib/auth-context";
 import { toast } from "sonner";
@@ -559,16 +560,19 @@ export default function MaterialReturnsPage() {
                       </Badge>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <Button size="sm" variant="outline" asChild className="text-xs h-7 px-3">
-                        <a
-                          href={`/api/v1/return-notes/${mrn.id}/print`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <Printer className="h-3.5 w-3.5 mr-1" />
-                          Print MRN
-                        </a>
-                      </Button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button size="sm" variant="outline" asChild className="text-xs h-7 px-3">
+                          <a
+                            href={`/api/v1/return-notes/${mrn.id}/print`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <Printer className="h-3.5 w-3.5 mr-1" />
+                            Print MRN
+                          </a>
+                        </Button>
+                        <WhatsAppShareButton doc={mrn} docType="MRN" />
+                      </div>
                     </td>
                   </tr>
                 ))

@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import { updateVehicleSchema } from "@/lib/schemas/ewaybill";
 import { ewayBillService } from "@/lib/ewaybill/service";
+import { validationErrorResponse } from "@/lib/api-validation";
 
 export async function POST(
   req: NextRequest,
@@ -17,10 +18,7 @@ export async function POST(
     const body = await req.json();
     const parsed = updateVehicleSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_FAILED", message: "Validation failed", details: parsed.error.issues } },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);

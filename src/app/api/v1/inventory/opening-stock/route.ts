@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import { postInventoryMovement } from "@/lib/inventory/ledger";
+import { validationErrorResponse } from "@/lib/api-validation";
 
 const openingStockBatchSchema = z.object({
   warehouseId: z.string().uuid("Warehouse is required"),
@@ -28,10 +29,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsed = openingStockBatchSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_FAILED", message: "Validation failed", details: parsed.error.issues } },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     const { warehouseId, ownershipType, items } = parsed.data;

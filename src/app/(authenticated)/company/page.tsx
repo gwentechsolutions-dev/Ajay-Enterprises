@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 
 const ENTITY_TYPES = [
   { value: "PROPRIETORSHIP", label: "Sole Proprietorship" },
@@ -82,6 +83,19 @@ export default function CompanyProfilePage() {
   const [bankModalOpen, setBankModalOpen] = React.useState(false);
   // Signatory Dialog state
   const [signatoryModalOpen, setSignatoryModalOpen] = React.useState(false);
+  const [confirmModal, setConfirmModal] = React.useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmText?: string;
+    variant?: "danger" | "warning" | "primary" | "success";
+    onConfirm: () => void | Promise<void>;
+  }>({
+    isOpen: false,
+    title: "",
+    description: "",
+    onConfirm: () => {},
+  });
 
   // Profile Form
   const {
@@ -225,17 +239,28 @@ export default function CompanyProfilePage() {
   };
 
   // Handle Delete Address
-  const onDeleteAddress = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this address?")) return;
-    try {
-      const res = await fetch(`/api/v1/company/addresses?id=${id}`, { method: "DELETE" });
-      if (res.ok) {
-        toast.success("Address deleted");
-        fetchCompany();
-      }
-    } catch {
-      toast.error("Failed to delete address");
-    }
+  const onDeleteAddress = (id: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Address",
+      description: "Are you sure you want to delete this company address? Documents using this address snapshot will retain history, but new documents cannot use it.",
+      confirmText: "Delete Address",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/v1/company/addresses?id=${id}`, { method: "DELETE" });
+          if (res.ok) {
+            toast.success("Address deleted");
+            fetchCompany();
+            setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+          } else {
+            toast.error("Failed to delete address");
+          }
+        } catch {
+          toast.error("Failed to delete address");
+        }
+      },
+    });
   };
 
   // Handle Add Bank Account
@@ -261,17 +286,28 @@ export default function CompanyProfilePage() {
   };
 
   // Handle Delete Bank Account
-  const onDeleteBank = async (id: string) => {
-    if (!confirm("Are you sure you want to remove this bank account?")) return;
-    try {
-      const res = await fetch(`/api/v1/company/bank-accounts?id=${id}`, { method: "DELETE" });
-      if (res.ok) {
-        toast.success("Bank account removed");
-        fetchCompany();
-      }
-    } catch {
-      toast.error("Failed to delete bank account");
-    }
+  const onDeleteBank = (id: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Remove Bank Account",
+      description: "Are you sure you want to remove this bank account from the company profile?",
+      confirmText: "Remove Account",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/v1/company/bank-accounts?id=${id}`, { method: "DELETE" });
+          if (res.ok) {
+            toast.success("Bank account removed");
+            fetchCompany();
+            setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+          } else {
+            toast.error("Failed to delete bank account");
+          }
+        } catch {
+          toast.error("Failed to delete bank account");
+        }
+      },
+    });
   };
 
   // Handle Add Signatory
@@ -297,17 +333,28 @@ export default function CompanyProfilePage() {
   };
 
   // Handle Delete Signatory
-  const onDeleteSignatory = async (id: string) => {
-    if (!confirm("Remove this signatory?")) return;
-    try {
-      const res = await fetch(`/api/v1/company/signatories?id=${id}`, { method: "DELETE" });
-      if (res.ok) {
-        toast.success("Signatory removed");
-        fetchCompany();
-      }
-    } catch {
-      toast.error("Failed to delete signatory");
-    }
+  const onDeleteSignatory = (id: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Remove Signatory",
+      description: "Are you sure you want to remove this authorised signatory from the company profile?",
+      confirmText: "Remove Signatory",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/v1/company/signatories?id=${id}`, { method: "DELETE" });
+          if (res.ok) {
+            toast.success("Signatory removed");
+            fetchCompany();
+            setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+          } else {
+            toast.error("Failed to delete signatory");
+          }
+        } catch {
+          toast.error("Failed to delete signatory");
+        }
+      },
+    });
   };
 
   // Handle File Upload Helper
@@ -1077,6 +1124,16 @@ export default function CompanyProfilePage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        description={confirmModal.description}
+        confirmText={confirmModal.confirmText}
+        variant={confirmModal.variant}
+      />
     </div>
   );
 }

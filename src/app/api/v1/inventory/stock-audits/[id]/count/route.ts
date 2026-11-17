@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import { recordStockCountSchema } from "@/lib/schemas/inventory";
 import { logAuditEvent } from "@/lib/audit";
+import { validationErrorResponse } from "@/lib/api-validation";
 
 export async function POST(
   req: NextRequest,
@@ -37,10 +38,7 @@ export async function POST(
     const body = await req.json();
     const parsed = recordStockCountSchema.safeParse({ ...body, stockAuditId });
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_FAILED", message: "Validation failed", details: parsed.error.issues } },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     const { items } = parsed.data;

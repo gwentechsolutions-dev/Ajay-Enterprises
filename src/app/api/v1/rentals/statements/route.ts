@@ -7,6 +7,7 @@ import { generateNextDocumentNumber } from "@/lib/document-series";
 import { logAuditEvent } from "@/lib/audit";
 import { createRentalStatementSchema } from "@/lib/schemas/rental";
 import { calculateRentalStatement } from "@/lib/rentals/calculator";
+import { validationErrorResponse } from "@/lib/api-validation";
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,7 +18,12 @@ export async function GET(req: NextRequest) {
     const customerId = searchParams.get("customerId") || undefined;
     const customerSiteId = searchParams.get("customerSiteId") || undefined;
     const billingMode = searchParams.get("billingMode") || undefined;
-    const status = searchParams.get("status") || undefined;
+    const statusParam = searchParams.get("status");
+    const status = statusParam
+      ? statusParam.includes(",")
+        ? { in: statusParam.split(",").map((s) => s.trim()) }
+        : statusParam
+      : undefined;
 
     const statements = await db.rentalStatement.findMany({
       where: {
@@ -30,8 +36,9 @@ export async function GET(req: NextRequest) {
         customer: { select: { id: true, name: true, customerCode: true } },
         customerSite: { select: { id: true, siteName: true, siteCode: true } },
         rentalAgreement: { select: { id: true, agreementNumber: true } },
+        invoices: { select: { id: true, invoiceNumber: true, status: true } },
         _count: {
-          select: { items: true, siteSummaries: true },
+          select: { items: true, siteSummaries: true, invoices: true },
         },
       },
       orderBy: { periodStartDate: "desc" },
@@ -56,17 +63,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsed = createRentalStatementSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "VALIDATION_FAILED",
-            message: "Validation failed",
-            details: parsed.error.issues,
-          },
-        },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     const input = parsed.data;

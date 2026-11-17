@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TableSkeleton } from "@/components/ui/loading-states";
+import { toast } from "sonner";
 
 export default function MaterialMaintenancePage() {
   const [jobs, setJobs] = React.useState<any[]>([]);
@@ -175,9 +176,10 @@ export default function MaterialMaintenancePage() {
 
       setCompleteModalOpen(false);
       setSelectedJob(null);
+      toast.success("Maintenance repair completed successfully");
       loadData();
     } catch (err: any) {
-      alert(err.message || "Failed to complete repair");
+      toast.error(err.message || "Failed to complete repair");
     } finally {
       setIsSubmitting(false);
     }
@@ -206,9 +208,10 @@ export default function MaterialMaintenancePage() {
 
       setScrapModalOpen(false);
       setSelectedJob(null);
+      toast.success("Scrap items recorded successfully");
       loadData();
     } catch (err: any) {
-      alert(err.message || "Failed to scrap items");
+      toast.error(err.message || "Failed to scrap items");
     } finally {
       setIsSubmitting(false);
     }

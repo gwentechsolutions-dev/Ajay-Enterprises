@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TableSkeleton } from "@/components/ui/loading-states";
+import { toast } from "sonner";
 
 export default function LabourWagesPage() {
   const [settlements, setSettlements] = React.useState<any[]>([]);
@@ -192,9 +193,10 @@ export default function LabourWagesPage() {
 
       setPaymentModalOpen(false);
       setSelectedSettlement(null);
+      toast.success("Wage payment recorded successfully");
       loadData();
     } catch (err: any) {
-      alert(err.message || "Failed to record payment");
+      toast.error(err.message || "Failed to record payment");
     } finally {
       setIsSubmitting(false);
     }

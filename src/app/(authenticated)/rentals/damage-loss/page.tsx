@@ -20,6 +20,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { toast } from "sonner";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 
 interface DamageItemRow {
   id: string;
@@ -44,6 +46,15 @@ export default function DamageLossPage() {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = React.useState("");
   const [selectedSiteId, setSelectedSiteId] = React.useState("");
+  const [approveModal, setApproveModal] = React.useState<{
+    isOpen: boolean;
+    id: string;
+    num: string;
+  }>({
+    isOpen: false,
+    id: "",
+    num: "",
+  });
 
   // Multiple items state
   const [items, setItems] = React.useState<DamageItemRow[]>([
@@ -158,7 +169,7 @@ export default function DamageLossPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCustomerId || !selectedSiteId) {
-      alert("Please select both Customer and Construction Site.");
+      toast.error("Please select both Customer and Construction Site.");
       return;
     }
 
@@ -166,17 +177,17 @@ export default function DamageLossPage() {
     for (let i = 0; i < items.length; i++) {
       const it = items[i];
       if (!it.materialVariantId) {
-        alert(`Item #${i + 1}: Please select a Material Variant.`);
+        toast.error(`Item #${i + 1}: Please select a Material Variant.`);
         return;
       }
       const qty = Number(it.quantity);
       if (isNaN(qty) || qty <= 0) {
-        alert(`Item #${i + 1}: Affected quantity must be greater than zero.`);
+        toast.error(`Item #${i + 1}: Affected quantity must be greater than zero.`);
         return;
       }
       const charge = Number(it.chargeAmount);
       if (isNaN(charge) || charge < 0) {
-        alert(`Item #${i + 1}: Charge amount must be zero or a positive amount.`);
+        toast.error(`Item #${i + 1}: Charge amount must be zero or a positive amount.`);
         return;
       }
     }
@@ -203,31 +214,47 @@ export default function DamageLossPage() {
 
       const json = await res.json();
       if (!res.ok || !json.success) {
-        alert(json.error?.message || "Failed to record assessments");
+        toast.error(json.error?.message || "Failed to record assessments");
         return;
       }
 
+      toast.success("Damage/Loss assessments recorded successfully.");
       setIsModalOpen(false);
       resetModal();
       fetchAssessments();
     } catch (err: any) {
-      alert(err.message || "Failed to record assessments");
+      toast.error(err.message || "Failed to record assessments");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleApprove = async (id: string, num: string) => {
-    if (!confirm(`Approve Damage/Loss Claim ${num}?`)) return;
+  const handleApprove = (id: string, num: string) => {
+    setApproveModal({
+      isOpen: true,
+      id,
+      num,
+    });
+  };
+
+  const executeApprove = async () => {
+    const { id, num } = approveModal;
+    if (!id) return;
+    setApproveModal({ isOpen: false, id: "", num: "" });
+
     try {
       const res = await fetch(`/api/v1/rentals/damage-loss/${id}/approve`, {
         method: "POST",
       });
       const json = await res.json();
-      if (json.success) fetchAssessments();
-      else alert(json.error?.message || "Approval failed");
+      if (json.success) {
+        toast.success(`Damage/Loss Claim ${num} approved.`);
+        fetchAssessments();
+      } else {
+        toast.error(json.error?.message || "Approval failed");
+      }
     } catch (err: any) {
-      alert(err.message || "Approval failed");
+      toast.error(err.message || "Approval failed");
     }
   };
 
@@ -619,6 +646,16 @@ export default function DamageLossPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmModal
+        isOpen={approveModal.isOpen}
+        onClose={() => setApproveModal({ isOpen: false, id: "", num: "" })}
+        onConfirm={executeApprove}
+        title="Approve Damage / Loss Claim"
+        description={`Are you sure you want to approve Damage/Loss Claim ${approveModal.num}? Approved charges will be added to customer billing.`}
+        confirmText="Approve Claim"
+        variant="primary"
+      />
     </div>
   );
 }

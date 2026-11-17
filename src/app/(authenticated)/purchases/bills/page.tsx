@@ -24,6 +24,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { WhatsAppShareButton } from "@/components/ui/whatsapp-share-button";
 
 export default function PurchaseBillsPage() {
   const [bills, setBills] = React.useState<any[]>([]);
@@ -336,12 +337,13 @@ export default function PurchaseBillsPage() {
                 <th className="px-4 py-3 text-right">Total Bill</th>
                 <th className="px-4 py-3 text-right">Balance Due</th>
                 <th className="px-4 py-3 text-center">Status</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredBills.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={11} className="px-4 py-8 text-center text-slate-400">
                     No purchase bills found
                   </td>
                 </tr>
@@ -394,6 +396,11 @@ export default function PurchaseBillsPage() {
                       >
                         {b.paymentStatus}
                       </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end">
+                        <WhatsAppShareButton doc={b} docType="BILL" />
+                      </div>
                     </td>
                   </tr>
                 ))

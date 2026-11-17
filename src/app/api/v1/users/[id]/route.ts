@@ -5,6 +5,7 @@ import { requirePermission } from "@/lib/permissions";
 import { updateUserSchema } from "@/lib/schemas/user";
 import { logAuditEvent } from "@/lib/audit";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { validationErrorResponse } from "@/lib/api-validation";
 
 export async function GET(
   req: NextRequest,
@@ -71,17 +72,7 @@ export async function PATCH(
     const body = await req.json();
     const parsed = updateUserSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "VALIDATION_FAILED",
-            message: "Validation failed",
-            details: parsed.error.issues,
-          },
-        },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     const data = parsed.data;

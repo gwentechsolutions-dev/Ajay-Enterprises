@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import { generateNextDocumentNumber, getCurrentFiscalYear } from "@/lib/document-series";
 import { createPurchaseBillSchema } from "@/lib/schemas/accounting";
+import { validationErrorResponse } from "@/lib/api-validation";
 import { calculateGst } from "@/lib/accounting/gst-engine";
 import { postJournalEntry } from "@/lib/accounting/ledger";
 import { getSystemAccount } from "@/lib/accounting/chart-of-accounts";
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
         ...(paymentStatus ? { paymentStatus } : {}),
       },
       include: {
-        supplier: { select: { id: true, name: true, supplierCode: true, gstin: true } },
+        supplier: { select: { id: true, name: true, supplierCode: true, gstin: true, primaryMobile: true, alternateMobile: true, contactPerson: true } },
         purchaseOrder: { select: { id: true, poNumber: true } },
         goodsReceiptNote: { select: { id: true, grnNumber: true } },
         items: true,
@@ -49,10 +50,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsed = createPurchaseBillSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_FAILED", message: "Validation failed", details: parsed.error.issues } },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     const input = parsed.data;

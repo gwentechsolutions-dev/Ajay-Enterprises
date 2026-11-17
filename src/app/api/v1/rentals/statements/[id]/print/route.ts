@@ -108,7 +108,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;">${idx + 1}</td>
         <td style="border: 1px solid #cbd5e1; padding: 6px;">
           <strong>${it.materialVariant.name}</strong><br/>
-          <small style="color: #64748b;">Code: ${it.materialVariant.materialCode} | Site: ${it.customerSite.siteName} | Pool: ${it.ownershipType}</small>
+          <small style="color: #64748b;">Code: ${it.materialVariant.materialCode} | Site: ${it.customerSite.siteName}</small>
         </td>
         <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: right;">${Number(it.openingHeldQty).toFixed(2)}</td>
         <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: right;">${Number(it.newDeliveredQty).toFixed(2)}</td>
@@ -145,17 +145,44 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   <title>Rental Statement - ${statement.statementNumber}</title>
   <style>
     @page { size: A4 portrait; margin: 12mm; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 11px; color: #0f172a; margin: 0; padding: 20px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 11px; color: #0f172a; margin: 0; padding: 20px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .header { border-bottom: 2px solid #0B1E36; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; }
     .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; background: #e2e8f0; }
     .status-finalized { background: #dcfce7; color: #15803d; }
-    .table-main { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 10px; }
-    .table-main th { background: #0B1E36; color: white; padding: 6px; text-align: left; border: 1px solid #0B1E36; }
+    .table-main { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 10px; table-layout: fixed; }
+    .table-main th {
+      background: #0B1E36;
+      color: #ffffff;
+      padding: 6px 4px;
+      border: 1px solid #0B1E36;
+      vertical-align: bottom;
+      font-size: 9.5px;
+      font-weight: 700;
+      line-height: 1.25;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .table-main td {
+      border: 1px solid #cbd5e1;
+      padding: 6px 4px;
+      vertical-align: middle;
+      word-break: break-word;
+    }
     .tot-box { width: 320px; margin-left: auto; margin-top: 16px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; background: #f8fafc; }
     .tot-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 11px; }
     .footer { margin-top: 30px; display: flex; justify-content: space-between; padding-top: 20px; border-top: 1px solid #e2e8f0; }
     .sig-box { width: 220px; text-align: center; border-top: 1px dashed #94a3b8; padding-top: 6px; font-size: 10px; }
-    @media print { .no-print { display: none; } body { padding: 0; } }
+    @media print {
+      .no-print { display: none; }
+      body { padding: 0; }
+      .table-main th {
+        background: #0B1E36 !important;
+        color: #ffffff !important;
+        border-color: #0B1E36 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -208,12 +235,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     <table class="table-main" style="margin-bottom: 16px;">
       <thead>
         <tr>
-          <th style="width: 30px; text-align: center;">#</th>
-          <th>Construction Site</th>
-          <th style="text-align: right;">Rental Amount</th>
-          <th style="text-align: right;">Damage Claims</th>
-          <th style="text-align: right;">Missing Claims</th>
-          <th style="text-align: right;">Site Total</th>
+          <th style="width: 4%; text-align: center; vertical-align: bottom;">#</th>
+          <th style="width: 40%; text-align: left; vertical-align: bottom;">Construction Site</th>
+          <th style="width: 14%; text-align: right; vertical-align: bottom;">Rental Amount</th>
+          <th style="width: 14%; text-align: right; vertical-align: bottom;">Damage Claims</th>
+          <th style="width: 14%; text-align: right; vertical-align: bottom;">Missing Claims</th>
+          <th style="width: 14%; text-align: right; vertical-align: bottom;">Site Total</th>
         </tr>
       </thead>
       <tbody>
@@ -228,15 +255,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   <table class="table-main">
     <thead>
       <tr>
-        <th style="width: 25px; text-align: center;">#</th>
-        <th>Material Description</th>
-        <th style="text-align: right;">Opening Qty</th>
-        <th style="text-align: right;">New Delivered</th>
-        <th style="text-align: right;">Returned</th>
-        <th style="text-align: right;">Closing Qty</th>
-        <th style="text-align: center;">Days</th>
-        <th style="text-align: right;">Rate / Day</th>
-        <th style="text-align: right;">Total (INR)</th>
+        <th style="width: 3.5%; text-align: center; vertical-align: bottom;">#</th>
+        <th style="width: 31%; text-align: left; vertical-align: bottom;">Material Description</th>
+        <th style="width: 9%; text-align: right; vertical-align: bottom;">Opening<br/>Qty</th>
+        <th style="width: 9.5%; text-align: right; vertical-align: bottom;">New<br/>Delivered</th>
+        <th style="width: 9%; text-align: right; vertical-align: bottom;">Returned<br/>Qty</th>
+        <th style="width: 9%; text-align: right; vertical-align: bottom;">Closing<br/>Qty</th>
+        <th style="width: 6%; text-align: center; vertical-align: bottom;">Days</th>
+        <th style="width: 10%; text-align: right; vertical-align: bottom;">Rate /<br/>Day</th>
+        <th style="width: 13%; text-align: right; vertical-align: bottom;">Total<br/>(INR)</th>
       </tr>
     </thead>
     <tbody>

@@ -30,6 +30,7 @@ import {
 import { toast } from "sonner";
 import { formatDateTime } from "@/lib/utils";
 import { setReactHookFormErrors, formatValidationToast, parseApiValidationErrors } from "@/lib/forms/validation-mapper";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 
 const ROLE_OPTIONS = [
   { value: "ALL", label: "All Roles" },
@@ -72,6 +73,15 @@ export default function UsersPage() {
 
   const [modalOpen, setModalOpen] = React.useState(false);
   const [editingUser, setEditingUser] = React.useState<any | null>(null);
+  const [deactivateModal, setDeactivateModal] = React.useState<{
+    isOpen: boolean;
+    userId: string | null;
+    userName: string;
+  }>({
+    isOpen: false,
+    userId: null,
+    userName: "",
+  });
 
   // Create/Edit Form
   const {
@@ -230,16 +240,26 @@ export default function UsersPage() {
     }
   };
 
-  const handleDeactivate = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to deactivate ${name}?`)) return;
+  const handleDeactivate = (id: string, name: string) => {
+    setDeactivateModal({
+      isOpen: true,
+      userId: id,
+      userName: name,
+    });
+  };
+
+  const executeDeactivate = async () => {
+    const { userId, userName } = deactivateModal;
+    if (!userId) return;
+    setDeactivateModal({ isOpen: false, userId: null, userName: "" });
     try {
-      const res = await fetch(`/api/v1/users/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/v1/users/${userId}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.error?.message || "Failed to deactivate user");
         return;
       }
-      toast.success("User deactivated");
+      toast.success(`User ${userName} deactivated successfully`);
       fetchUsers();
     } catch {
       toast.error("Failed to deactivate user");
@@ -588,6 +608,16 @@ export default function UsersPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmModal
+        isOpen={deactivateModal.isOpen}
+        onClose={() => setDeactivateModal({ isOpen: false, userId: null, userName: "" })}
+        onConfirm={executeDeactivate}
+        title="Deactivate User Account"
+        description={`Are you sure you want to deactivate ${deactivateModal.userName}? The user will no longer be able to log in or perform system actions.`}
+        confirmText="Deactivate User"
+        variant="danger"
+      />
     </div>
   );
 }

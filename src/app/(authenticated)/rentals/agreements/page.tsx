@@ -25,6 +25,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { toast } from "sonner";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 
 export default function RentalAgreementsPage() {
   const [agreements, setAgreements] = React.useState<any[]>([]);
@@ -48,6 +50,19 @@ export default function RentalAgreementsPage() {
   const [items, setItems] = React.useState<
     Array<{ materialVariantId: string; agreedDailyRate: string; remarks: string }>
   >([]);
+  const [confirmModal, setConfirmModal] = React.useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmText?: string;
+    variant?: "danger" | "warning" | "primary" | "success";
+    onConfirm: () => void | Promise<void>;
+  }>({
+    isOpen: false,
+    title: "",
+    description: "",
+    onConfirm: () => {},
+  });
 
   const fetchAgreements = React.useCallback(async () => {
     setIsLoading(true);
@@ -138,11 +153,11 @@ export default function RentalAgreementsPage() {
   const handleCreateAgreement = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCustomerId || !selectedSiteId) {
-      alert("Please select both a Customer and Customer Site.");
+      toast.error("Please select both a Customer and Customer Site.");
       return;
     }
     if (items.length === 0) {
-      alert("Please add at least one material variant rate.");
+      toast.error("Please add at least one material variant rate.");
       return;
     }
 
@@ -174,38 +189,46 @@ export default function RentalAgreementsPage() {
 
       const json = await res.json();
       if (!res.ok || !json.success) {
-        alert(json.error?.message || "Failed to create agreement");
+        toast.error(json.error?.message || "Failed to create agreement");
         return;
       }
 
+      toast.success("Rental Agreement created successfully.");
       setIsModalOpen(false);
       setItems([]);
       fetchAgreements();
     } catch (err: any) {
-      alert(err.message || "Failed to create agreement");
+      toast.error(err.message || "Failed to create agreement");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleApprove = async (id: string, agreementNumber: string) => {
-    if (!confirm(`Are you sure you want to approve and activate Agreement ${agreementNumber}?`)) {
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/v1/rentals/agreements/${id}/approve`, {
-        method: "POST",
-      });
-      const json = await res.json();
-      if (json.success) {
-        fetchAgreements();
-      } else {
-        alert(json.error?.message || "Failed to approve agreement");
-      }
-    } catch (err: any) {
-      alert(err.message || "Approval failed");
-    }
+  const handleApprove = (id: string, agreementNumber: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Approve Rental Agreement",
+      description: `Are you sure you want to approve and activate Agreement ${agreementNumber}? Once approved, active rental dispatches can reference these agreed rates.`,
+      confirmText: "Approve & Activate",
+      variant: "primary",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/v1/rentals/agreements/${id}/approve`, {
+            method: "POST",
+          });
+          const json = await res.json();
+          if (json.success) {
+            toast.success(`Agreement ${agreementNumber} approved and activated.`);
+            fetchAgreements();
+            setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+          } else {
+            toast.error(json.error?.message || "Failed to approve agreement");
+          }
+        } catch (err: any) {
+          toast.error(err.message || "Approval failed");
+        }
+      },
+    });
   };
 
   const filtered = agreements.filter((agr) => {
@@ -572,6 +595,16 @@ export default function RentalAgreementsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        description={confirmModal.description}
+        confirmText={confirmModal.confirmText}
+        variant={confirmModal.variant}
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import { scrapMaterialRepairSchema } from "@/lib/schemas/material-repair";
 import { scrapMaterialRepair } from "@/lib/material-repair/service";
+import { validationErrorResponse } from "@/lib/api-validation";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -13,10 +14,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const body = await req.json();
     const parsed = scrapMaterialRepairSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_FAILED", message: "Validation failed", details: parsed.error.issues } },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     const updatedJob = await scrapMaterialRepair(

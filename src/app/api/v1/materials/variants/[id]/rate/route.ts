@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import { updateRateSchema } from "@/lib/schemas/material";
 import { logAuditEvent } from "@/lib/audit";
+import { validationErrorResponse } from "@/lib/api-validation";
 
 export async function POST(
   req: NextRequest,
@@ -18,10 +19,7 @@ export async function POST(
     const body = await req.json();
     const parsed = updateRateSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_FAILED", message: "Validation failed", details: parsed.error.issues } },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     const { rentalRate, reason, effectiveFrom } = parsed.data;

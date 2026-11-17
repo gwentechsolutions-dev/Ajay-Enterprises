@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import { customerSchema } from "@/lib/schemas/customer";
 import { logAuditEvent } from "@/lib/audit";
+import { validationErrorResponse } from "@/lib/api-validation";
 
 export async function GET(
   req: NextRequest,
@@ -122,10 +123,7 @@ export async function PUT(
     const body = await req.json();
     const parsed = customerSchema.partial().safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_FAILED", message: "Validation failed", details: parsed.error.issues } },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     const data = parsed.data;

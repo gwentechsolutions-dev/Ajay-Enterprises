@@ -211,20 +211,31 @@ export const allocationItemSchema = z.object({
   amount: z.coerce.number().positive("Allocated amount must be positive"),
 });
 
-export const createPaymentReceiptSchema = z.object({
-  receiptNumber: z.string().optional(),
-  customerId: z.string().uuid("Customer is required"),
-  paymentDate: z.string().optional(),
-  paymentMethod: z.enum(["CASH", "BANK_TRANSFER", "NEFT_RTGS", "UPI", "CHEQUE"]),
-  depositAccountId: z.string().uuid("Deposit account is required"),
-  amountReceived: z.coerce.number().positive("Amount received must be greater than zero"),
-  transactionReference: z.string().optional().nullable(),
-  bankName: z.string().optional().nullable(),
-  chequeDate: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
-  supportingDocUrl: z.string().optional().nullable(),
-  allocations: z.array(allocationItemSchema).optional(),
-});
+export const createPaymentReceiptSchema = z.preprocess(
+  (data: any) => {
+    if (data && typeof data === "object") {
+      if (!data.depositAccountId && data.receivingAccountId) {
+        return { ...data, depositAccountId: data.receivingAccountId };
+      }
+    }
+    return data;
+  },
+  z.object({
+    receiptNumber: z.string().optional(),
+    customerId: z.string().uuid("Customer is required"),
+    paymentDate: z.string().optional(),
+    paymentMethod: z.enum(["CASH", "BANK_TRANSFER", "NEFT_RTGS", "UPI", "CHEQUE"]),
+    depositAccountId: z.string().uuid("Deposit bank/cash account is required"),
+    receivingAccountId: z.string().uuid().optional(),
+    amountReceived: z.coerce.number().positive("Amount received must be greater than zero"),
+    transactionReference: z.string().optional().nullable(),
+    bankName: z.string().optional().nullable(),
+    chequeDate: z.string().optional().nullable(),
+    notes: z.string().optional().nullable(),
+    supportingDocUrl: z.string().optional().nullable(),
+    allocations: z.array(allocationItemSchema).optional(),
+  })
+);
 
 export type CreatePaymentReceiptInput = z.infer<typeof createPaymentReceiptSchema>;
 

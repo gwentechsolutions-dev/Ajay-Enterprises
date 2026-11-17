@@ -7,6 +7,7 @@ import { ewayBillService } from "@/lib/ewaybill/service";
 import { calculateGst } from "@/lib/accounting/gst-engine";
 import { GenerateEwbRequest, EwbItemInput } from "@/lib/ewaybill/types";
 import { getSystemEwbConfig } from "@/lib/ewaybill/config";
+import { validationErrorResponse } from "@/lib/api-validation";
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,10 +17,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsed = generateEWayBillSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_FAILED", message: "Validation failed", details: parsed.error.issues } },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     const input = parsed.data;

@@ -14,6 +14,7 @@ import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { GitBranch, Plus, Edit2, Trash2, Building2, MapPin, Phone, Mail, Warehouse } from "lucide-react";
 import { toast } from "sonner";
 import { setReactHookFormErrors, formatValidationToast, parseApiValidationErrors } from "@/lib/forms/validation-mapper";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 
 const BRANCH_TYPES = [
   { value: "MAIN_OFFICE", label: "Main Head Office" },
@@ -26,6 +27,13 @@ export default function BranchesPage() {
   const [loading, setLoading] = React.useState(true);
   const [modalOpen, setModalOpen] = React.useState(false);
   const [editingBranch, setEditingBranch] = React.useState<any | null>(null);
+  const [deleteConfirmModal, setDeleteConfirmModal] = React.useState<{
+    isOpen: boolean;
+    branchId: string | null;
+  }>({
+    isOpen: false,
+    branchId: null,
+  });
 
   const {
     register,
@@ -136,8 +144,17 @@ export default function BranchesPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this branch?")) return;
+  const handleDelete = (id: string) => {
+    setDeleteConfirmModal({
+      isOpen: true,
+      branchId: id,
+    });
+  };
+
+  const executeDelete = async () => {
+    const id = deleteConfirmModal.branchId;
+    if (!id) return;
+    setDeleteConfirmModal({ isOpen: false, branchId: null });
     try {
       const res = await fetch(`/api/v1/branches/${id}`, { method: "DELETE" });
       const data = await res.json();
@@ -391,6 +408,16 @@ export default function BranchesPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmModal
+        isOpen={deleteConfirmModal.isOpen}
+        onClose={() => setDeleteConfirmModal({ isOpen: false, branchId: null })}
+        onConfirm={executeDelete}
+        title="Delete Branch"
+        description="Are you sure you want to delete this branch? Operational and inventory records linked to this branch may be affected."
+        confirmText="Delete Branch"
+        variant="danger"
+      />
     </div>
   );
 }

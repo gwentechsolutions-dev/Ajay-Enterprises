@@ -6,6 +6,7 @@ import { requirePermission } from "@/lib/permissions";
 import { generateNextDocumentNumber, getCurrentFiscalYear } from "@/lib/document-series";
 import { logAuditEvent } from "@/lib/audit";
 import { createInvoiceSchema } from "@/lib/schemas/accounting";
+import { validationErrorResponse } from "@/lib/api-validation";
 import { calculateGst, calculateRoundOff } from "@/lib/accounting/gst-engine";
 import { postJournalEntry } from "@/lib/accounting/ledger";
 import { getSystemAccount } from "@/lib/accounting/chart-of-accounts";
@@ -29,8 +30,8 @@ export async function GET(req: NextRequest) {
         ...(type ? { invoiceType: type } : {}),
       },
       include: {
-        customer: { select: { id: true, name: true, customerCode: true, gstin: true } },
-        customerSite: { select: { id: true, siteName: true, siteCode: true } },
+        customer: { select: { id: true, name: true, customerCode: true, gstin: true, primaryMobile: true, whatsappNumber: true } },
+        customerSite: { select: { id: true, siteName: true, siteCode: true, siteContactDetails: true, siteOwnerContact: true, siteInCharge: true } },
         items: true,
       },
       orderBy: { invoiceDate: "desc" },
@@ -52,10 +53,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsed = createInvoiceSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_FAILED", message: "Validation failed", details: parsed.error.issues } },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     const input = parsed.data;

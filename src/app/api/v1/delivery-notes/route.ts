@@ -43,8 +43,8 @@ export async function GET(req: NextRequest) {
         ...assignedFilter,
       },
       include: {
-        customer: { select: { id: true, name: true, customerCode: true } },
-        customerSite: { select: { id: true, siteName: true, siteCode: true, fullAddress: true } },
+        customer: { select: { id: true, name: true, customerCode: true, primaryMobile: true, whatsappNumber: true } },
+        customerSite: { select: { id: true, siteName: true, siteCode: true, fullAddress: true, siteContactDetails: true, siteOwnerContact: true, siteInCharge: true } },
         sourceWarehouse: { select: { id: true, name: true, warehouseCode: true } },
         contactPerson: { select: { id: true, name: true, mobile: true, designation: true } },
         items: {

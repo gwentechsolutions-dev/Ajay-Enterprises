@@ -23,6 +23,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 export default function HeldStockPage() {
   const [batches, setBatches] = React.useState<any[]>([]);
@@ -80,10 +81,10 @@ export default function HeldStockPage() {
       if (json.success) {
         setReconcileReport(json.data);
       } else {
-        alert(json.error?.message || "Reconciliation failed");
+        toast.error(json.error?.message || "Reconciliation failed");
       }
     } catch (err: any) {
-      alert(err.message || "Reconciliation error");
+      toast.error(err.message || "Reconciliation error");
     } finally {
       setIsReconciling(false);
     }

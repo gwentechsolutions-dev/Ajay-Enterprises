@@ -32,6 +32,8 @@ import {
 } from "@/components/ui/dialog";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { toast } from "sonner";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { parseApiValidationErrors, formatValidationToast } from "@/lib/forms/validation-mapper";
 
 export default function PurchasesPage() {
   const [orders, setOrders] = React.useState<any[]>([]);
@@ -48,6 +50,15 @@ export default function PurchasesPage() {
   const [isGRNModalOpen, setIsGRNModalOpen] = React.useState(false);
   const [selectedPO, setSelectedPO] = React.useState<any>(null);
   const [submitting, setSubmitting] = React.useState(false);
+  const [approveConfirmModal, setApproveConfirmModal] = React.useState<{
+    isOpen: boolean;
+    poId: string;
+    poNumber: string;
+  }>({
+    isOpen: false,
+    poId: "",
+    poNumber: "",
+  });
 
   // New PO Form State
   const [poForm, setPoForm] = React.useState({
@@ -174,20 +185,44 @@ export default function PurchasesPage() {
     if (!poForm.supplierId) return toast.error("Please select a supplier");
     if (!poForm.branchId) return toast.error("Please select a branch");
     if (!poForm.deliveryWarehouseId) return toast.error("Please select receiving warehouse");
-    if (poForm.items.some((i) => !i.materialVariantId || i.orderedQty <= 0)) {
+    if (poForm.items.some((i) => !i.materialVariantId || (Number(i.orderedQty) || 0) <= 0)) {
       return toast.error("Ensure all line items have a valid variant and quantity > 0");
     }
 
     try {
       setSubmitting(true);
+      const payload = {
+        supplierId: poForm.supplierId,
+        branchId: poForm.branchId,
+        deliveryWarehouseId: poForm.deliveryWarehouseId,
+        orderDate: poForm.orderDate,
+        expectedDeliveryDate: poForm.expectedDeliveryDate || undefined,
+        notes: poForm.notes || undefined,
+        items: poForm.items.map((i) => ({
+          materialVariantId: i.materialVariantId,
+          quantity: Number(i.orderedQty) || 0,
+          orderedQty: Number(i.orderedQty) || 0,
+          unitRate: Number(i.unitRate) || 0,
+          discountPercent: Number(i.discountAmount) || 0,
+          taxPercent: Number(i.taxPercent) || 18,
+          remarks: i.remarks || undefined,
+        })),
+      };
+
       const res = await fetch("/api/v1/purchases/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(poForm),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || "Failed to create Purchase Order");
+      if (!res.ok || !data.success) {
+        const parsedErrors = parseApiValidationErrors(data);
+        const errorMsg = parsedErrors.hasErrors
+          ? formatValidationToast(parsedErrors)
+          : data.error?.message || "Failed to create Purchase Order";
+        throw new Error(errorMsg);
+      }
 
       toast.success(`Purchase Order ${data.data.poNumber} created successfully!`);
       setIsPOModalOpen(false);
@@ -199,8 +234,18 @@ export default function PurchasesPage() {
     }
   };
 
-  const handleApprovePO = async (poId: string, poNumber: string) => {
-    if (!confirm(`Are you sure you want to approve Purchase Order ${poNumber}?`)) return;
+  const handleApprovePO = (poId: string, poNumber: string) => {
+    setApproveConfirmModal({
+      isOpen: true,
+      poId,
+      poNumber,
+    });
+  };
+
+  const executeApprovePO = async () => {
+    const { poId, poNumber } = approveConfirmModal;
+    if (!poId) return;
+    setApproveConfirmModal({ isOpen: false, poId: "", poNumber: "" });
 
     try {
       const res = await fetch(`/api/v1/purchases/orders/${poId}/approve`, {
@@ -273,7 +318,13 @@ export default function PurchasesPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || "Failed to post Goods Receipt Note");
+      if (!res.ok || !data.success) {
+        const parsedErrors = parseApiValidationErrors(data);
+        const errorMsg = parsedErrors.hasErrors
+          ? formatValidationToast(parsedErrors)
+          : data.error?.message || "Failed to post Goods Receipt Note";
+        throw new Error(errorMsg);
+      }
 
       toast.success(`GRN ${data.data.grnNumber} posted! Inventory ledger updated.`);
       setIsGRNModalOpen(false);
@@ -842,6 +893,16 @@ export default function PurchasesPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmModal
+        isOpen={approveConfirmModal.isOpen}
+        onClose={() => setApproveConfirmModal({ isOpen: false, poId: "", poNumber: "" })}
+        onConfirm={executeApprovePO}
+        title="Approve Purchase Order"
+        description={`Are you sure you want to approve Purchase Order ${approveConfirmModal.poNumber}? Once approved, goods receipt (GRN) can be recorded against this PO.`}
+        confirmText="Approve PO"
+        variant="primary"
+      />
     </div>
   );
 }

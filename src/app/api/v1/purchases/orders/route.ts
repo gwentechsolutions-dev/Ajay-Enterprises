@@ -6,6 +6,7 @@ import { requirePermission } from "@/lib/permissions";
 import { generateNextDocumentNumber } from "@/lib/document-series";
 import { logAuditEvent } from "@/lib/audit";
 import { createPurchaseOrderSchema } from "@/lib/schemas/purchase";
+import { validationErrorResponse } from "@/lib/api-validation";
 
 export async function GET(req: NextRequest) {
   try {
@@ -52,10 +53,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsed = createPurchaseOrderSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_FAILED", message: "Validation failed", details: parsed.error.issues } },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     const input = parsed.data;

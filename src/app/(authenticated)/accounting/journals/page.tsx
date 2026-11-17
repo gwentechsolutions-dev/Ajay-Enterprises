@@ -25,6 +25,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 export default function JournalsPage() {
   const [journals, setJournals] = React.useState<any[]>([]);
@@ -169,9 +170,10 @@ export default function JournalsPage() {
       }
       setReversalTarget(null);
       setReversalReason("");
+      toast.success("Journal reversed successfully");
       await loadData();
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message || "Failed to reverse journal");
     } finally {
       setIsReversing(false);
     }

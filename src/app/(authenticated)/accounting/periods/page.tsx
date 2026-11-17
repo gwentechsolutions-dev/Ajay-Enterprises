@@ -23,6 +23,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 export default function AccountingPeriodsPage() {
   const [periods, setPeriods] = React.useState<any[]>([]);
@@ -82,9 +83,10 @@ export default function AccountingPeriodsPage() {
       if (!res.ok || !data.success) {
         throw new Error(data.error?.message || "Failed to update period lock");
       }
+      toast.success(!currentStatus ? "Accounting period locked successfully" : "Accounting period unlocked successfully");
       await loadData();
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message || "Failed to update period lock");
     }
   };
 

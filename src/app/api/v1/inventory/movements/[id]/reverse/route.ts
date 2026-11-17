@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import { reverseMovementSchema } from "@/lib/schemas/inventory";
 import { reverseInventoryMovement } from "@/lib/inventory/ledger";
+import { validationErrorResponse } from "@/lib/api-validation";
 
 export async function POST(
   req: NextRequest,
@@ -16,10 +17,7 @@ export async function POST(
     const body = await req.json();
     const parsed = reverseMovementSchema.safeParse({ ...body, movementId: id });
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_FAILED", message: "Validation failed", details: parsed.error.issues } },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     const ipAddress = req.headers.get("x-forwarded-for") || undefined;

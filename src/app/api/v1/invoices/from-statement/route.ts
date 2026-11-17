@@ -14,6 +14,7 @@ import {
 } from "@/lib/accounting/gst-engine";
 import { postJournalEntry } from "@/lib/accounting/ledger";
 import { getSystemAccount } from "@/lib/accounting/chart-of-accounts";
+import { validationErrorResponse } from "@/lib/api-validation";
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,10 +24,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsed = generateRentalInvoiceFromStatementSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_FAILED", message: "Validation failed", details: parsed.error.issues } },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     const { statementId, invoiceDate: reqInvDate, dueDate: reqDueDate, notes } = parsed.data;

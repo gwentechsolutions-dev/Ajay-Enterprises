@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import { createMaterialRepairJobSchema } from "@/lib/schemas/material-repair";
 import { createMaterialRepairJob } from "@/lib/material-repair/service";
+import { validationErrorResponse } from "@/lib/api-validation";
 
 export async function GET(req: NextRequest) {
   try {
@@ -46,10 +47,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsed = createMaterialRepairJobSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_FAILED", message: "Validation failed", details: parsed.error.issues } },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     const job = await createMaterialRepairJob(parsed.data, {

@@ -26,6 +26,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { toast } from "sonner";
+import { parseApiValidationErrors, formatValidationToast } from "@/lib/forms/validation-mapper";
 
 export default function PaymentsPage() {
   const [activeTab, setActiveTab] = React.useState<"RECEIPTS" | "DISBURSEMENTS">("RECEIPTS");
@@ -116,7 +118,9 @@ export default function PaymentsPage() {
   const handleCreateReceipt = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!rcCustomerId || !rcAccountId || Number(rcAmount) <= 0) {
-      setErrorMsg("Please fill in all required fields with a valid amount.");
+      const msg = "Please fill in all required fields with a valid amount.";
+      setErrorMsg(msg);
+      toast.error(msg);
       return;
     }
     setIsSubmittingRc(true);
@@ -128,16 +132,22 @@ export default function PaymentsPage() {
         body: JSON.stringify({
           customerId: rcCustomerId,
           paymentMethod: rcMethod,
+          depositAccountId: rcAccountId,
           receivingAccountId: rcAccountId,
           amountReceived: Number(rcAmount),
-          transactionReference: rcRef || undefined,
-          notes: rcNotes || undefined,
+          transactionReference: rcRef ? rcRef.trim() : undefined,
+          notes: rcNotes ? rcNotes.trim() : undefined,
         }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error?.message || "Failed to record customer receipt");
+        const parsed = parseApiValidationErrors(data);
+        const errMsg = parsed.hasErrors
+          ? formatValidationToast(parsed)
+          : data.error?.message || "Failed to record customer receipt";
+        throw new Error(errMsg);
       }
+      toast.success("Customer payment receipt recorded and posted successfully!");
       setIsReceiptModalOpen(false);
       setRcAmount("");
       setRcRef("");
@@ -145,6 +155,7 @@ export default function PaymentsPage() {
       await loadData();
     } catch (err: any) {
       setErrorMsg(err.message);
+      toast.error(err.message);
     } finally {
       setIsSubmittingRc(false);
     }
@@ -153,7 +164,9 @@ export default function PaymentsPage() {
   const handleCreateDisbursement = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!spSupplierId || !spAccountId || Number(spAmount) <= 0) {
-      setErrorMsg("Please fill in all required fields with a valid amount.");
+      const msg = "Please fill in all required fields with a valid amount.";
+      setErrorMsg(msg);
+      toast.error(msg);
       return;
     }
     setIsSubmittingSp(true);
@@ -167,14 +180,19 @@ export default function PaymentsPage() {
           paymentMethod: spMethod,
           disbursingAccountId: spAccountId,
           amountPaid: Number(spAmount),
-          transactionReference: spRef || undefined,
-          notes: spNotes || undefined,
+          transactionReference: spRef ? spRef.trim() : undefined,
+          notes: spNotes ? spNotes.trim() : undefined,
         }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error?.message || "Failed to record supplier payment");
+        const parsed = parseApiValidationErrors(data);
+        const errMsg = parsed.hasErrors
+          ? formatValidationToast(parsed)
+          : data.error?.message || "Failed to record supplier payment";
+        throw new Error(errMsg);
       }
+      toast.success("Supplier payment disbursement recorded successfully!");
       setIsPayModalOpen(false);
       setSpAmount("");
       setSpRef("");
@@ -182,6 +200,7 @@ export default function PaymentsPage() {
       await loadData();
     } catch (err: any) {
       setErrorMsg(err.message);
+      toast.error(err.message);
     } finally {
       setIsSubmittingSp(false);
     }
@@ -542,6 +561,7 @@ export default function PaymentsPage() {
                 value={rcRef}
                 onChange={(e) => setRcRef(e.target.value)}
                 placeholder="e.g. UTR19028301982"
+                maxLength={50}
                 className="mt-1"
               />
             </div>
@@ -552,6 +572,7 @@ export default function PaymentsPage() {
                 value={rcNotes}
                 onChange={(e) => setRcNotes(e.target.value)}
                 placeholder="Optional notes..."
+                maxLength={250}
                 className="mt-1"
               />
             </div>
@@ -663,6 +684,7 @@ export default function PaymentsPage() {
                 value={spRef}
                 onChange={(e) => setSpRef(e.target.value)}
                 placeholder="e.g. UTR98127391823"
+                maxLength={50}
                 className="mt-1"
               />
             </div>
@@ -673,6 +695,7 @@ export default function PaymentsPage() {
                 value={spNotes}
                 onChange={(e) => setSpNotes(e.target.value)}
                 placeholder="Optional notes..."
+                maxLength={250}
                 className="mt-1"
               />
             </div>

@@ -27,6 +27,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { TableSkeleton } from "@/components/ui/loading-states";
+import { WhatsAppShareButton } from "@/components/ui/whatsapp-share-button";
+import { SearchableCombobox, ComboboxOption } from "@/components/ui/searchable-combobox";
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = React.useState<any[]>([]);
@@ -77,7 +79,33 @@ export default function InvoicesPage() {
 
   React.useEffect(() => {
     loadData();
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const stmtId = params.get("statementId");
+      if (stmtId) {
+        setSelectedStatementId(stmtId);
+        setIsStatementModalOpen(true);
+      }
+    }
   }, []);
+
+  const statementOptions = React.useMemo<ComboboxOption[]>(() => {
+    return statements.map((st) => {
+      const isAlreadyInvoiced = st.invoices?.some((inv: any) => inv.status !== "CANCELLED");
+      const invoiceNo = isAlreadyInvoiced
+        ? st.invoices?.find((inv: any) => inv.status !== "CANCELLED")?.invoiceNumber
+        : null;
+      return {
+        value: st.id,
+        label: `${st.statementNumber} — ${st.customer?.name || "Customer"} (₹${Number(st.netPayableAmount).toFixed(2)})`,
+        sublabel: isAlreadyInvoiced
+          ? `Already Invoiced (${invoiceNo})`
+          : `${st.billingMode === "SITE_WISE" ? st.customerSite?.siteName || "Site" : "Consolidated"} • ${st.status}`,
+        badge: isAlreadyInvoiced ? "INVOICED" : st.status,
+        disabled: isAlreadyInvoiced,
+      };
+    });
+  }, [statements]);
 
   const handleConvertStatement = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,7 +180,11 @@ export default function InvoicesPage() {
           </Button>
           <Button
             size="sm"
-            onClick={() => setIsStatementModalOpen(true)}
+            onClick={() => {
+              loadData();
+              setErrorMsg(null);
+              setIsStatementModalOpen(true);
+            }}
             className="bg-[#F26522] hover:bg-[#EA580C] text-white"
           >
             <ReceiptIndianRupee className="w-4 h-4 mr-2" />
@@ -323,7 +355,8 @@ export default function InvoicesPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <WhatsAppShareButton doc={inv} docType="INVOICE" />
                         <Button
                           variant="ghost"
                           size="sm"
@@ -370,19 +403,17 @@ export default function InvoicesPage() {
               <Label className="text-xs font-medium text-slate-700">
                 Select Approved Statement *
               </Label>
-              <select
-                value={selectedStatementId}
-                onChange={(e) => setSelectedStatementId(e.target.value)}
-                required
-                className="w-full mt-1 h-10 px-3 text-sm bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-[#0B1E36]"
-              >
-                <option value="">-- Choose Approved Statement --</option>
-                {statements.map((st) => (
-                  <option key={st.id} value={st.id}>
-                    {st.statementNumber} — {st.customer?.name} (₹{Number(st.netPayableAmount).toFixed(2)})
-                  </option>
-                ))}
-              </select>
+              <div className="mt-1">
+                <SearchableCombobox
+                  options={statementOptions}
+                  value={selectedStatementId}
+                  onChange={(val) => setSelectedStatementId(val)}
+                  placeholder="-- Choose Approved Statement --"
+                  searchPlaceholder="Search statement # or customer..."
+                  emptyText="No approved or finalized statements found."
+                  required
+                />
+              </div>
               <p className="text-[11px] text-slate-500 mt-1">
                 Only statements in APPROVED or FINALIZED status can be invoiced.
               </p>
@@ -462,15 +493,18 @@ export default function InvoicesPage() {
                 <DialogTitle className="text-lg font-bold text-[#0B1E36]">
                   Invoice {activeInvoice.invoiceNumber}
                 </DialogTitle>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => window.open(`/api/v1/invoices/${activeInvoice.id}/print`, "_blank")}
-                  className="text-xs"
-                >
-                  <Printer className="w-3.5 h-3.5 mr-1.5" />
-                  Print A4
-                </Button>
+                <div className="flex items-center gap-2">
+                  <WhatsAppShareButton doc={activeInvoice} docType="INVOICE" />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => window.open(`/api/v1/invoices/${activeInvoice.id}/print`, "_blank")}
+                    className="text-xs"
+                  >
+                    <Printer className="w-3.5 h-3.5 mr-1.5" />
+                    Print A4
+                  </Button>
+                </div>
               </div>
             </DialogHeader>
 

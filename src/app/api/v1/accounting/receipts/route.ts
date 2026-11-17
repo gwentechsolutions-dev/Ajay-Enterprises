@@ -7,6 +7,7 @@ import { generateNextDocumentNumber, getCurrentFiscalYear } from "@/lib/document
 import { createPaymentReceiptSchema } from "@/lib/schemas/accounting";
 import { postJournalEntry } from "@/lib/accounting/ledger";
 import { getSystemAccount } from "@/lib/accounting/chart-of-accounts";
+import { validationErrorResponse } from "@/lib/api-validation";
 
 export async function GET(req: NextRequest) {
   try {
@@ -45,12 +46,12 @@ export async function POST(req: NextRequest) {
     await requirePermission(session, "accounting", "create");
 
     const body = await req.json();
+    if (body && typeof body === "object" && !body.depositAccountId && body.receivingAccountId) {
+      body.depositAccountId = body.receivingAccountId;
+    }
     const parsed = createPaymentReceiptSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_FAILED", message: "Validation failed", details: parsed.error.issues } },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     const input = parsed.data;

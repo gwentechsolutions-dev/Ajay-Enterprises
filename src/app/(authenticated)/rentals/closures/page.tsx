@@ -15,6 +15,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 
 export default function SiteClosuresPage() {
   const [sites, setSites] = React.useState<any[]>([]);
@@ -31,6 +33,7 @@ export default function SiteClosuresPage() {
   const [receiverPhone, setReceiverPhone] = React.useState("");
   const [remarks, setRemarks] = React.useState("");
   const [isClosing, setIsClosing] = React.useState(false);
+  const [confirmClosureOpen, setConfirmClosureOpen] = React.useState(false);
 
   const fetchSettlements = React.useCallback(async () => {
     setIsLoading(true);
@@ -76,27 +79,30 @@ export default function SiteClosuresPage() {
       if (json.success) {
         setAuditResult(json.data);
       } else {
-        alert(json.error?.message || "Audit check failed");
+        toast.error(json.error?.message || "Audit check failed");
       }
     } catch (err: any) {
-      alert(err.message || "Audit error");
+      toast.error(err.message || "Audit error");
     } finally {
       setIsAuditing(false);
     }
   };
 
-  const handleExecuteClosure = async (e: React.FormEvent) => {
+  const handleExecuteClosure = (e: React.FormEvent) => {
     e.preventDefault();
     if (!auditResult) return;
 
     if (auditResult.hasOutstandingStock && !ownerOverride) {
-      alert("Cannot close site with outstanding materials without Owner Exception Approval.");
+      toast.error("Cannot close site with outstanding materials without Owner Exception Approval.");
       return;
     }
 
-    if (!confirm(`Are you sure you want to permanently close Site ${auditResult.siteName} and generate final settlement?`)) {
-      return;
-    }
+    setConfirmClosureOpen(true);
+  };
+
+  const executeFinalClosure = async () => {
+    if (!auditResult) return;
+    setConfirmClosureOpen(false);
 
     setIsClosing(true);
     try {
@@ -122,16 +128,16 @@ export default function SiteClosuresPage() {
 
       const json = await res.json();
       if (!res.ok || !json.success) {
-        alert(json.error?.message || "Closure failed");
+        toast.error(json.error?.message || "Closure failed");
         return;
       }
 
-      alert(`Site closed successfully. Final settlement: ${json.data.settlementNumber}`);
+      toast.success(`Site closed successfully. Final settlement: ${json.data.settlementNumber}`);
       setAuditResult(null);
       setSelectedSiteId("");
       fetchSettlements();
     } catch (err: any) {
-      alert(err.message || "Closure execution error");
+      toast.error(err.message || "Closure execution error");
     } finally {
       setIsClosing(false);
     }
@@ -408,6 +414,17 @@ export default function SiteClosuresPage() {
           </table>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={confirmClosureOpen}
+        onClose={() => setConfirmClosureOpen(false)}
+        onConfirm={executeFinalClosure}
+        title="Execute Site Closure & Settlement"
+        description={`Are you sure you want to permanently close Site ${auditResult?.siteName || ""}? This action generates the final settlement invoice and terminates the site rental lifecycle.`}
+        confirmText="Confirm Site Closure"
+        variant="warning"
+        isLoading={isClosing}
+      />
     </div>
   );
 }

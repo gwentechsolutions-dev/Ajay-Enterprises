@@ -7,13 +7,21 @@ import { formatFieldLabel, normalizeFieldPath } from "./forms/validation-mapper"
  * e.g. "Receiver Mobile Phone: Must be a valid 10-digit Indian mobile number"
  */
 export function formatZodErrorMessage(issues: z.ZodIssue[]): string {
-  if (!issues || issues.length === 0) return "Validation failed";
-  const first = issues[0];
-  const fieldPath = normalizeFieldPath(first.path);
-  const label = fieldPath ? formatFieldLabel(fieldPath) : "Field";
-  const remaining = issues.length - 1;
+  if (!issues || issues.length === 0) return "Please review the form requirements and provide all necessary information.";
+  const messages = issues.slice(0, 3).map((issue) => {
+    const fieldPath = normalizeFieldPath(issue.path);
+    const label = fieldPath ? formatFieldLabel(fieldPath) : "Field";
+    let issueMsg = issue.message;
+    if (issueMsg === "Required" || (issue.code === "invalid_type" && (issue as any).received === "undefined")) {
+      issueMsg = "This field is required";
+    } else if (issue.code === "invalid_type" && (issue as any).received === "nan") {
+      issueMsg = "Must be a valid number";
+    }
+    return `${label}: ${issueMsg}`;
+  });
+  const remaining = issues.length - messages.length;
   const suffix = remaining > 0 ? ` (+${remaining} more issue${remaining > 1 ? "s" : ""})` : "";
-  return `${label}: ${first.message}${suffix}`;
+  return `${messages.join(" • ")}${suffix}`;
 }
 
 /**
@@ -21,8 +29,12 @@ export function formatZodErrorMessage(issues: z.ZodIssue[]): string {
  * Ensures the `message` property contains the specific offending field and requirement,
  * rather than a vague "Validation failed".
  */
-export function validationErrorResponse(error: z.ZodError | { issues: z.ZodIssue[] }) {
-  const issues = "issues" in error ? error.issues : [];
+export function validationErrorResponse(error: z.ZodError | { issues: z.ZodIssue[] } | any) {
+  const issues: z.ZodIssue[] = Array.isArray(error?.issues)
+    ? error.issues
+    : Array.isArray(error)
+    ? error
+    : [];
   const message = formatZodErrorMessage(issues);
   return NextResponse.json(
     {

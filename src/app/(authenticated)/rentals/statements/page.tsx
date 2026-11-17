@@ -18,6 +18,7 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronUp,
+  ReceiptIndianRupee,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TableSkeleton } from "@/components/ui/loading-states";
@@ -30,6 +31,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { toast } from "sonner";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 
 export default function RentalStatementsPage() {
   const [statements, setStatements] = React.useState<any[]>([]);
@@ -56,6 +59,22 @@ export default function RentalStatementsPage() {
   const [includeDamage, setIncludeDamage] = React.useState(true);
   const [includeMissing, setIncludeMissing] = React.useState(true);
   const [adjustments, setAdjustments] = React.useState("0");
+
+  // In-app Confirmation Modal State
+  const [confirmModal, setConfirmModal] = React.useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmText?: string;
+    variant?: "danger" | "warning" | "primary" | "success";
+    isLoading?: boolean;
+    onConfirm: () => void | Promise<void>;
+  }>({
+    isOpen: false,
+    title: "",
+    description: "",
+    onConfirm: () => {},
+  });
 
   const [previewCalculation, setPreviewCalculation] = React.useState<any>(null);
   const [isCalculating, setIsCalculating] = React.useState(false);
@@ -111,11 +130,11 @@ export default function RentalStatementsPage() {
 
   const handleCalculatePreview = async () => {
     if (!selectedCustomerId) {
-      alert("Please select a customer.");
+      toast.error("Please select a customer.");
       return;
     }
     if (billingMode === "SITE_WISE" && !selectedSiteId) {
-      alert("Please select a customer construction site.");
+      toast.error("Please select a customer construction site.");
       return;
     }
 
@@ -143,13 +162,13 @@ export default function RentalStatementsPage() {
 
       const json = await res.json();
       if (!res.ok || !json.success) {
-        alert(json.error?.message || "Failed to calculate statement preview");
+        toast.error(json.error?.message || "Failed to calculate statement preview");
         return;
       }
 
       setPreviewCalculation(json.data);
     } catch (err: any) {
-      alert(err.message || "Calculation failed");
+      toast.error(err.message || "Calculation failed");
     } finally {
       setIsCalculating(false);
     }
@@ -180,48 +199,69 @@ export default function RentalStatementsPage() {
 
       const json = await res.json();
       if (!res.ok || !json.success) {
-        alert(json.error?.message || "Failed to generate statement");
+        toast.error(json.error?.message || "Failed to generate statement");
         return;
       }
 
+      toast.success("Statement generated and saved successfully.");
       setIsGeneratorOpen(false);
       setPreviewCalculation(null);
       fetchStatements();
     } catch (err: any) {
-      alert(err.message || "Failed to save statement");
+      toast.error(err.message || "Failed to save statement");
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleApprove = async (id: string, num: string) => {
-    if (!confirm(`Approve Statement ${num}?`)) return;
-    try {
-      const res = await fetch(`/api/v1/rentals/statements/${id}/approve`, { method: "POST" });
-      const json = await res.json();
-      if (json.success) fetchStatements();
-      else alert(json.error?.message || "Approval failed");
-    } catch (err: any) {
-      alert(err.message || "Approval failed");
-    }
+  const handleApprove = (id: string, num: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Approve Rental Statement",
+      description: `Are you sure you want to approve Statement ${num}?`,
+      confirmText: "Approve Statement",
+      variant: "primary",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/v1/rentals/statements/${id}/approve`, { method: "POST" });
+          const json = await res.json();
+          if (json.success) {
+            toast.success(`Statement ${num} approved successfully.`);
+            fetchStatements();
+            setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+          } else {
+            toast.error(json.error?.message || "Approval failed");
+          }
+        } catch (err: any) {
+          toast.error(err.message || "Approval failed");
+        }
+      },
+    });
   };
 
-  const handleFinalize = async (id: string, num: string) => {
-    if (
-      !confirm(
-        `Are you sure you want to FINALIZE Statement ${num}? Once finalized, the statement will be permanently frozen and locked against any edits.`
-      )
-    ) {
-      return;
-    }
-    try {
-      const res = await fetch(`/api/v1/rentals/statements/${id}/finalize`, { method: "POST" });
-      const json = await res.json();
-      if (json.success) fetchStatements();
-      else alert(json.error?.message || "Finalization failed");
-    } catch (err: any) {
-      alert(err.message || "Finalization failed");
-    }
+  const handleFinalize = (id: string, num: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Finalize & Lock Statement",
+      description: `Are you sure you want to FINALIZE Statement ${num}? Once finalized, the statement will be permanently frozen and locked against any edits.`,
+      confirmText: "Finalize & Lock",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/v1/rentals/statements/${id}/finalize`, { method: "POST" });
+          const json = await res.json();
+          if (json.success) {
+            toast.success(`Statement ${num} finalized and frozen.`);
+            fetchStatements();
+            setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+          } else {
+            toast.error(json.error?.message || "Finalization failed");
+          }
+        } catch (err: any) {
+          toast.error(err.message || "Finalization failed");
+        }
+      },
+    });
   };
 
   const handleViewDetail = async (id: string) => {
@@ -432,6 +472,18 @@ export default function RentalStatementsPage() {
                               <Lock className="h-3 w-3 mr-1" /> Finalize
                             </Button>
                           )}
+                          {(stmt.status === "APPROVED" || stmt.status === "FINALIZED") &&
+                            (!stmt.invoices || stmt.invoices.length === 0) && (
+                              <Button
+                                asChild
+                                size="sm"
+                                className="h-7 text-xs bg-[#F26522] hover:bg-[#EA580C] text-white"
+                              >
+                                <Link href={`/invoices?statementId=${stmt.id}`}>
+                                  <ReceiptIndianRupee className="h-3 w-3 mr-1" /> Invoice
+                                </Link>
+                              </Button>
+                            )}
                           <Button
                             asChild
                             variant="outline"
@@ -763,6 +815,17 @@ export default function RentalStatementsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        description={confirmModal.description}
+        confirmText={confirmModal.confirmText}
+        variant={confirmModal.variant}
+        isLoading={confirmModal.isLoading}
+      />
     </div>
   );
 }

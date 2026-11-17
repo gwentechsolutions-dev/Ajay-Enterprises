@@ -5,6 +5,7 @@ import { requirePermission } from "@/lib/permissions";
 import { createAccountSchema } from "@/lib/schemas/accounting";
 import { logAuditEvent } from "@/lib/audit";
 import { seedDefaultChartOfAccounts } from "@/lib/accounting/chart-of-accounts";
+import { validationErrorResponse } from "@/lib/api-validation";
 
 export async function GET(req: NextRequest) {
   try {
@@ -45,10 +46,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsed = createAccountSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_FAILED", message: "Validation failed", details: parsed.error.issues } },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     const input = parsed.data;

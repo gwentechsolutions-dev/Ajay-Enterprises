@@ -44,10 +44,26 @@ export const FIELD_LABELS: Record<string, string> = {
   mapsUrl: "Google Maps Location Link",
   googleMapsUrl: "Google Maps Location Link",
 
-  // Suppliers
+  // Suppliers & Procurement
   supplierCode: "Supplier Code",
+  supplierId: "Supplier",
   contactPerson: "Contact Person",
   mobile: "Mobile Number",
+  poNumber: "Purchase Order Number",
+  orderDate: "Order Date",
+  expectedDeliveryDate: "Expected Delivery Date",
+  deliveryWarehouseId: "Receiving Warehouse / Yard",
+  orderedQty: "Ordered Quantity",
+  unitRate: "Unit Rate",
+  rate: "Rate (₹)",
+  discountPercent: "Discount %",
+  taxPercent: "Tax % (GST)",
+  supplierInvoiceNo: "Supplier Invoice Number",
+  supplierInvoiceNumber: "Supplier Invoice Number",
+  supplierInvoiceDate: "Supplier Invoice Date",
+  receivedQty: "Received Quantity",
+  rejectedQty: "Rejected Quantity",
+  dispatchedQty: "Dispatched Quantity",
 
   // Materials & Catalogue
   materialCode: "Material Code",

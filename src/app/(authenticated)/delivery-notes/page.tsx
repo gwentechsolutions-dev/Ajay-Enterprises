@@ -45,6 +45,8 @@ import { stampGpsWatermarkOnPhoto } from "@/lib/gps-watermark";
 import { FormFieldError } from "@/components/ui/form-field-error";
 import { parseApiValidationErrors, formatValidationToast } from "@/lib/forms/validation-mapper";
 import { toast } from "sonner";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { WhatsAppShareButton } from "@/components/ui/whatsapp-share-button";
 
 export default function DeliveryNotesPage() {
   const { isDeliveryPerson, canCreateDeliveryNote } = useCurrentUser();
@@ -69,6 +71,13 @@ export default function DeliveryNotesPage() {
   const [editingDnId, setEditingDnId] = React.useState<string | null>(null);
   const [deliverErrors, setDeliverErrors] = React.useState<Record<string, string>>({});
   const [dnErrors, setDnErrors] = React.useState<Record<string, string>>({});
+  const [discardConfirmModal, setDiscardConfirmModal] = React.useState<{
+    isOpen: boolean;
+    dn: any | null;
+  }>({
+    isOpen: false,
+    dn: null,
+  });
 
   // Fleet vehicles state for registered company vehicles
   const [fleetVehicles, setFleetVehicles] = React.useState<any[]>([]);
@@ -426,8 +435,17 @@ export default function DeliveryNotesPage() {
     setIsCreateModalOpen(true);
   };
 
-  const handleDiscardDraft = async (dn: any) => {
-    if (!confirm(`Are you sure you want to discard draft Delivery Note ${dn.dnNumber}?`)) return;
+  const handleDiscardDraft = (dn: any) => {
+    setDiscardConfirmModal({
+      isOpen: true,
+      dn,
+    });
+  };
+
+  const executeDiscardDraft = async () => {
+    const dn = discardConfirmModal.dn;
+    if (!dn) return;
+    setDiscardConfirmModal({ isOpen: false, dn: null });
 
     // 1. Optimistic UI removal (0ms): instantly remove from table and KPI cards so it never lingers
     setDeliveryNotes((prev) => prev.filter((d) => d.id !== dn.id));
@@ -1056,6 +1074,9 @@ export default function DeliveryNotesPage() {
                             <span>Print</span>
                           </a>
                         </Button>
+
+                        {/* WhatsApp Share Button */}
+                        <WhatsAppShareButton doc={dn} docType="DN" />
 
                         {/* E-Way Bill */}
                         <Button
@@ -2406,6 +2427,16 @@ export default function DeliveryNotesPage() {
           })()}
         </DialogContent>
       </Dialog>
+
+      <ConfirmModal
+        isOpen={discardConfirmModal.isOpen}
+        onClose={() => setDiscardConfirmModal({ isOpen: false, dn: null })}
+        onConfirm={executeDiscardDraft}
+        title="Discard Draft Delivery Note"
+        description={`Are you sure you want to discard draft Delivery Note ${discardConfirmModal.dn?.dnNumber || ""}? This action cannot be undone.`}
+        confirmText="Discard Draft"
+        variant="danger"
+      />
     </div>
   );
 }

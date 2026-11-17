@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import { createMovementSchema } from "@/lib/schemas/inventory";
 import { postInventoryMovement } from "@/lib/inventory/ledger";
+import { validationErrorResponse } from "@/lib/api-validation";
 
 export async function GET(req: NextRequest) {
   try {
@@ -92,10 +93,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsed = createMovementSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_FAILED", message: "Validation failed", details: parsed.error.issues } },
-        { status: 422 }
-      );
+      return validationErrorResponse(parsed.error);
     }
 
     const ipAddress = req.headers.get("x-forwarded-for") || undefined;
