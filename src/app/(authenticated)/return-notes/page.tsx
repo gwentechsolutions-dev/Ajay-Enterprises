@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { TableSkeleton } from "@/components/ui/loading-states";
+import { fetchWithClientCache, invalidateClientCache } from "@/lib/client-cache";
 import { useCurrentUser } from "@/lib/auth-context";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/forms/validation-mapper";
@@ -88,13 +89,15 @@ export default function MaterialReturnsPage() {
     items: [] as MRNLineItem[],
   });
 
-  const loadData = React.useCallback(async () => {
+  const loadData = React.useCallback(async (forceRefresh = false) => {
     try {
       setLoading(true);
-      // 1. Primary: Fetch Return Notes
-      const mrnRes = await fetch("/api/v1/return-notes");
-      const mrnData = await mrnRes.json();
-      if (mrnData.success) setReturnNotes(Array.isArray(mrnData.data) ? mrnData.data : []);
+      // 1. Primary: Fetch Return Notes with cache
+      const mrnData = await fetchWithClientCache("/api/v1/return-notes", {
+        forceRefresh,
+        onBackgroundUpdate: (fresh) => setReturnNotes(Array.isArray(fresh) ? fresh : []),
+      });
+      if (mrnData) setReturnNotes(Array.isArray(mrnData) ? mrnData : []);
     } catch {
       toast.error("Failed to load material return notes.");
     } finally {
@@ -104,30 +107,37 @@ export default function MaterialReturnsPage() {
     // 2. Auxiliary master data: Only needed if user can create return notes
     if (canCreateReturnNote) {
       try {
-        const [custRes, whRes, varRes] = await Promise.all([
-          fetch("/api/v1/customers").catch(() => null),
-          fetch("/api/v1/warehouses").catch(() => null),
-          fetch("/api/v1/materials/variants").catch(() => null),
-        ]);
-
         const [custData, whData, varData] = await Promise.all([
-          custRes ? custRes.json().catch(() => null) : null,
-          whRes ? whRes.json().catch(() => null) : null,
-          varRes ? varRes.json().catch(() => null) : null,
+          fetchWithClientCache("/api/v1/customers", {
+            forceRefresh,
+            ttlMs: 60_000,
+            onBackgroundUpdate: (fresh) => setCustomers(Array.isArray(fresh) ? fresh : []),
+          }).catch(() => null),
+          fetchWithClientCache("/api/v1/warehouses", {
+            forceRefresh,
+            ttlMs: 60_000,
+            onBackgroundUpdate: (fresh) => setWarehouses(Array.isArray(fresh) ? fresh : []),
+          }).catch(() => null),
+          fetchWithClientCache("/api/v1/materials/variants", {
+            forceRefresh,
+            ttlMs: 60_000,
+            onBackgroundUpdate: (fresh) => setVariants(Array.isArray(fresh) ? fresh : []),
+          }).catch(() => null),
         ]);
 
-        if (custData?.success) setCustomers(Array.isArray(custData.data) ? custData.data : []);
-        if (whData?.success) {
-          const whList = Array.isArray(whData.data) ? whData.data : [];
-          setWarehouses(whList);
-          if (whList.length > 0) {
-            setMrnForm((prev) => ({
-              ...prev,
-              receivingWarehouseId: prev.receivingWarehouseId || whList[0].id,
-            }));
-          }
+        if (custData && Array.isArray(custData)) {
+          setCustomers(custData);
         }
-        if (varData?.success) setVariants(Array.isArray(varData.data) ? varData.data : []);
+        if (whData && Array.isArray(whData)) {
+          setWarehouses(whData);
+          setMrnForm((prev) => ({
+            ...prev,
+            receivingWarehouseId: prev.receivingWarehouseId || whData[0]?.id || "",
+          }));
+        }
+        if (varData && Array.isArray(varData)) {
+          setVariants(varData);
+        }
       } catch (err) {
         console.warn("Could not pre-load auxiliary return note master data:", err);
       }
@@ -161,12 +171,20 @@ export default function MaterialReturnsPage() {
           queryParams.set("deliveryNoteId", deliveryNoteId);
         }
 
-        const res = await fetch(`/api/v1/return-notes/site-materials?${queryParams.toString()}`);
-        const result = await res.json();
+        const url = `/api/v1/return-notes/site-materials?${queryParams.toString()}`;
+        const result = await fetchWithClientCache(url, {
+          ttlMs: 30_000,
+          onBackgroundUpdate: (fresh) => {
+            if (fresh?.materials) {
+              setSiteDeliveredMaterials(fresh.materials);
+              setSiteDeliveryNotes(fresh.deliveryNotes || []);
+            }
+          },
+        });
 
-        if (result.success && result.data) {
-          const materials = result.data.materials || [];
-          const dns = result.data.deliveryNotes || [];
+        if (result && result.materials) {
+          const materials = result.materials || [];
+          const dns = result.deliveryNotes || [];
           setSiteDeliveredMaterials(materials);
           setSiteDeliveryNotes(dns);
 
@@ -197,7 +215,7 @@ export default function MaterialReturnsPage() {
             }));
             setAutoPopulatedCount(materials.length);
             toast.success(
-              `Auto-populated ${materials.length} material line(s) delivered to ${result.data.site.siteName}.`
+              `Auto-populated ${materials.length} material line(s) delivered to ${result.site?.siteName || "site"}.`
             );
           } else {
             // No materials on site: provide one empty row for manual entry
@@ -233,7 +251,7 @@ export default function MaterialReturnsPage() {
   );
 
   // When customer changes, load customer sites and trigger material fetch for initial site
-  const handleCustomerChange = async (customerId: string) => {
+  const handleCustomerChange = (customerId: string) => {
     setMrnForm((prev) => ({
       ...prev,
       customerId,
@@ -250,20 +268,33 @@ export default function MaterialReturnsPage() {
       return;
     }
 
-    try {
-      const res = await fetch(`/api/v1/customers/${customerId}/sites`);
-      const data = await res.json();
-      if (data.success && Array.isArray(data.data)) {
-        setSites(data.data);
-        if (data.data.length > 0) {
-          const firstSite = data.data[0];
-          setMrnForm((prev) => ({ ...prev, customerSiteId: firstSite.id }));
-          loadSiteDeliveredMaterials(firstSite.id);
-        }
-      }
-    } catch {
-      toast.error("Failed to load customer construction sites.");
+    // 1. Instant 0ms memory lookup from already-loaded customer tree
+    const selectedCust = customers.find((c) => c.id === customerId);
+    if (selectedCust?.sites && Array.isArray(selectedCust.sites) && selectedCust.sites.length > 0) {
+      setSites(selectedCust.sites);
+      const firstSite = selectedCust.sites[0];
+      setMrnForm((prev) => ({ ...prev, customerId, customerSiteId: firstSite.id }));
+      loadSiteDeliveredMaterials(firstSite.id);
+      return;
     }
+
+    // 2. Fallback to cached API request if not already embedded
+    fetchWithClientCache(`/api/v1/customers/${customerId}/sites`, {
+      ttlMs: 60_000,
+    })
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setSites(data);
+          if (data.length > 0) {
+            const firstSite = data[0];
+            setMrnForm((prev) => ({ ...prev, customerId, customerSiteId: firstSite.id }));
+            loadSiteDeliveredMaterials(firstSite.id);
+          }
+        }
+      })
+      .catch(() => {
+        toast.error("Failed to load customer construction sites.");
+      });
   };
 
   // When construction site changes, auto-populate delivered materials for that site
@@ -351,7 +382,11 @@ export default function MaterialReturnsPage() {
 
       toast.success(`MRN ${data.data.mrnNumber} posted! Site stock deducted & yard stock credited.`);
       setIsCreateModalOpen(false);
-      loadData();
+      invalidateClientCache("/api/v1/return-notes");
+      invalidateClientCache("/api/v1/delivery-notes");
+      invalidateClientCache("/api/v1/inventory/stock-balances");
+      invalidateClientCache("/api/v1/return-notes/site-materials");
+      await loadData(true);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -389,6 +424,12 @@ export default function MaterialReturnsPage() {
           <Button
             onClick={() => {
               setIsCreateModalOpen(true);
+              if (mrnForm.customerId && sites.length === 0) {
+                const selectedCust = customers.find((c) => c.id === mrnForm.customerId);
+                if (selectedCust?.sites && Array.isArray(selectedCust.sites) && selectedCust.sites.length > 0) {
+                  setSites(selectedCust.sites);
+                }
+              }
               if (mrnForm.customerSiteId && mrnForm.items.length === 0) {
                 loadSiteDeliveredMaterials(mrnForm.customerSiteId);
               }
@@ -564,6 +605,8 @@ export default function MaterialReturnsPage() {
                   value={mrnForm.customerId}
                   onChange={handleCustomerChange}
                   placeholder="Select Customer"
+                  isLoading={loading && customers.length === 0}
+                  emptyText="No customers found."
                 />
               </div>
 
@@ -578,6 +621,8 @@ export default function MaterialReturnsPage() {
                   onChange={handleSiteChange}
                   placeholder={mrnForm.customerId ? "Select Construction Site" : "Select Customer First"}
                   disabled={!mrnForm.customerId}
+                  isLoading={Boolean(mrnForm.customerId && sites.length === 0)}
+                  emptyText={mrnForm.customerId ? "No construction sites found for this customer." : "Please select a customer first."}
                 />
               </div>
 
@@ -591,6 +636,8 @@ export default function MaterialReturnsPage() {
                   value={mrnForm.receivingWarehouseId}
                   onChange={(val) => setMrnForm({ ...mrnForm, receivingWarehouseId: val })}
                   placeholder="Select Receiving Yard"
+                  isLoading={loading && warehouses.length === 0}
+                  emptyText="No warehouses or yards found."
                 />
               </div>
             </div>
@@ -831,6 +878,8 @@ export default function MaterialReturnsPage() {
                           setMrnForm({ ...mrnForm, items: updated });
                         }}
                         placeholder="Select Material"
+                        isLoading={loading && variants.length === 0}
+                        emptyText="No materials found."
                       />
                     </div>
 
