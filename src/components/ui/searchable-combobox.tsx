@@ -23,6 +23,7 @@ export interface SearchableComboboxProps {
   required?: boolean;
   error?: boolean;
   className?: string;
+  triggerClassName?: string;
   allowClear?: boolean;
 }
 
@@ -36,6 +37,7 @@ export function SearchableCombobox({
   disabled = false,
   error = false,
   className,
+  triggerClassName,
   allowClear = true,
 }: SearchableComboboxProps) {
   const [isOpen, setIsOpen] = React.useState(false);
@@ -98,7 +100,8 @@ export function SearchableCombobox({
           error
             ? "border-red-500 focus:ring-red-500"
             : "border-slate-300 focus:border-primary-900 focus:ring-primary-900/20",
-          isOpen && "ring-2 ring-primary-900/20 border-primary-900"
+          isOpen && "ring-2 ring-primary-900/20 border-primary-900",
+          triggerClassName
         )}
       >
         <div className="flex items-center gap-2 truncate min-w-0 flex-1">

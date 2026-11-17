@@ -64,6 +64,9 @@ export default function DeliveryNotesPage() {
 
   // Fleet vehicles state for registered company vehicles
   const [fleetVehicles, setFleetVehicles] = React.useState<any[]>([]);
+  const [fleetDrivers, setFleetDrivers] = React.useState<any[]>([]);
+  const [showDriverSuggestions, setShowDriverSuggestions] = React.useState(false);
+  const driverSuggestionsRef = React.useRef<HTMLDivElement>(null);
   const [isCustomEwbVehicle, setIsCustomEwbVehicle] = React.useState(false);
   const [isCustomUpdateVehicle, setIsCustomUpdateVehicle] = React.useState(false);
 
@@ -87,6 +90,7 @@ export default function DeliveryNotesPage() {
     items: [
       {
         materialVariantId: "",
+        selectedMaterialName: "",
         ownershipType: "OWNED" as "OWNED" | "HIRED_IN",
         dispatchedQty: 50,
         dailyRentalRate: 2.5,
@@ -118,7 +122,7 @@ export default function DeliveryNotesPage() {
 
   const loadData = React.useCallback(async (forceRefresh = false) => {
     try {
-      const [dnData, custData, whData, varData, vehData] = await Promise.all([
+      const [dnData, custData, whData, varData, vehData, drvData] = await Promise.all([
         fetchWithClientCache("/api/v1/delivery-notes", {
           forceRefresh,
           onBackgroundUpdate: (fresh) => setDeliveryNotes(Array.isArray(fresh) ? fresh : []),
@@ -144,6 +148,13 @@ export default function DeliveryNotesPage() {
             if (Array.isArray(fresh)) setFleetVehicles(fresh);
           },
         }).catch(() => null),
+        fetchWithClientCache("/api/v1/fleet/drivers", {
+          forceRefresh,
+          ttlMs: 60_000,
+          onBackgroundUpdate: (fresh) => {
+            if (Array.isArray(fresh)) setFleetDrivers(fresh);
+          },
+        }).catch(() => null),
       ]);
 
       if (dnData) setDeliveryNotes(Array.isArray(dnData) ? dnData : []);
@@ -158,6 +169,7 @@ export default function DeliveryNotesPage() {
       }
       if (varData) setVariants(Array.isArray(varData) ? varData : []);
       if (vehData && Array.isArray(vehData)) setFleetVehicles(vehData);
+      if (drvData && Array.isArray(drvData)) setFleetDrivers(drvData);
     } catch {
       toast.error("Failed to load delivery notes.");
     } finally {
@@ -196,6 +208,49 @@ export default function DeliveryNotesPage() {
     }
   }, [loadData]);
 
+  // Click outside to close driver suggestions popover
+  React.useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (driverSuggestionsRef.current && !driverSuggestionsRef.current.contains(event.target as Node)) {
+        setShowDriverSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Filter registered drivers for auto-suggestions
+  const filteredDrivers = React.useMemo(() => {
+    const q = (dnForm.driverName || "").toLowerCase().trim();
+    if (!q) return fleetDrivers;
+    return fleetDrivers.filter(
+      (d) =>
+        d.name?.toLowerCase().includes(q) ||
+        d.mobileNumber?.includes(q) ||
+        d.driverCode?.toLowerCase().includes(q)
+    );
+  }, [fleetDrivers, dnForm.driverName]);
+
+  // Group material variants under parent material name
+  const materialGroups = React.useMemo(() => {
+    const map = new Map<string, any[]>();
+    for (const v of variants) {
+      const groupName = v.name?.trim() || "Uncategorized";
+      if (!map.has(groupName)) {
+        map.set(groupName, []);
+      }
+      map.get(groupName)!.push(v);
+    }
+    return Array.from(map.entries())
+      .map(([name, groupVars]) => ({
+        name,
+        variants: groupVars,
+        count: groupVars.length,
+        category: groupVars[0]?.materialType?.name || groupVars[0]?.materialType?.category?.name || "",
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [variants]);
+
   // Load sites when customer changes
   const handleCustomerChange = async (customerId: string) => {
     setDnForm((prev) => ({ ...prev, customerId, customerSiteId: "" }));
@@ -224,6 +279,7 @@ export default function DeliveryNotesPage() {
         ...prev.items,
         {
           materialVariantId: "",
+          selectedMaterialName: "",
           ownershipType: "OWNED",
           dispatchedQty: 50,
           dailyRentalRate: 2.5,
@@ -296,13 +352,17 @@ export default function DeliveryNotesPage() {
       driverName: dn.driverName || "",
       driverPhone: dn.driverPhone || "",
       notes: dn.notes || "",
-      items: dn.items.map((it: any) => ({
-        materialVariantId: it.materialVariantId,
-        ownershipType: it.ownershipType,
-        dispatchedQty: Number(it.quantity),
-        dailyRentalRate: Number(it.dailyRate || 0),
-        remarks: it.remarks || "",
-      })),
+      items: dn.items.map((it: any) => {
+        const v = variants.find((x) => x.id === it.materialVariantId);
+        return {
+          materialVariantId: it.materialVariantId,
+          selectedMaterialName: v?.name?.trim() || "",
+          ownershipType: it.ownershipType,
+          dispatchedQty: Number(it.quantity),
+          dailyRentalRate: Number(it.dailyRate || 0),
+          remarks: it.remarks || "",
+        };
+      }),
     });
 
     if (dn.customerId) {
@@ -911,7 +971,7 @@ export default function DeliveryNotesPage() {
 
       {/* CREATE / EDIT DELIVERY NOTE MODAL */}
       <Dialog open={isCreateModalOpen} onOpenChange={(open) => { setIsCreateModalOpen(open); if (!open) setEditingDnId(null); }}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <Truck className="h-5 w-5 text-[#F26522]" />
@@ -1003,17 +1063,68 @@ export default function DeliveryNotesPage() {
                 )}
               </div>
 
-              <div>
-                <Label className="text-xs font-semibold">Driver Name</Label>
+              {/* Driver Name with Registered Auto-Suggestions + Manual Override */}
+              <div className="relative" ref={driverSuggestionsRef}>
+                <div className="flex items-center justify-between mb-1">
+                  <Label className="text-xs font-semibold">Driver Name</Label>
+                  {fleetDrivers.length > 0 && (
+                    <span className="text-[10px] text-slate-400 font-normal">
+                      Auto-suggest ({fleetDrivers.length})
+                    </span>
+                  )}
+                </div>
                 <Input
-                  placeholder="e.g. Ramesh Kumar"
+                  placeholder="e.g. Ramesh Kumar (type or select)"
                   value={dnForm.driverName}
-                  onChange={(e) => setDnForm({ ...dnForm, driverName: e.target.value })}
+                  onChange={(e) => {
+                    setDnForm({ ...dnForm, driverName: e.target.value });
+                    setShowDriverSuggestions(true);
+                  }}
+                  onFocus={() => setShowDriverSuggestions(true)}
+                  autoComplete="off"
                 />
+                {showDriverSuggestions && filteredDrivers.length > 0 && (
+                  <div className="absolute z-50 left-0 right-0 mt-1 max-h-52 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-xl py-1">
+                    <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+                      <span>Registered Drivers</span>
+                      <span className="text-[9px] text-slate-400 font-normal">Click to auto-fill</span>
+                    </div>
+                    {filteredDrivers.map((d) => (
+                      <button
+                        key={d.id}
+                        type="button"
+                        className="w-full text-left px-3 py-2 text-xs hover:bg-orange-50/70 hover:text-[#0B1E36] flex items-center justify-between transition-colors border-b border-slate-50 last:border-b-0 group cursor-pointer"
+                        onClick={() => {
+                          setDnForm((prev) => ({
+                            ...prev,
+                            driverName: d.name,
+                            driverPhone: d.mobileNumber || prev.driverPhone,
+                          }));
+                          setShowDriverSuggestions(false);
+                        }}
+                      >
+                        <div className="min-w-0 pr-2">
+                          <span className="font-semibold text-slate-900 group-hover:text-[#F26522] block truncate">
+                            {d.name}
+                          </span>
+                          {d.driverCode && (
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              {d.driverCode}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs font-mono text-slate-600 bg-slate-100 group-hover:bg-orange-100 px-2 py-0.5 rounded text-right shrink-0">
+                          {d.mobileNumber || "No phone"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
+              {/* Driver Phone */}
               <div>
-                <Label className="text-xs font-semibold">Driver Phone</Label>
+                <Label className="text-xs font-semibold mb-1 block">Driver Phone</Label>
                 <Input
                   placeholder="9876543210"
                   value={dnForm.driverPhone}
@@ -1036,10 +1147,13 @@ export default function DeliveryNotesPage() {
               </label>
             </div>
 
-            {/* Material Items */}
+            {/* Material Items: Combined Material with Size Sub-Dropdown */}
             <div className="border border-slate-200 rounded-lg p-4 bg-slate-50/50 space-y-3">
               <div className="flex justify-between items-center">
-                <h4 className="text-sm font-bold text-slate-800">Dispatched Materials</h4>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-800">Dispatched Materials</h4>
+                  <p className="text-[11px] text-slate-500">Select base material, then choose size/specification and quantities.</p>
+                </div>
                 <Button
                   type="button"
                   variant="outline"
@@ -1051,107 +1165,193 @@ export default function DeliveryNotesPage() {
                 </Button>
               </div>
 
-              {dnForm.items.map((item, idx) => (
-                <div key={idx} className="grid grid-cols-12 gap-2 items-end bg-white p-2.5 rounded border border-slate-200">
-                  <div className="col-span-12 md:col-span-5">
-                    <Label className="text-[10px] text-slate-500 uppercase font-bold">Material Variant *</Label>
-                    <SearchableCombobox
-                      options={variants.map((v) => {
-                        const stock = yardStocks[v.id] ?? 0;
-                        return {
-                          value: v.id,
-                          label: `${v.name} ${v.size ? `(${v.size})` : ""} - ${v.materialCode} [${stock > 0 ? `${stock} in yard` : "0 in yard"}]`,
-                        };
-                      })}
-                      value={item.materialVariantId}
-                      onChange={(val) => {
-                        const updated = [...dnForm.items];
-                        updated[idx].materialVariantId = val;
-                        const v = variants.find((x) => x.id === val);
-                        if (v && v.rentalRate) updated[idx].dailyRentalRate = Number(v.rentalRate);
-                        setDnForm({ ...dnForm, items: updated });
-                      }}
-                      placeholder="Select Material"
-                    />
-                  </div>
+              {dnForm.items.map((item, idx) => {
+                const currentVariant = variants.find((x) => x.id === item.materialVariantId);
+                const currentMaterialName =
+                  (item as any).selectedMaterialName || currentVariant?.name?.trim() || "";
 
-                  <div className="col-span-4 md:col-span-2">
-                    <Label className="text-[10px] text-slate-500 uppercase font-bold">Pool *</Label>
-                    <SearchableCombobox
-                      options={[
-                        { value: "OWNED", label: "OWNED" },
-                        { value: "HIRED_IN", label: "HIRED_IN" },
-                      ]}
-                      value={item.ownershipType}
-                      onChange={(val) => {
-                        const updated = [...dnForm.items];
-                        updated[idx].ownershipType = val as "OWNED" | "HIRED_IN";
-                        setDnForm({ ...dnForm, items: updated });
-                      }}
-                    />
-                  </div>
+                // Variants available for this specific material name
+                const availableSizes = variants.filter(
+                  (v) => v.name?.trim() === currentMaterialName
+                );
 
-                  <div className="col-span-4 md:col-span-2">
-                    <Label className="text-[10px] text-slate-500 uppercase font-bold">Dispatch Qty *</Label>
-                    <Input
-                      type="number"
-                      step="any"
-                      min="0.001"
-                      value={item.dispatchedQty}
-                      onChange={(e) => {
-                        const updated = [...dnForm.items];
-                        updated[idx].dispatchedQty = parseFloat(e.target.value) || 0;
-                        setDnForm({ ...dnForm, items: updated });
-                      }}
-                    />
-                  </div>
+                return (
+                  <div
+                    key={idx}
+                    className="grid grid-cols-12 gap-2.5 items-end bg-white p-3 rounded-lg border border-slate-200 shadow-2xs"
+                  >
+                    {/* 1. Combined Material Name Dropdown */}
+                    <div className="col-span-12 md:col-span-3">
+                      <Label className="text-[10px] text-slate-500 uppercase font-bold">
+                        Material *
+                      </Label>
+                      <SearchableCombobox
+                        options={materialGroups.map((g) => ({
+                          value: g.name,
+                          label: g.name,
+                          sublabel: g.category || undefined,
+                          badge: g.count > 1 ? `${g.count} sizes` : "1 size",
+                        }))}
+                        value={currentMaterialName}
+                        onChange={(val) => {
+                          const updated = [...dnForm.items];
+                          const group = materialGroups.find((g) => g.name === val);
+                          (updated[idx] as any).selectedMaterialName = val;
 
-                  <div className="col-span-3 md:col-span-2">
-                    <Label className="text-[10px] text-slate-500 uppercase font-bold">Daily Rate (₹)</Label>
-                    <Input
-                      type="number"
-                      step="any"
-                      min="0"
-                      value={item.dailyRentalRate}
-                      onChange={(e) => {
-                        const updated = [...dnForm.items];
-                        updated[idx].dailyRentalRate = parseFloat(e.target.value) || 0;
-                        setDnForm({ ...dnForm, items: updated });
-                      }}
-                    />
-                  </div>
+                          if (group && group.variants.length === 1) {
+                            // Only 1 size exists, auto-select it directly
+                            const single = group.variants[0];
+                            updated[idx].materialVariantId = single.id;
+                            if (single.rentalRate || single.defaultRentalRate) {
+                              updated[idx].dailyRentalRate = Number(
+                                single.rentalRate || single.defaultRentalRate
+                              );
+                            }
+                          } else {
+                            // Multiple sizes exist: clear size so user selects from sub-dropdown
+                            updated[idx].materialVariantId = "";
+                          }
+                          setDnForm({ ...dnForm, items: updated });
+                        }}
+                        placeholder="Select Material"
+                        searchPlaceholder="Search material name..."
+                      />
+                    </div>
 
-                  <div className="col-span-1 flex justify-center">
-                    {dnForm.items.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveLine(idx)}
-                        className="text-red-500 hover:text-red-700 h-9 w-9 p-0"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
+                    {/* 2. Size / Specification Sub-Dropdown */}
+                    <div className="col-span-12 md:col-span-3">
+                      <Label className="text-[10px] text-slate-500 uppercase font-bold">
+                        Size / Specification *
+                      </Label>
+                      <SearchableCombobox
+                        options={availableSizes.map((v) => {
+                          const stock = yardStocks[v.id] ?? 0;
+                          return {
+                            value: v.id,
+                            label: `${v.size || "Standard"} (${v.materialCode})`,
+                            badge: stock > 0 ? `${stock} in yard` : "0 in yard",
+                          };
+                        })}
+                        value={item.materialVariantId}
+                        onChange={(val) => {
+                          const updated = [...dnForm.items];
+                          updated[idx].materialVariantId = val;
+                          const v = variants.find((x) => x.id === val);
+                          if (v) {
+                            (updated[idx] as any).selectedMaterialName = v.name?.trim();
+                            if (v.rentalRate || v.defaultRentalRate) {
+                              updated[idx].dailyRentalRate = Number(
+                                v.rentalRate || v.defaultRentalRate
+                              );
+                            }
+                          }
+                          setDnForm({ ...dnForm, items: updated });
+                        }}
+                        placeholder={
+                          currentMaterialName
+                            ? availableSizes.length > 0
+                              ? "Select Size / Spec"
+                              : "No sizes found"
+                            : "Select Material First"
+                        }
+                        searchPlaceholder="Search size or code..."
+                        disabled={!currentMaterialName}
+                      />
+                    </div>
 
-                  {item.materialVariantId && (
-                    <div className="col-span-12 flex items-center justify-between text-[11px] pt-1 px-1 bg-slate-50/50 rounded">
-                      <span className="text-slate-500">
-                        Available in selected yard:{" "}
-                        <strong className={(yardStocks[item.materialVariantId] ?? 0) >= item.dispatchedQty ? "text-emerald-700 font-mono" : "text-red-600 font-mono"}>
-                          {yardStocks[item.materialVariantId] ?? 0} {variants.find((v) => v.id === item.materialVariantId)?.uom || "Nos."}
-                        </strong>
-                      </span>
-                      {(yardStocks[item.materialVariantId] ?? 0) < item.dispatchedQty && (
-                        <span className="text-amber-700 font-medium">
-                          ⚠️ Insufficient stock in this yard for requested quantity ({item.dispatchedQty})
-                        </span>
+                    {/* 3. Pool (Visible without truncation) */}
+                    <div className="col-span-6 sm:col-span-4 md:col-span-2 min-w-[125px]">
+                      <Label className="text-[10px] text-slate-500 uppercase font-bold">
+                        Pool *
+                      </Label>
+                      <SearchableCombobox
+                        options={[
+                          { value: "OWNED", label: "OWNED" },
+                          { value: "HIRED_IN", label: "HIRED IN" },
+                        ]}
+                        value={item.ownershipType}
+                        onChange={(val) => {
+                          const updated = [...dnForm.items];
+                          updated[idx].ownershipType = val as "OWNED" | "HIRED_IN";
+                          setDnForm({ ...dnForm, items: updated });
+                        }}
+                        allowClear={false}
+                        triggerClassName="font-semibold text-xs text-slate-800"
+                      />
+                    </div>
+
+                    {/* 4. Dispatch Qty */}
+                    <div className="col-span-6 sm:col-span-4 md:col-span-2">
+                      <Label className="text-[10px] text-slate-500 uppercase font-bold">
+                        Dispatch Qty *
+                      </Label>
+                      <Input
+                        type="number"
+                        step="any"
+                        min="0.001"
+                        value={item.dispatchedQty}
+                        onChange={(e) => {
+                          const updated = [...dnForm.items];
+                          updated[idx].dispatchedQty = parseFloat(e.target.value) || 0;
+                          setDnForm({ ...dnForm, items: updated });
+                        }}
+                        className="text-xs"
+                      />
+                    </div>
+
+                    {/* 5. Daily Rate */}
+                    <div className="col-span-9 sm:col-span-3 md:col-span-1">
+                      <Label className="text-[10px] text-slate-500 uppercase font-bold">
+                        Rate (₹)
+                      </Label>
+                      <Input
+                        type="number"
+                        step="any"
+                        min="0"
+                        value={item.dailyRentalRate}
+                        onChange={(e) => {
+                          const updated = [...dnForm.items];
+                          updated[idx].dailyRentalRate = parseFloat(e.target.value) || 0;
+                          setDnForm({ ...dnForm, items: updated });
+                        }}
+                        className="text-xs"
+                      />
+                    </div>
+
+                    {/* 6. Delete Action */}
+                    <div className="col-span-3 sm:col-span-1 md:col-span-1 flex justify-center pb-0.5">
+                      {dnForm.items.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveLine(idx)}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50 h-9 w-9 p-0"
+                          title="Remove item"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       )}
                     </div>
-                  )}
-                </div>
-              ))}
+
+                    {item.materialVariantId && (
+                      <div className="col-span-12 flex items-center justify-between text-[11px] pt-1.5 px-2 bg-slate-50 rounded border border-slate-100 mt-1">
+                        <span className="text-slate-500">
+                          Available in selected yard:{" "}
+                          <strong className={(yardStocks[item.materialVariantId] ?? 0) >= item.dispatchedQty ? "text-emerald-700 font-mono" : "text-red-600 font-mono"}>
+                            {yardStocks[item.materialVariantId] ?? 0} {variants.find((v) => v.id === item.materialVariantId)?.uom || "Nos."}
+                          </strong>
+                        </span>
+                        {(yardStocks[item.materialVariantId] ?? 0) < item.dispatchedQty && (
+                          <span className="text-amber-700 font-medium">
+                            ⚠️ Insufficient stock in this yard for requested quantity ({item.dispatchedQty})
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             <DialogFooter>
