@@ -43,13 +43,16 @@ export default function DeliveryPortalPage() {
   const [selectedDN, setSelectedDN] = React.useState<any>(null);
   const [isDeliverModalOpen, setIsDeliverModalOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = React.useState(false);
+  const [photoPreview, setPhotoPreview] = React.useState<string | null>(null);
+  const cameraInputRef = React.useRef<HTMLInputElement>(null);
 
   // Delivery Proof Form
   const [proofForm, setProofForm] = React.useState({
     receiverName: "",
     receiverPhone: "",
     receiverDesignation: "Site Engineer",
-    photoUrl: "https://storage.inventra.app/proofs/delivery-default.jpg",
+    photoUrl: "",
     gpsLatitude: 12.9716,
     gpsLongitude: 77.5946,
     gpsAccuracy: 5.0,
@@ -117,13 +120,49 @@ export default function DeliveryPortalPage() {
     );
   };
 
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Local instant preview
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setPhotoPreview(ev.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    try {
+      setUploadingPhoto(true);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", "delivery-proofs");
+
+      const res = await fetch("/api/v1/storage/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error?.message || "Photo upload failed");
+
+      const uploadedPath = json.data?.url || (json.data?.storagePath ? `/api/v1/storage/download?path=${encodeURIComponent(json.data.storagePath)}` : "");
+      setProofForm((prev) => ({ ...prev, photoUrl: uploadedPath }));
+      toast.success("Site proof photo captured & uploaded!");
+    } catch (err: any) {
+      toast.error(`Photo upload error: ${err.message}`);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const openProofModal = (dn: any) => {
     setSelectedDN(dn);
+    setPhotoPreview(null);
     setProofForm({
       receiverName: dn.customerSite?.siteInCharge || "",
       receiverPhone: dn.customerSite?.siteContactDetails || "",
       receiverDesignation: "Site Supervisor",
-      photoUrl: "https://storage.inventra.app/proofs/delivery-default.jpg",
+      photoUrl: "",
       gpsLatitude: 12.9716,
       gpsLongitude: 77.5946,
       gpsAccuracy: 4.5,
@@ -408,13 +447,57 @@ export default function DeliveryPortalPage() {
             </div>
 
             <div>
-              <Label className="text-xs font-semibold">Delivery Proof Photo</Label>
-              <Input
-                value={proofForm.photoUrl}
-                onChange={(e) => setProofForm({ ...proofForm, photoUrl: e.target.value })}
-                placeholder="https://..."
-                required
+              <Label className="text-xs font-semibold block mb-1">Site Delivery Proof Photo *</Label>
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handlePhotoCapture}
+                className="hidden"
               />
+
+              {photoPreview ? (
+                <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-50 mb-1">
+                  <img
+                    src={photoPreview}
+                    alt="Delivery proof preview"
+                    className="w-full h-36 object-cover"
+                  />
+                  <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between bg-black/60 backdrop-blur-xs text-white text-[11px] px-2.5 py-1.5 rounded">
+                    <span className="flex items-center gap-1 font-medium">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                      {uploadingPhoto ? "Uploading Photo..." : "Photo Verified"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="text-[#F26522] font-semibold hover:underline cursor-pointer"
+                    >
+                      Retake Photo
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  disabled={uploadingPhoto}
+                  className="w-full border-2 border-dashed border-[#F26522]/40 hover:border-[#F26522] bg-orange-50/50 hover:bg-orange-50/80 rounded-xl p-3.5 text-center cursor-pointer transition-colors flex flex-col items-center justify-center gap-1.5"
+                >
+                  <div className="w-9 h-9 rounded-full bg-[#F26522]/10 flex items-center justify-center text-[#F26522]">
+                    <Camera className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 block">
+                      {uploadingPhoto ? "Uploading Photo..." : "Tap to Open Camera & Take Site Photo"}
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      Snap photo of unloaded centering materials at site
+                    </span>
+                  </div>
+                </button>
+              )}
             </div>
 
             <div>

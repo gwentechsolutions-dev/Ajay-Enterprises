@@ -22,6 +22,7 @@ import {
   Pencil,
   RefreshCw,
   Ban,
+  Camera,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,6 +70,9 @@ export default function DeliveryNotesPage() {
   const driverSuggestionsRef = React.useRef<HTMLDivElement>(null);
   const [isCustomEwbVehicle, setIsCustomEwbVehicle] = React.useState(false);
   const [isCustomUpdateVehicle, setIsCustomUpdateVehicle] = React.useState(false);
+  const [uploadingDeliveryPhoto, setUploadingDeliveryPhoto] = React.useState(false);
+  const [deliverPhotoPreview, setDeliverPhotoPreview] = React.useState<string | null>(null);
+  const deliverCameraInputRef = React.useRef<HTMLInputElement>(null);
 
   // Dispatch stock check state
   const [dispatchYardId, setDispatchYardId] = React.useState("");
@@ -451,13 +455,48 @@ export default function DeliveryNotesPage() {
     }
   };
 
+  const handleDeliverPhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setDeliverPhotoPreview(ev.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    try {
+      setUploadingDeliveryPhoto(true);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", "delivery-proofs");
+
+      const res = await fetch("/api/v1/storage/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error?.message || "Photo upload failed");
+
+      const uploadedPath = json.data?.url || (json.data?.storagePath ? `/api/v1/storage/download?path=${encodeURIComponent(json.data.storagePath)}` : "");
+      setDeliverForm((prev) => ({ ...prev, photoUrl: uploadedPath }));
+      toast.success("Delivery photo uploaded successfully!");
+    } catch (err: any) {
+      toast.error(`Photo upload error: ${err.message}`);
+    } finally {
+      setUploadingDeliveryPhoto(false);
+    }
+  };
+
   const openDeliverModal = (dn: any) => {
     setSelectedDN(dn);
+    setDeliverPhotoPreview(null);
     setDeliverForm({
       receiverName: dn.customerSite?.siteInCharge || "",
       receiverPhone: dn.customerSite?.siteContactDetails || "",
       receiverDesignation: "Site In-Charge",
-      photoUrl: "https://storage.inventra.app/proofs/delivery-proof.jpg",
+      photoUrl: "",
       gpsLatitude: 12.9716,
       gpsLongitude: 77.5946,
       gpsAccuracy: 5.0,
@@ -1438,16 +1477,57 @@ export default function DeliveryNotesPage() {
             </div>
 
             <div>
-              <Label className="text-xs font-semibold">Delivery Proof Photo URL</Label>
-              <Input
-                value={deliverForm.photoUrl}
-                onChange={(e) => setDeliverForm({ ...deliverForm, photoUrl: e.target.value })}
-                placeholder="https://..."
-                required
+              <Label className="text-xs font-semibold block mb-1">Delivery Proof Photo *</Label>
+              <input
+                ref={deliverCameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleDeliverPhotoCapture}
+                className="hidden"
               />
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Timestamped site photograph with GPS watermark stored in Supabase private storage.
-              </p>
+
+              {deliverPhotoPreview ? (
+                <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-50 mb-1">
+                  <img
+                    src={deliverPhotoPreview}
+                    alt="Delivery proof preview"
+                    className="w-full h-36 object-cover"
+                  />
+                  <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between bg-black/60 backdrop-blur-xs text-white text-[11px] px-2.5 py-1.5 rounded">
+                    <span className="flex items-center gap-1 font-medium">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                      {uploadingDeliveryPhoto ? "Uploading Photo..." : "Photo Ready"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => deliverCameraInputRef.current?.click()}
+                      className="text-[#F26522] font-semibold hover:underline cursor-pointer"
+                    >
+                      Change Photo
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => deliverCameraInputRef.current?.click()}
+                  disabled={uploadingDeliveryPhoto}
+                  className="w-full border-2 border-dashed border-[#F26522]/40 hover:border-[#F26522] bg-orange-50/50 hover:bg-orange-50/80 rounded-xl p-3.5 text-center cursor-pointer transition-colors flex flex-col items-center justify-center gap-1.5"
+                >
+                  <div className="w-9 h-9 rounded-full bg-[#F26522]/10 flex items-center justify-center text-[#F26522]">
+                    <Camera className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 block">
+                      {uploadingDeliveryPhoto ? "Uploading Photo..." : "Tap to Open Camera & Upload Site Photo"}
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      Site photograph with GPS watermark stored in Supabase private storage
+                    </span>
+                  </div>
+                </button>
+              )}
             </div>
 
             <div>
