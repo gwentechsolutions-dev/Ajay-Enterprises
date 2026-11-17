@@ -106,16 +106,18 @@ export function SearchableCombobox({
           triggerClassName
         )}
       >
-        <div className="flex items-center gap-2 truncate min-w-0 flex-1">
+        <div className="flex items-center gap-2 truncate min-w-0 flex-1 text-left">
           {selectedOption ? (
-            <span className="font-medium text-slate-900 truncate block">
-              {selectedOption.label}
-              {selectedOption.sublabel && (
-                <span className="ml-2 text-xs text-slate-500 font-normal">
-                  ({selectedOption.sublabel})
+            <div className="flex items-center gap-2 truncate min-w-0 flex-1">
+              <span className="font-medium text-slate-900 truncate">
+                {selectedOption.label}
+              </span>
+              {selectedOption.badge && (
+                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 shrink-0">
+                  {selectedOption.badge}
                 </span>
               )}
-            </span>
+            </div>
           ) : (
             <span className="text-slate-400 truncate">{placeholder}</span>
           )}

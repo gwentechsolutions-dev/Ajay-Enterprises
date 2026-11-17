@@ -29,6 +29,7 @@ import {
 import { TableSkeleton } from "@/components/ui/loading-states";
 import { WhatsAppShareButton } from "@/components/ui/whatsapp-share-button";
 import { SearchableCombobox, ComboboxOption } from "@/components/ui/searchable-combobox";
+import { fetchWithClientCache, invalidateClientCache } from "@/lib/client-cache";
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = React.useState<any[]>([]);
@@ -54,22 +55,26 @@ export default function InvoicesPage() {
   // View Invoice Detail Modal
   const [activeInvoice, setActiveInvoice] = React.useState<any | null>(null);
 
-  const loadData = async () => {
+  const loadData = async (forceRefresh = false) => {
     setIsLoading(true);
     try {
-      const [invRes, stmtRes] = await Promise.all([
-        fetch("/api/v1/invoices"),
-        fetch("/api/v1/rentals/statements?status=APPROVED,FINALIZED"),
+      const [invData, stmtData] = await Promise.all([
+        fetchWithClientCache("/api/v1/invoices", {
+          forceRefresh,
+          onBackgroundUpdate: (fresh) => {
+            if (fresh) setInvoices(fresh);
+          },
+        }),
+        fetchWithClientCache("/api/v1/rentals/statements?status=APPROVED,FINALIZED", {
+          forceRefresh,
+          onBackgroundUpdate: (fresh) => {
+            if (fresh) setStatements(fresh);
+          },
+        }),
       ]);
-      const invData = await invRes.json();
-      const stmtData = await stmtRes.json();
 
-      if (invData.success) {
-        setInvoices(invData.data || []);
-      }
-      if (stmtData.success) {
-        setStatements(stmtData.data || []);
-      }
+      if (invData) setInvoices(invData);
+      if (stmtData) setStatements(stmtData);
     } catch (err) {
       console.error("Failed to load invoices", err);
     } finally {
@@ -89,15 +94,23 @@ export default function InvoicesPage() {
     }
   }, []);
 
+  const selectedStatement = React.useMemo(() => {
+    return statements.find((st) => st.id === selectedStatementId) || null;
+  }, [statements, selectedStatementId]);
+
   const statementOptions = React.useMemo<ComboboxOption[]>(() => {
     return statements.map((st) => {
       const isAlreadyInvoiced = st.invoices?.some((inv: any) => inv.status !== "CANCELLED");
       const invoiceNo = isAlreadyInvoiced
         ? st.invoices?.find((inv: any) => inv.status !== "CANCELLED")?.invoiceNumber
         : null;
+      const amountStr = Number(st.netPayableAmount || 0).toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
       return {
         value: st.id,
-        label: `${st.statementNumber} — ${st.customer?.name || "Customer"} (₹${Number(st.netPayableAmount).toFixed(2)})`,
+        label: `${st.statementNumber} — ${st.customer?.name || "Customer"} (₹${amountStr})`,
         sublabel: isAlreadyInvoiced
           ? `Already Invoiced (${invoiceNo})`
           : `${st.billingMode === "SITE_WISE" ? st.customerSite?.siteName || "Site" : "Consolidated"} • ${st.status}`,
@@ -132,7 +145,9 @@ export default function InvoicesPage() {
       }
       setIsStatementModalOpen(false);
       setSelectedStatementId("");
-      await loadData();
+      invalidateClientCache("/api/v1/invoices");
+      invalidateClientCache("/api/v1/rentals/statements");
+      await loadData(true);
     } catch (err: any) {
       setErrorMsg(err.message);
     } finally {
@@ -171,7 +186,7 @@ export default function InvoicesPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={loadData}
+            onClick={() => loadData(true)}
             disabled={isLoading}
             className="border-slate-300 hover:bg-slate-50"
           >
@@ -181,7 +196,6 @@ export default function InvoicesPage() {
           <Button
             size="sm"
             onClick={() => {
-              loadData();
               setErrorMsg(null);
               setIsStatementModalOpen(true);
             }}
@@ -417,6 +431,34 @@ export default function InvoicesPage() {
               <p className="text-[11px] text-slate-500 mt-1">
                 Only statements in APPROVED or FINALIZED status can be invoiced.
               </p>
+
+              {selectedStatement && (
+                <div className="mt-2.5 p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-1.5 animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 font-medium">Customer:</span>
+                    <span className="font-semibold text-slate-800">{selectedStatement.customer?.name}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 font-medium">Construction Site:</span>
+                    <span className="font-semibold text-slate-800">
+                      {selectedStatement.customerSite?.siteName || "Consolidated (All Sites)"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 font-medium">Billing Period:</span>
+                    <span className="text-slate-700 font-mono">
+                      {new Date(selectedStatement.periodStartDate).toLocaleDateString("en-IN")} to{" "}
+                      {new Date(selectedStatement.periodEndDate).toLocaleDateString("en-IN")}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-slate-200 pt-1.5">
+                    <span className="text-slate-700 font-bold">Net Rental Payable:</span>
+                    <span className="font-bold font-mono text-emerald-600 text-sm">
+                      ₹{Number(selectedStatement.netPayableAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
