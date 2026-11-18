@@ -3,13 +3,11 @@
 import * as React from "react";
 import Link from "next/link";
 import {
-  BookOpen,
   IndianRupee,
   TrendingUp,
   TrendingDown,
   Scale,
   ReceiptIndianRupee,
-  Landmark,
   FileSpreadsheet,
   Calendar,
   ArrowRight,
@@ -211,23 +209,6 @@ export default function AccountingDashboardPage() {
 
       {/* Accounting Hub Modules Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* Chart of Accounts */}
-        <Link
-          href="/accounting/accounts"
-          className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-[#0B1E36] hover:shadow-md transition-all group"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2.5 rounded-lg bg-sky-50 text-sky-700 group-hover:bg-[#0B1E36] group-hover:text-white transition-colors">
-              <BookOpen className="w-5 h-5" />
-            </div>
-            <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-[#0B1E36] transition-transform group-hover:translate-x-1" />
-          </div>
-          <h3 className="font-bold text-slate-800 group-hover:text-[#0B1E36]">Chart of Accounts</h3>
-          <p className="text-xs text-slate-500 mt-1">
-            Assets (1000s), Liabilities (2000s), Equity (3000s), Income (4000s), and Expenses (5000s).
-          </p>
-        </Link>
-
         {/* General Ledger Journals */}
         <Link
           href="/accounting/journals"
@@ -259,23 +240,6 @@ export default function AccountingDashboardPage() {
           <h3 className="font-bold text-slate-800 group-hover:text-[#0B1E36]">Receipts & Payments</h3>
           <p className="text-xs text-slate-500 mt-1">
             Customer payment receipts, supplier disbursements, multi-invoice allocations, and advances.
-          </p>
-        </Link>
-
-        {/* Banking & Contra */}
-        <Link
-          href="/accounting/banking"
-          className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-[#0B1E36] hover:shadow-md transition-all group"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2.5 rounded-lg bg-amber-50 text-amber-700 group-hover:bg-[#0B1E36] group-hover:text-white transition-colors">
-              <Landmark className="w-5 h-5" />
-            </div>
-            <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-[#0B1E36] transition-transform group-hover:translate-x-1" />
-          </div>
-          <h3 className="font-bold text-slate-800 group-hover:text-[#0B1E36]">Banking & Cash Register</h3>
-          <p className="text-xs text-slate-500 mt-1">
-            Bank accounts register, petty cash ledgers, and contra transfers (cash deposit / withdrawal).
           </p>
         </Link>
 

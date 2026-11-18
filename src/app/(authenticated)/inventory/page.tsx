@@ -117,14 +117,6 @@ export default function InventoryDashboardPage() {
               <Truck className="h-3.5 w-3.5 mr-1" /> Movements Ledger
             </Button>
           </Link>
-          <Link href="/inventory/audits">
-            <Button
-              size="sm"
-              className="bg-[#0B1E36] hover:bg-[#071424] text-white text-xs font-semibold"
-            >
-              <ClipboardCheck className="h-3.5 w-3.5 mr-1" /> Stock Verification
-            </Button>
-          </Link>
         </div>
       </div>
 

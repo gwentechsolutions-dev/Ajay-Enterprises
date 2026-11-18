@@ -35,7 +35,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   IndianRupee,
-  Landmark,
   Scale,
   FileSpreadsheet,
   Calendar,
@@ -76,7 +75,6 @@ const NAVIGATION: NavGroup[] = [
       { title: "Purchases & GRN", href: "/purchases", icon: ShoppingBag },
       { title: "Hiring Notes (HDN/HRN)", href: "/hiring-notes", icon: Repeat },
       { title: "Movement Ledger", href: "/movements", icon: History },
-      { title: "Stock Verification", href: "/inventory/audits", icon: ClipboardCheck },
     ],
   },
   {
@@ -96,10 +94,8 @@ const NAVIGATION: NavGroup[] = [
       { title: "Tax Invoices", href: "/invoices", icon: FileText },
       { title: "Purchase Bills", href: "/purchases/bills", icon: ShoppingBag },
       { title: "Accounting Hub", href: "/accounting", icon: BookOpen },
-      { title: "Chart of Accounts", href: "/accounting/accounts", icon: Layers },
       { title: "General Ledger", href: "/accounting/journals", icon: FileSpreadsheet },
       { title: "Receipts & Payments", href: "/accounting/payments", icon: IndianRupee },
-      { title: "Banking & Contra", href: "/accounting/banking", icon: Landmark },
       { title: "GST & Statutory Tax", href: "/accounting/gst", icon: ReceiptIndianRupee },
       { title: "Financial Reports", href: "/accounting/reports", icon: Scale },
       { title: "Fiscal Years & Locks", href: "/accounting/periods", icon: Calendar },
@@ -160,9 +156,7 @@ const NAVIGATION: NavGroup[] = [
   {
     group: "Production Cutover & Launch",
     items: [
-      { title: "Cutover & Go-Live Hub", href: "/cutover", icon: ShieldCheck, badge: "Owner" },
       { title: "Demo Data Manager", href: "/demo-data", icon: Database, badge: "Demo" },
-      { title: "Pilot Operations", href: "/pilot", icon: Compass },
     ],
   },
   {
