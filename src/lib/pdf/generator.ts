@@ -213,6 +213,13 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
     .item-table tr:nth-child(even) { background-color: #f8fafc; }
     .text-right { text-align: right; }
     .text-center { text-align: center; }
+    .text-nowrap { white-space: nowrap; }
+
+    /* MRN Inspection Table Specific Styles */
+    .mrn-table { width: 100%; border-collapse: collapse; margin-top: 8px; margin-bottom: 14px; font-size: 8pt; }
+    .mrn-table th { background-color: #0B1E36; color: #ffffff; padding: 6px 4px; font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
+    .mrn-table td { padding: 5px 4px; border-bottom: 1px solid #e2e8f0; font-size: 8pt; vertical-align: middle; }
+    .mrn-table tr:nth-child(even) { background-color: #f8fafc; }
     .totals-table { width: 40%; margin-left: auto; border-collapse: collapse; font-size: 10pt; margin-bottom: 16px; }
     .totals-table td { padding: 4px 8px; }
     .grand-total { font-size: 12pt; font-weight: 800; color: #0B1E36; border-top: 2px solid #0B1E36; }
@@ -331,20 +338,20 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
     </div>
 
     <!-- MRN Inspection & Discrepancy Table -->
-    <table class="item-table" style="font-size: 8.5pt;">
+    <table class="item-table mrn-table">
       <thead>
         <tr>
-          <th class="text-center" style="width: 4%;">#</th>
-          <th style="width: 12%;">Code</th>
-          <th>Material Description</th>
-          <th style="width: 9%;">Size</th>
-          <th class="text-right" style="width: 9%;" title="Declared for return by customer site">Declared</th>
-          <th class="text-right" style="width: 9%;" title="Physically received at yard">Received</th>
-          <th class="text-right" style="width: 9%;" title="Accepted in good condition">Accepted</th>
-          <th class="text-right" style="width: 8%;" title="Received damaged">Damaged</th>
-          <th class="text-right" style="width: 8%;" title="Shortage / Missing">Missing</th>
-          <th class="text-center" style="width: 6%;">UOM</th>
-          <th style="width: 14%;">Inspection Remarks</th>
+          <th class="text-center text-nowrap" style="width: 3.5%;">#</th>
+          <th class="text-nowrap" style="width: 16%;">Code</th>
+          <th style="width: 22%;">Material Description</th>
+          <th class="text-nowrap" style="width: 11%;">Size</th>
+          <th class="text-right text-nowrap" style="width: 6.5%;" title="Declared for return by customer site">Declared</th>
+          <th class="text-right text-nowrap" style="width: 6.5%;" title="Physically received at yard">Received</th>
+          <th class="text-right text-nowrap" style="width: 6.5%;" title="Accepted in good condition">Accepted</th>
+          <th class="text-right text-nowrap" style="width: 6.5%;" title="Received damaged">Damaged</th>
+          <th class="text-right text-nowrap" style="width: 6.5%;" title="Shortage / Missing">Missing</th>
+          <th class="text-center text-nowrap" style="width: 5.5%;">UOM</th>
+          <th class="text-nowrap" style="width: 9%;" title="Physical Inspection Remarks & Condition">Remarks</th>
         </tr>
       </thead>
       <tbody>
@@ -364,19 +371,25 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
 
             return `
           <tr>
-            <td class="text-center">${it.sn}</td>
-            <td style="font-family: monospace; font-weight: 600;">${it.code}</td>
-            <td><strong>${it.name}</strong></td>
-            <td>${it.size || "-"}</td>
-            <td class="text-right" style="font-weight: 600;">${declared.toFixed(isQtyFormatted)}</td>
-            <td class="text-right" style="font-weight: 600; color: #0f172a;">${received.toFixed(isQtyFormatted)}</td>
-            <td class="text-right" style="font-weight: 700; color: #166534;">${accepted.toFixed(isQtyFormatted)}</td>
-            <td class="text-right" style="font-weight: 700; color: ${damaged > 0 ? "#b45309" : "#64748b"};">${damaged > 0 ? damaged.toFixed(isQtyFormatted) : "-"}</td>
-            <td class="text-right" style="font-weight: 700; color: ${missing > 0 ? "#b91c1c" : "#64748b"};">${missing > 0 ? missing.toFixed(isQtyFormatted) : "-"}</td>
-            <td class="text-center">${it.uom}</td>
-            <td style="font-size: 8pt; color: #475569;">
-              ${it.inspectionRemarks || it.remarks || (it.condition ? `Condition: ${it.condition}` : "-")}
-              ${rejected > 0 ? `<br><span style="color: #b91c1c;">Rejected: ${rejected.toFixed(isQtyFormatted)}</span>` : ""}
+            <td class="text-center text-nowrap" style="color: #64748b; font-size: 7.5pt;">${it.sn}</td>
+            <td class="text-nowrap" style="font-family: monospace; font-weight: 600; font-size: 8pt; letter-spacing: -0.2px;">${it.code}</td>
+            <td style="font-size: 8pt; line-height: 1.25;"><strong>${it.name}</strong></td>
+            <td class="text-nowrap" style="font-size: 8pt; color: #334155;">${it.size || "-"}</td>
+            <td class="text-right text-nowrap" style="font-weight: 600;">${declared.toFixed(isQtyFormatted)}</td>
+            <td class="text-right text-nowrap" style="font-weight: 600; color: #0f172a;">${received.toFixed(isQtyFormatted)}</td>
+            <td class="text-right text-nowrap" style="font-weight: 700; color: #166534;">${accepted.toFixed(isQtyFormatted)}</td>
+            <td class="text-right text-nowrap" style="font-weight: 700; color: ${damaged > 0 ? "#b45309" : "#94a3b8"};">${damaged > 0 ? damaged.toFixed(isQtyFormatted) : "-"}</td>
+            <td class="text-right text-nowrap" style="font-weight: 700; color: ${missing > 0 ? "#b91c1c" : "#94a3b8"};">${missing > 0 ? missing.toFixed(isQtyFormatted) : "-"}</td>
+            <td class="text-center text-nowrap" style="font-size: 8pt; color: #475569;">${it.uom}</td>
+            <td class="text-nowrap" style="font-size: 7.5pt; color: #475569;">
+              ${
+                it.inspectionRemarks || it.remarks
+                  ? `<span style="color: #1e293b; font-weight: 500;">${it.inspectionRemarks || it.remarks}</span>`
+                  : it.condition
+                  ? `<span style="font-weight: 600; color: ${it.condition.toUpperCase() === "GOOD" ? "#166534" : "#b45309"}; text-transform: capitalize;">${it.condition.toLowerCase()}</span>`
+                  : "-"
+              }
+              ${rejected > 0 ? `<br><span style="color: #b91c1c; font-weight: 600;">Rej: ${rejected.toFixed(isQtyFormatted)}</span>` : ""}
             </td>
           </tr>
         `;
@@ -384,22 +397,22 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
           .join("")}
         <!-- Totals Row -->
         <tr style="background-color: #f1f5f9; font-weight: 800; border-top: 2px solid #0B1E36;">
-          <td colspan="4" class="text-right" style="text-transform: uppercase; font-size: 8pt; padding-right: 8px;">
+          <td colspan="4" class="text-right text-nowrap" style="text-transform: uppercase; font-size: 7.5pt; padding-right: 8px; letter-spacing: 0.3px;">
             Total Quantities:
           </td>
-          <td class="text-right">
+          <td class="text-right text-nowrap" style="font-size: 8pt;">
             ${data.items.reduce((sum, it) => sum + (it.declaredQty !== undefined ? it.declaredQty : it.quantity), 0).toFixed(0)}
           </td>
-          <td class="text-right">
+          <td class="text-right text-nowrap" style="font-size: 8pt;">
             ${data.items.reduce((sum, it) => sum + (it.receivedQty !== undefined ? it.receivedQty : (it.acceptedQty !== undefined ? it.acceptedQty : it.quantity) + (it.damagedQty || 0)), 0).toFixed(0)}
           </td>
-          <td class="text-right" style="color: #166534;">
+          <td class="text-right text-nowrap" style="color: #166534; font-size: 8pt;">
             ${data.items.reduce((sum, it) => sum + (it.acceptedQty !== undefined ? it.acceptedQty : it.quantity), 0).toFixed(0)}
           </td>
-          <td class="text-right" style="color: #b45309;">
+          <td class="text-right text-nowrap" style="color: #b45309; font-size: 8pt;">
             ${data.items.reduce((sum, it) => sum + (it.damagedQty || 0), 0).toFixed(0)}
           </td>
-          <td class="text-right" style="color: #b91c1c;">
+          <td class="text-right text-nowrap" style="color: #b91c1c; font-size: 8pt;">
             ${data.items.reduce((sum, it) => sum + (it.missingQty || 0), 0).toFixed(0)}
           </td>
           <td colspan="2"></td>
@@ -449,14 +462,14 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
     <table class="item-table">
       <thead>
         <tr>
-          <th class="text-center" style="width: 5%;">#</th>
-          <th style="width: 15%;">Code</th>
+          <th class="text-center text-nowrap" style="width: 5%;">#</th>
+          <th class="text-nowrap" style="width: 16%;">Code</th>
           <th>Material Description</th>
-          <th style="width: 12%;">Size</th>
-          <th class="text-right" style="width: 12%;">Qty</th>
-          <th class="text-center" style="width: 8%;">UOM</th>
-          ${data.items.some((i) => i.rate !== undefined) ? '<th class="text-right" style="width: 12%;">Rate (₹)</th>' : ""}
-          ${data.items.some((i) => i.total !== undefined) ? '<th class="text-right" style="width: 14%;">Amount (₹)</th>' : ""}
+          <th class="text-nowrap" style="width: 14%;">Size</th>
+          <th class="text-right text-nowrap" style="width: 11%;">Qty</th>
+          <th class="text-center text-nowrap" style="width: 8%;">UOM</th>
+          ${data.items.some((i) => i.rate !== undefined) ? '<th class="text-right text-nowrap" style="width: 11%;">Rate (₹)</th>' : ""}
+          ${data.items.some((i) => i.total !== undefined) ? '<th class="text-right text-nowrap" style="width: 13%;">Amount (₹)</th>' : ""}
         </tr>
       </thead>
       <tbody>
@@ -464,14 +477,14 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
           .map(
             (it) => `
           <tr>
-            <td class="text-center">${it.sn}</td>
-            <td style="font-family: monospace; font-weight: 600;">${it.code}</td>
+            <td class="text-center text-nowrap">${it.sn}</td>
+            <td class="text-nowrap" style="font-family: monospace; font-weight: 600;">${it.code}</td>
             <td><strong>${it.name}</strong> ${it.remarks ? `<br><small style="color: #64748b;">${it.remarks}</small>` : ""}</td>
-            <td>${it.size || "-"}</td>
-            <td class="text-right" style="font-weight: 700;">${it.quantity.toFixed(it.uom === "Nos." ? 0 : 2)}</td>
-            <td class="text-center">${it.uom}</td>
-            ${it.rate !== undefined ? `<td class="text-right">₹${it.rate.toFixed(2)}</td>` : ""}
-            ${it.total !== undefined ? `<td class="text-right" style="font-weight: 600;">₹${it.total.toFixed(2)}</td>` : ""}
+            <td class="text-nowrap">${it.size || "-"}</td>
+            <td class="text-right text-nowrap" style="font-weight: 700;">${it.quantity.toFixed(it.uom === "Nos." ? 0 : 2)}</td>
+            <td class="text-center text-nowrap">${it.uom}</td>
+            ${it.rate !== undefined ? `<td class="text-right text-nowrap">₹${it.rate.toFixed(2)}</td>` : ""}
+            ${it.total !== undefined ? `<td class="text-right text-nowrap" style="font-weight: 600;">₹${it.total.toFixed(2)}</td>` : ""}
           </tr>
         `
           )
@@ -578,10 +591,6 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
     </table>
   `
   }
-        <div style="font-size: 8pt; color: #64748b;">${signatoryDesignation}</div>
-      </td>
-    </tr>
-  </table>
 
   <div class="footer-note">
     Generated by INVENTRA Enterprise ERP for AJAY ENTERPRISES. This document constitutes formal custody transfer of centering materials.
