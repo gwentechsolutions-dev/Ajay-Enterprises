@@ -10,16 +10,56 @@ export async function GET(req: NextRequest) {
 
     // Filter by assigned driver phone or name if user is DELIVERY_PERSONNEL
     const isDriverOnly = session?.role === "DELIVERY_PERSONNEL";
-    const driverFilter = isDriverOnly
-      ? {
-          OR: [
-            { driverName: { contains: session?.name || "", mode: "insensitive" as any } },
-            { driverPhone: session?.mobile || undefined },
-            { vehicleTrip: { driver: { name: { contains: session?.name || "", mode: "insensitive" as any } } } },
-            { vehicleTrip: { driver: { mobileNumber: session?.mobile || undefined } } },
-          ],
-        }
-      : {};
+    const sessionName = session?.name || "";
+    const sessionMobile = session?.mobile || undefined;
+
+    // DeliveryNote uses tripDeliveryNotes -> trip -> driver, plus driverName and driverPhone
+    const dnConditions: any[] = [];
+    if (sessionName) {
+      dnConditions.push({ driverName: { contains: sessionName, mode: "insensitive" } });
+      dnConditions.push({
+        tripDeliveryNotes: {
+          some: {
+            trip: {
+              driver: { name: { contains: sessionName, mode: "insensitive" } },
+            },
+          },
+        },
+      });
+    }
+    if (sessionMobile) {
+      dnConditions.push({ driverPhone: sessionMobile });
+      dnConditions.push({
+        tripDeliveryNotes: {
+          some: {
+            trip: {
+              driver: { mobileNumber: sessionMobile },
+            },
+          },
+        },
+      });
+    }
+    const dnDriverFilter = isDriverOnly && dnConditions.length > 0 ? { OR: dnConditions } : {};
+
+    // MaterialReturnNote uses vehicleTrip -> driver, plus driverName and driverPhone
+    const mrnConditions: any[] = [];
+    if (sessionName) {
+      mrnConditions.push({ driverName: { contains: sessionName, mode: "insensitive" } });
+      mrnConditions.push({
+        vehicleTrip: {
+          driver: { name: { contains: sessionName, mode: "insensitive" } },
+        },
+      });
+    }
+    if (sessionMobile) {
+      mrnConditions.push({ driverPhone: sessionMobile });
+      mrnConditions.push({
+        vehicleTrip: {
+          driver: { mobileNumber: sessionMobile },
+        },
+      });
+    }
+    const mrnDriverFilter = isDriverOnly && mrnConditions.length > 0 ? { OR: mrnConditions } : {};
 
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
@@ -28,7 +68,7 @@ export async function GET(req: NextRequest) {
     const activeDeliveries = await db.deliveryNote.findMany({
       where: {
         status: "DISPATCHED",
-        ...driverFilter,
+        ...dnDriverFilter,
       },
       include: {
         customer: { select: { id: true, name: true, primaryMobile: true, whatsappNumber: true } },
@@ -49,7 +89,7 @@ export async function GET(req: NextRequest) {
       where: {
         status: "DELIVERED",
         deliveredAt: { gte: startOfToday },
-        ...driverFilter,
+        ...dnDriverFilter,
       },
       include: {
         customer: { select: { id: true, name: true } },
@@ -77,7 +117,7 @@ export async function GET(req: NextRequest) {
             "ARRIVED_AT_YARD",
           ],
         },
-        ...driverFilter,
+        ...mrnDriverFilter,
       },
       include: {
         customer: { select: { id: true, name: true, primaryMobile: true, whatsappNumber: true } },
@@ -119,7 +159,7 @@ export async function GET(req: NextRequest) {
           ],
         },
         updatedAt: { gte: startOfToday },
-        ...driverFilter,
+        ...mrnDriverFilter,
       },
       include: {
         customer: { select: { id: true, name: true } },

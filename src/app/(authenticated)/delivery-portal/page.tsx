@@ -226,6 +226,8 @@ export default function DeliveryPortalPage() {
       const json = await res.json();
       if (json.success) {
         setData(json.data);
+      } else {
+        toast.error(json.error?.message || "Failed to load portal feed");
       }
     } catch {
       toast.error("Operating in offline or low-connectivity mode.");
