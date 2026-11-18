@@ -28,6 +28,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -728,6 +729,10 @@ export default function RentalAgreementsPage() {
           </DialogHeader>
 
           <form onSubmit={handleCreateAgreement} className="space-y-4 pt-2">
+            <fieldset
+              disabled={isSubmitting}
+              className={cn("space-y-4 border-0 p-0 m-0 min-w-0 transition-opacity", isSubmitting && "pointer-events-none opacity-60")}
+            >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label required>Customer</Label>
@@ -933,12 +938,14 @@ export default function RentalAgreementsPage() {
                 Automatically generate PDF & transmit agreement notification to customer registered WhatsApp number upon creation.
               </label>
             </div>
+            </fieldset>
 
             <DialogFooter className="pt-3 border-t border-slate-200">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setIsModalOpen(false)}
+                disabled={isSubmitting}
                 className="text-xs"
               >
                 Cancel

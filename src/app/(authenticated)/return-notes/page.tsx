@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import {
   Dialog,
@@ -841,6 +842,10 @@ export default function MaterialReturnsPage() {
           </DialogHeader>
 
           <form onSubmit={handleCreateMRN} className="space-y-4 pt-2">
+            <fieldset
+              disabled={submitting}
+              className={cn("space-y-4 border-0 p-0 m-0 min-w-0 transition-opacity", submitting && "pointer-events-none opacity-60")}
+            >
             {/* Primary Selection: Customer & Site */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
@@ -1509,13 +1514,20 @@ export default function MaterialReturnsPage() {
                 onChange={(e) => setMrnForm({ ...mrnForm, remarks: e.target.value })}
               />
             </div>
+            </fieldset>
 
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsCreateModalOpen(false)}
+                disabled={submitting}
+              >
                 Cancel
               </Button>
               <Button
                 type="submit"
+                disabled={submitting}
                 isLoading={submitting}
                 loadingText="Posting Return Note..."
                 className="bg-[#0B1E36] hover:bg-[#0B1E36]/90 text-white"
@@ -1543,6 +1555,10 @@ export default function MaterialReturnsPage() {
 
           {inspectingMRN && (
             <form onSubmit={handleSaveInspection} className="space-y-4 pt-2">
+              <fieldset
+                disabled={submittingInspection}
+                className={cn("space-y-4 border-0 p-0 m-0 min-w-0 transition-opacity", submittingInspection && "pointer-events-none opacity-60")}
+              >
               {/* Preserved Customer Handover Details Card */}
               <div className="p-3.5 bg-amber-50/40 border border-amber-200 rounded-lg text-xs space-y-1.5">
                 <div className="font-bold text-amber-900 flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
@@ -1717,13 +1733,20 @@ export default function MaterialReturnsPage() {
                   onChange={(e) => setInspectionForm({ ...inspectionForm, inspectionRemarks: e.target.value })}
                 />
               </div>
+              </fieldset>
 
               <DialogFooter className="gap-2 sm:gap-0">
-                <Button type="button" variant="outline" onClick={() => setIsInspectionModalOpen(false)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsInspectionModalOpen(false)}
+                  disabled={submittingInspection}
+                >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
+                  disabled={submittingInspection}
                   isLoading={submittingInspection}
                   loadingText="Recording Inspection..."
                   className="bg-[#0B1E36] hover:bg-[#0B1E36]/90 text-white"

@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -491,6 +492,10 @@ export default function InvoicesPage() {
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleConvertStatement} className="space-y-4">
+            <fieldset
+              disabled={isSubmitting}
+              className={cn("space-y-4 border-0 p-0 m-0 min-w-0 transition-opacity", isSubmitting && "pointer-events-none opacity-60")}
+            >
             {errorMsg && (
               <div className="p-3 text-xs bg-red-50 text-red-600 rounded-md border border-red-200">
                 {errorMsg}
@@ -653,6 +658,7 @@ export default function InvoicesPage() {
                 <li>Freezes finalized snapshot payload ensuring immutable financial records.</li>
               </ul>
             </div>
+            </fieldset>
 
             <DialogFooter>
               <Button
@@ -665,6 +671,7 @@ export default function InvoicesPage() {
               </Button>
               <Button
                 type="submit"
+                disabled={isSubmitting}
                 isLoading={isSubmitting}
                 loadingText="Generating Tax Invoice..."
                 className="bg-[#F26522] hover:bg-[#EA580C] text-white"

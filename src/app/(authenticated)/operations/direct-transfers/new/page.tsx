@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function NewDirectTransferPage() {
@@ -257,6 +258,10 @@ export default function NewDirectTransferPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        <fieldset
+          disabled={submitting}
+          className={cn("space-y-6 border-0 p-0 m-0 min-w-0 transition-opacity", submitting && "pointer-events-none opacity-60")}
+        >
         {/* Step 1: Sites Selection */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Source Job Site */}
@@ -537,13 +542,17 @@ export default function NewDirectTransferPage() {
               </div>
             )}
           </CardContent>
+          </Card>
+        </fieldset>
+
+        <Card className="border-slate-200">
           <CardFooter className="py-4 bg-slate-50/50 border-t border-slate-100 flex justify-between items-center">
             <div className="text-xs text-slate-500">
               * Units will transfer directly without godown entry. Physical custody shifts upon destination acceptance.
             </div>
             <div className="flex gap-2">
               <Link href="/operations/direct-transfers">
-                <Button type="button" variant="outline" size="sm">
+                <Button type="button" variant="outline" size="sm" disabled={submitting}>
                   Cancel
                 </Button>
               </Link>

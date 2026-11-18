@@ -21,6 +21,7 @@ import { TableSkeleton } from "@/components/ui/loading-states";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import {
   Dialog,
@@ -566,6 +567,10 @@ export default function PurchasesPage() {
           </DialogHeader>
 
           <form onSubmit={handleCreatePO} className="space-y-4 pt-2">
+            <fieldset
+              disabled={submitting}
+              className={cn("space-y-4 border-0 p-0 m-0 min-w-0 transition-opacity", submitting && "pointer-events-none opacity-60")}
+            >
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <Label className="text-xs font-semibold">Supplier *</Label>
@@ -732,12 +737,24 @@ export default function PurchasesPage() {
                 onChange={(e) => setPoForm({ ...poForm, notes: e.target.value })}
               />
             </div>
+            </fieldset>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsPOModalOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsPOModalOpen(false)}
+                disabled={submitting}
+              >
                 Cancel
               </Button>
-              <Button type="submit" isLoading={submitting} loadingText="Generating PO..." className="bg-[#0B1E36] text-white">
+              <Button
+                type="submit"
+                disabled={submitting}
+                isLoading={submitting}
+                loadingText="Generating PO..."
+                className="bg-[#0B1E36] text-white"
+              >
                 Generate PO
               </Button>
             </DialogFooter>
@@ -759,6 +776,10 @@ export default function PurchasesPage() {
           </DialogHeader>
 
           <form onSubmit={handlePostGRN} className="space-y-4 pt-2">
+            <fieldset
+              disabled={submitting}
+              className={cn("space-y-4 border-0 p-0 m-0 min-w-0 transition-opacity", submitting && "pointer-events-none opacity-60")}
+            >
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
               <div>
                 <Label className="text-xs font-semibold">Receipt Date *</Label>
@@ -881,12 +902,24 @@ export default function PurchasesPage() {
                 onChange={(e) => setGrnForm({ ...grnForm, remarks: e.target.value })}
               />
             </div>
+            </fieldset>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsGRNModalOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsGRNModalOpen(false)}
+                disabled={submitting}
+              >
                 Cancel
               </Button>
-              <Button type="submit" isLoading={submitting} loadingText="Posting GRN..." className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              <Button
+                type="submit"
+                disabled={submitting}
+                isLoading={submitting}
+                loadingText="Posting GRN..."
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
                 Post GRN & Credit Stock
               </Button>
             </DialogFooter>

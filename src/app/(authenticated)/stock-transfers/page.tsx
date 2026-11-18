@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import {
   Dialog,
@@ -411,6 +412,10 @@ export default function StockTransfersPage() {
           </DialogHeader>
 
           <form onSubmit={handleCreateSTN} className="space-y-4 pt-2">
+            <fieldset
+              disabled={submitting}
+              className={cn("space-y-4 border-0 p-0 m-0 min-w-0 transition-opacity", submitting && "pointer-events-none opacity-60")}
+            >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label className="text-xs font-semibold">Source Yard *</Label>
@@ -538,9 +543,15 @@ export default function StockTransfersPage() {
                 </div>
               ))}
             </div>
+            </fieldset>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsCreateModalOpen(false)}
+                disabled={submitting}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={submitting} className="bg-[#0B1E36] text-white">
@@ -566,6 +577,10 @@ export default function StockTransfersPage() {
           </DialogHeader>
 
           <form onSubmit={handleReceiveSTN} className="space-y-4 pt-2">
+            <fieldset
+              disabled={submitting}
+              className={cn("space-y-4 border-0 p-0 m-0 min-w-0 transition-opacity", submitting && "pointer-events-none opacity-60")}
+            >
             <div className="space-y-3">
               {receiveForm.items.map((item, idx) => (
                 <div key={idx} className="bg-white border border-slate-200 p-3 rounded-lg space-y-2">
@@ -618,9 +633,15 @@ export default function StockTransfersPage() {
                 onChange={(e) => setReceiveForm({ ...receiveForm, remarks: e.target.value })}
               />
             </div>
+            </fieldset>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsReceiveModalOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsReceiveModalOpen(false)}
+                disabled={submitting}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={submitting} className="bg-emerald-600 hover:bg-emerald-700 text-white">

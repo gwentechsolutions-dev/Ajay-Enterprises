@@ -62,14 +62,27 @@ export function SearchableCombobox({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Auto-close if disabled or enclosing fieldset is disabled
+  React.useEffect(() => {
+    if (disabled && isOpen) {
+      setIsOpen(false);
+    }
+  }, [disabled, isOpen]);
+
   // Focus search input when dropdown opens
   React.useEffect(() => {
-    if (isOpen && searchInputRef.current) {
-      setTimeout(() => searchInputRef.current?.focus(), 50);
+    if (isOpen) {
+      if (disabled || Boolean(containerRef.current?.closest("fieldset:disabled"))) {
+        setIsOpen(false);
+        return;
+      }
+      if (searchInputRef.current) {
+        setTimeout(() => searchInputRef.current?.focus(), 50);
+      }
     } else {
       setSearchQuery("");
     }
-  }, [isOpen]);
+  }, [isOpen, disabled]);
 
   const selectedOption = options.find((opt) => opt.value === value);
   const isCustomValue = !selectedOption && !!value && allowCustomValue;
@@ -101,7 +114,10 @@ export function SearchableCombobox({
       <button
         type="button"
         disabled={disabled}
-        onClick={() => !disabled && setIsOpen(!isOpen)}
+        onClick={(e) => {
+          if (disabled || (e.currentTarget as HTMLButtonElement).disabled) return;
+          setIsOpen(!isOpen);
+        }}
         className={cn(
           "flex h-10 w-full items-center justify-between rounded-lg border bg-white px-3 py-2 text-sm text-left transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400",
           error

@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import {
   Dialog,
@@ -1221,6 +1222,10 @@ export default function DeliveryNotesPage() {
           </DialogHeader>
 
           <form onSubmit={handleCreateDN} className="space-y-4 pt-2">
+            <fieldset
+              disabled={submitting}
+              className={cn("space-y-4 border-0 p-0 m-0 min-w-0 transition-opacity", submitting && "pointer-events-none opacity-60")}
+            >
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <div className="flex items-center justify-between h-5 mb-1.5">
@@ -1657,13 +1662,20 @@ export default function DeliveryNotesPage() {
                 );
               })}
             </div>
+            </fieldset>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsCreateModalOpen(false)}
+                disabled={submitting}
+              >
                 Cancel
               </Button>
               <Button
                 type="submit"
+                disabled={submitting}
                 isLoading={submitting}
                 loadingText={editingDnId ? "Saving Changes..." : "Saving Delivery Note..."}
                 className="bg-[#0B1E36] text-white"
@@ -1689,6 +1701,10 @@ export default function DeliveryNotesPage() {
           </DialogHeader>
 
           <form onSubmit={handleCompleteDelivery} className="space-y-4 pt-2">
+            <fieldset
+              disabled={submitting}
+              className={cn("space-y-4 border-0 p-0 m-0 min-w-0 transition-opacity", submitting && "pointer-events-none opacity-60")}
+            >
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs font-semibold" required>Receiver Full Name *</Label>
@@ -1832,13 +1848,20 @@ export default function DeliveryNotesPage() {
                 placeholder="Unloading remarks (max 500 characters)"
               />
             </div>
+            </fieldset>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDeliverModalOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsDeliverModalOpen(false)}
+                disabled={submitting}
+              >
                 Cancel
               </Button>
               <Button
                 type="submit"
+                disabled={submitting}
                 isLoading={submitting}
                 loadingText="Confirming Delivery..."
                 className="bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -2038,6 +2061,10 @@ export default function DeliveryNotesPage() {
             </div>
           ) : (
             <form onSubmit={handleGenerateEWB} className="space-y-4 pt-1">
+              <fieldset
+                disabled={submitting}
+                className={cn("space-y-4 border-0 p-0 m-0 min-w-0 transition-opacity", submitting && "pointer-events-none opacity-60")}
+              >
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between h-5 mb-1.5">
                   <Label className="text-xs font-semibold text-slate-700 whitespace-nowrap">Vehicle Registration Number *</Label>
@@ -2128,6 +2155,7 @@ export default function DeliveryNotesPage() {
                   Generates an official Outward Delivery Challan (docType: CHL) under Rule 55 of CGST Rules for centering material rental custody transfer.
                 </p>
               </div>
+              </fieldset>
 
               <DialogFooter className="flex-col sm:flex-row items-center sm:justify-end gap-2 pt-2">
                 {selectedDN?.eWayBillNumber ? (
@@ -2135,6 +2163,7 @@ export default function DeliveryNotesPage() {
                     type="button"
                     variant="ghost"
                     onClick={() => setShowRegenerateForm(false)}
+                    disabled={submitting}
                     className="w-full sm:w-auto sm:mr-auto text-xs text-slate-600"
                   >
                     &larr; Back to Details
@@ -2145,12 +2174,14 @@ export default function DeliveryNotesPage() {
                     type="button"
                     variant="outline"
                     onClick={() => setIsEwbModalOpen(false)}
+                    disabled={submitting}
                     className="w-full sm:w-auto text-xs"
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
+                    disabled={submitting}
                     isLoading={submitting}
                     loadingText="Generating E-Way Bill..."
                     className="w-full sm:w-auto bg-[#0B1E36] hover:bg-[#071424] text-white text-xs font-semibold whitespace-nowrap"
@@ -2180,6 +2211,10 @@ export default function DeliveryNotesPage() {
           </DialogHeader>
 
           <form onSubmit={handleUpdateVehicle} className="space-y-4 pt-2">
+            <fieldset
+              disabled={submitting}
+              className={cn("space-y-4 border-0 p-0 m-0 min-w-0 transition-opacity", submitting && "pointer-events-none opacity-60")}
+            >
             <div className="space-y-1.5">
               <div className="flex items-center justify-between h-5 mb-1.5">
                 <Label className="text-xs font-semibold text-slate-700 whitespace-nowrap">New Vehicle Number *</Label>
@@ -2260,13 +2295,21 @@ export default function DeliveryNotesPage() {
                 required
               />
             </div>
+            </fieldset>
 
             <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setIsUpdateVehicleModalOpen(false)} className="text-xs">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsUpdateVehicleModalOpen(false)}
+                disabled={submitting}
+                className="text-xs"
+              >
                 Cancel
               </Button>
               <Button
                 type="submit"
+                disabled={submitting}
                 isLoading={submitting}
                 loadingText="Updating Part-B..."
                 className="bg-[#0B1E36] hover:bg-[#071424] text-white text-xs font-semibold"
@@ -2292,6 +2335,10 @@ export default function DeliveryNotesPage() {
           </DialogHeader>
 
           <form onSubmit={handleCancelEwb} className="space-y-4 pt-2">
+            <fieldset
+              disabled={submitting}
+              className={cn("space-y-4 border-0 p-0 m-0 min-w-0 transition-opacity", submitting && "pointer-events-none opacity-60")}
+            >
             <div>
               <Label className="text-xs font-semibold text-slate-700">Cancellation Reason Code *</Label>
               <select
@@ -2316,13 +2363,21 @@ export default function DeliveryNotesPage() {
                 required
               />
             </div>
+            </fieldset>
 
             <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setIsCancelEwbModalOpen(false)} className="text-xs">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsCancelEwbModalOpen(false)}
+                disabled={submitting}
+                className="text-xs"
+              >
                 Abort
               </Button>
               <Button
                 type="submit"
+                disabled={submitting}
                 isLoading={submitting}
                 loadingText="Cancelling..."
                 className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold"

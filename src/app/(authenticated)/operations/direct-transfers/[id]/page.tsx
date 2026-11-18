@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import {
   Dialog,
@@ -620,6 +621,10 @@ export default function DirectTransferDetailPage() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleDispatch} className="space-y-4">
+            <fieldset
+              disabled={submitting}
+              className={cn("space-y-4 border-0 p-0 m-0 min-w-0 transition-opacity", submitting && "pointer-events-none opacity-60")}
+            >
             <div>
               <Label className="text-xs font-medium">Source Rep Name *</Label>
               <Input
@@ -677,8 +682,15 @@ export default function DirectTransferDetailPage() {
                 className="mt-1"
               />
             </div>
+            </fieldset>
             <DialogFooter className="pt-4">
-              <Button type="button" variant="outline" size="sm" onClick={() => setIsDispatchModalOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsDispatchModalOpen(false)}
+                disabled={submitting}
+              >
                 Cancel
               </Button>
               <Button type="submit" size="sm" disabled={submitting} className="bg-blue-600 text-white">
@@ -702,6 +714,10 @@ export default function DirectTransferDetailPage() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleReceive} className="space-y-4">
+            <fieldset
+              disabled={submitting}
+              className={cn("space-y-4 border-0 p-0 m-0 min-w-0 transition-opacity", submitting && "pointer-events-none opacity-60")}
+            >
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label className="text-xs font-medium">Receiver Name *</Label>
@@ -826,9 +842,16 @@ export default function DirectTransferDetailPage() {
                 className="mt-1"
               />
             </div>
+            </fieldset>
 
             <DialogFooter className="pt-4">
-              <Button type="button" variant="outline" size="sm" onClick={() => setIsReceiveModalOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsReceiveModalOpen(false)}
+                disabled={submitting}
+              >
                 Cancel
               </Button>
               <Button type="submit" size="sm" disabled={submitting} className="bg-emerald-600 text-white">

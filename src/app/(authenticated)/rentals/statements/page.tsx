@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { TableSkeleton } from "@/components/ui/loading-states";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -579,6 +580,10 @@ export default function RentalStatementsPage() {
           </DialogHeader>
 
           <div className="space-y-4 pt-2">
+            <fieldset
+              disabled={isCalculating || isSaving}
+              className={cn("space-y-4 border-0 p-0 m-0 min-w-0 transition-opacity", (isCalculating || isSaving) && "pointer-events-none opacity-60")}
+            >
             {/* Mode Selector */}
             <div className="flex gap-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
               <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
@@ -705,13 +710,14 @@ export default function RentalStatementsPage() {
                 <span>Include Approved Missing Stock Claims</span>
               </label>
             </div>
+            </fieldset>
 
             {/* Run Calculation Trigger */}
             <div className="pt-2 flex justify-end">
               <Button
                 type="button"
                 onClick={handleCalculatePreview}
-                disabled={!selectedCustomerId}
+                disabled={!selectedCustomerId || isCalculating || isSaving}
                 isLoading={isCalculating}
                 loadingText="Calculating Accruals..."
                 className="bg-[#0B1E36] hover:bg-[#071424] text-white text-xs font-semibold"
@@ -808,6 +814,7 @@ export default function RentalStatementsPage() {
               type="button"
               variant="outline"
               onClick={() => setIsGeneratorOpen(false)}
+              disabled={isCalculating || isSaving}
               className="text-xs"
             >
               Close
