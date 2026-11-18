@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import { logAuditEvent } from "@/lib/audit";
-import { completeMrnPickupSchema } from "@/lib/schemas/material-return";
+import { driverConfirmPickupSchema, completeMrnPickupSchema } from "@/lib/schemas/material-return";
 import { validationErrorResponse } from "@/lib/api-validation";
 
 export async function POST(
@@ -23,6 +23,8 @@ export async function POST(
         customer: true,
         customerSite: true,
         receivingWarehouse: true,
+        vehicleTrip: true,
+        items: true,
       },
     });
 
@@ -33,13 +35,36 @@ export async function POST(
       );
     }
 
-    const body = await req.json();
-    const parsed = completeMrnPickupSchema.safeParse(body);
-    if (!parsed.success) {
-      return validationErrorResponse(parsed.error);
+    if (["FINALIZED", "POSTED", "CANCELLED"].includes(mrn.status)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: { message: `MRN ${mrn.mrnNumber} is already in ${mrn.status} status and cannot be modified.` },
+        },
+        { status: 400 }
+      );
     }
 
-    const input = parsed.data;
+    const body = await req.json();
+
+    // Support both enhanced driverConfirmPickupSchema (with item counts) and legacy completeMrnPickupSchema
+    const isEnhanced = Array.isArray(body.items) && body.items.length > 0;
+    let validatedData: any;
+
+    if (isEnhanced) {
+      const parsed = driverConfirmPickupSchema.safeParse(body);
+      if (!parsed.success) {
+        return validationErrorResponse(parsed.error);
+      }
+      validatedData = parsed.data;
+    } else {
+      const parsed = completeMrnPickupSchema.safeParse(body);
+      if (!parsed.success) {
+        return validationErrorResponse(parsed.error);
+      }
+      validatedData = parsed.data;
+    }
+
     const actor = {
       id: session!.id,
       name: session!.name,
@@ -47,73 +72,114 @@ export async function POST(
       ipAddress: req.headers.get("x-forwarded-for") || undefined,
     };
 
+    const pickupTime = validatedData.pickupCompletedAt ? new Date(validatedData.pickupCompletedAt) : new Date();
+
     const updated = await db.$transaction(async (tx) => {
       // 1. Create Evidence record with photo & GPS
-      await tx.movementEvidence.create({
-        data: {
-          documentType: "RETURN_NOTE",
-          documentId: mrn.id,
-          returnNoteId: mrn.id,
-          photoUrl: input.photoUrl,
-          gpsLatitude: input.gpsLatitude ? new Prisma.Decimal(input.gpsLatitude) : null,
-          gpsLongitude: input.gpsLongitude ? new Prisma.Decimal(input.gpsLongitude) : null,
-          gpsAccuracy: input.gpsAccuracy ? new Prisma.Decimal(input.gpsAccuracy) : null,
-          capturedById: actor.id,
-          receiverName: input.receiverName,
-          receiverPhone: input.receiverPhone || null,
-          receiverDesignation: input.receiverDesignation || null,
-          receiverSignatureUrl: input.receiverSignatureUrl || null,
-          missingEvidenceReason: input.missingEvidenceReason || null,
-        },
-      });
+      const primaryPhoto = validatedData.photoUrl;
+      const additionalPhotos: string[] = validatedData.additionalPhotoUrls || [];
+      const allPhotos = [primaryPhoto, ...additionalPhotos].filter(Boolean);
 
-      // 2. Format remarks to record destination info (Yard or Direct Transfer)
-      const destinationNote =
-        input.destinationType === "SITE_TRANSFER" && input.destinationSiteName
-          ? `[Direct Site Transfer to ${input.destinationSiteName}]`
-          : `[Returned to ${mrn.receivingWarehouse.name}]`;
+      for (const pUrl of allPhotos) {
+        await tx.movementEvidence.create({
+          data: {
+            documentType: "RETURN_NOTE",
+            documentId: mrn.id,
+            returnNoteId: mrn.id,
+            photoUrl: pUrl,
+            gpsLatitude: validatedData.gpsLatitude ? new Prisma.Decimal(validatedData.gpsLatitude) : null,
+            gpsLongitude: validatedData.gpsLongitude ? new Prisma.Decimal(validatedData.gpsLongitude) : null,
+            gpsAccuracy: validatedData.gpsAccuracy ? new Prisma.Decimal(validatedData.gpsAccuracy) : null,
+            capturedById: actor.id,
+            receiverName: validatedData.customerRepresentativeName || validatedData.receiverName,
+            receiverPhone: validatedData.customerRepresentativePhone || validatedData.receiverPhone || null,
+            receiverDesignation: validatedData.customerRepresentativeDesignation || validatedData.receiverDesignation || null,
+            receiverSignatureUrl: validatedData.customerSignatureUrl || validatedData.receiverSignatureUrl || null,
+            missingEvidenceReason: validatedData.customerSignatureExceptionReason || validatedData.missingEvidenceReason || null,
+          },
+        });
+      }
 
-      const combinedRemarks = [mrn.remarks, destinationNote, input.remarks]
+      // 2. Update item counts if detailed driver count provided
+      if (isEnhanced && Array.isArray(validatedData.items)) {
+        for (const it of validatedData.items) {
+          const collected = new Prisma.Decimal(it.driverCollectedQty);
+          const good = new Prisma.Decimal(it.driverGoodQty || 0);
+          const damaged = new Prisma.Decimal(it.driverDamagedQty || 0);
+          const missing = new Prisma.Decimal(it.driverMissingQty || 0);
+
+          await tx.materialReturnNoteItem.updateMany({
+            where: {
+              mrnId: mrn.id,
+              materialVariantId: it.materialVariantId,
+            },
+            data: {
+              driverCollectedQty: collected,
+              driverGoodQty: good,
+              driverDamagedQty: damaged,
+              driverMissingQty: missing,
+              driverRemarks: it.driverRemarks || null,
+              returnedQty: collected.gt(0) ? collected : undefined,
+            },
+          });
+        }
+      }
+
+      // 3. Format remarks
+      const combinedRemarks = [mrn.remarks, validatedData.remarks]
         .filter(Boolean)
         .join(" | ");
 
-      // 3. Update MRN record
+      // 4. Update MRN record: Status -> PICKUP_COMPLETED / IN_TRANSIT
       const res = await tx.materialReturnNote.update({
-        where: { id },
+        where: { id: mrn.id },
         data: {
-          status: "POSTED",
-          photoUrl: input.photoUrl,
-          gpsLatitude: input.gpsLatitude ? new Prisma.Decimal(input.gpsLatitude) : null,
-          gpsLongitude: input.gpsLongitude ? new Prisma.Decimal(input.gpsLongitude) : null,
-          receiverName: input.receiverName,
-          receiverPhone: input.receiverPhone || null,
-          receiverSignatureUrl: input.receiverSignatureUrl || null,
-          missingEvidenceReason: input.missingEvidenceReason || null,
-          postedById: mrn.postedById || actor.id,
-          postedAt: input.completedAt ? new Date(input.completedAt) : new Date(),
+          status: "PICKUP_COMPLETED",
+          photoUrl: primaryPhoto,
+          gpsLatitude: validatedData.gpsLatitude ? new Prisma.Decimal(validatedData.gpsLatitude) : mrn.gpsLatitude,
+          gpsLongitude: validatedData.gpsLongitude ? new Prisma.Decimal(validatedData.gpsLongitude) : mrn.gpsLongitude,
+          pickupCompletedAt: pickupTime,
+          pickupOdometer: validatedData.pickupOdometer ? new Prisma.Decimal(validatedData.pickupOdometer) : mrn.pickupOdometer,
+
+          // Customer Handover Sign-off
+          customerRepresentativeName: validatedData.customerRepresentativeName || validatedData.receiverName,
+          customerRepresentativePhone: validatedData.customerRepresentativePhone || validatedData.receiverPhone || null,
+          customerRepresentativeDesignation: validatedData.customerRepresentativeDesignation || validatedData.receiverDesignation || "Site Representative",
+          customerSignatureUrl: validatedData.customerSignatureUrl || validatedData.receiverSignatureUrl || null,
+          handoverAt: pickupTime,
+
           remarks: combinedRemarks,
         },
       });
 
-      // 4. Audit Log
+      // 5. Update linked VehicleTrip status to IN_TRANSIT if exists
+      if (mrn.vehicleTripId) {
+        await tx.vehicleTrip.update({
+          where: { id: mrn.vehicleTripId },
+          data: {
+            status: "IN_TRANSIT",
+          },
+        });
+      }
+
+      // 6. Audit Log
       await logAuditEvent({
         userId: actor.id,
         userName: actor.name,
         userRole: actor.role,
         ipAddress: actor.ipAddress,
         action: "UPDATE",
-        module: "MATERIAL_RETURNS",
+        module: "delivery_portal",
         entityType: "MaterialReturnNote",
         entityId: mrn.id,
+        beforeState: { status: mrn.status },
         afterState: {
-          mrnNumber: mrn.mrnNumber,
-          receiverName: input.receiverName,
-          photoUrl: input.photoUrl,
-          gpsLatitude: input.gpsLatitude,
-          gpsLongitude: input.gpsLongitude,
-          destinationType: input.destinationType,
+          status: "PICKUP_COMPLETED",
+          pickupCompletedAt: pickupTime,
+          customerRepresentativeName: res.customerRepresentativeName,
+          photoUrl: primaryPhoto,
         },
-        notes: `Driver ${actor.name} completed material pickup and return for MRN ${mrn.mrnNumber} at ${mrn.customerSite.siteName} with GPS photo proof.`,
+        notes: `Driver ${actor.name} confirmed material pickup for MRN ${mrn.mrnNumber} at site ${mrn.customerSite.siteName}. Materials are now in transit to yard.`,
       });
 
       return res;
@@ -122,10 +188,11 @@ export async function POST(
     return NextResponse.json({
       success: true,
       data: updated,
-      message: `Material pickup and return for MRN ${mrn.mrnNumber} confirmed with GPS photo evidence!`,
+      message: `Material pickup for MRN ${mrn.mrnNumber} confirmed! Materials are now loaded and in transit to yard.`,
     });
   } catch (error: any) {
-    const status = error.message.startsWith("UNAUTHORIZED") ? 401 : error.message.startsWith("FORBIDDEN") ? 403 : 500;
+    const status = error.message?.startsWith("UNAUTHORIZED") ? 401 : error.message?.startsWith("FORBIDDEN") ? 403 : 500;
     return NextResponse.json({ success: false, error: { message: error.message } }, { status });
   }
 }
+

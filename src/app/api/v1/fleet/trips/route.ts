@@ -35,6 +35,15 @@ export async function GET(req: NextRequest) {
             deliveryNote: { select: { id: true, dnNumber: true, customerSite: { select: { siteName: true } } } },
           },
         },
+        returnNotes: {
+          select: {
+            id: true,
+            mrnNumber: true,
+            status: true,
+            customer: { select: { id: true, name: true } },
+            customerSite: { select: { id: true, siteName: true } },
+          },
+        },
       },
       orderBy: { tripDate: "desc" },
     });
@@ -91,6 +100,17 @@ export async function POST(req: NextRequest) {
           deliveryNotes: true,
         },
       });
+
+      // Link any Return Notes to this trip
+      if (input.returnNoteIds && input.returnNoteIds.length > 0) {
+        await tx.materialReturnNote.updateMany({
+          where: { id: { in: input.returnNoteIds } },
+          data: {
+            vehicleTripId: created.id,
+            status: "ASSIGNED",
+          },
+        });
+      }
 
       // Update vehicle status
       await tx.vehicle.update({

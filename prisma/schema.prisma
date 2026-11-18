@@ -1119,6 +1119,26 @@ model MaterialReturnNote {
   inspectedAt             DateTime?
   inspectionRemarks       String?
 
+  // Vehicle Trip & Driver Scheduling
+  vehicleTripId             String?   @db.Uuid
+  preferredPickupDate       DateTime?
+  preferredPickupTime       String?
+  pickupInstructions        String?
+
+  // Driver Site Arrival & Verification
+  siteArrivedAt             DateTime?
+  siteArrivalGpsLat         Decimal?  @db.Decimal(10, 7)
+  siteArrivalGpsLng         Decimal?  @db.Decimal(10, 7)
+  siteArrivalAccuracy       Decimal?  @db.Decimal(8, 2)
+  pickupCompletedAt         DateTime?
+  pickupOdometer            Decimal?  @db.Decimal(10, 2)
+
+  // Yard Arrival & Handover
+  yardArrivedAt             DateTime?
+  yardArrivalGpsLat         Decimal?  @db.Decimal(10, 7)
+  yardArrivalGpsLng         Decimal?  @db.Decimal(10, 7)
+  yardOdometer              Decimal?  @db.Decimal(10, 2)
+
   gpsLatitude             Decimal?  @db.Decimal(10, 7)
   gpsLongitude            Decimal?  @db.Decimal(10, 7)
   photoUrl                String?
@@ -1133,6 +1153,7 @@ model MaterialReturnNote {
   customerSite          CustomerSite             @relation(fields: [customerSiteId], references: [id], onDelete: Restrict)
   receivingWarehouse    Warehouse                @relation("ReceivingWarehouseMRN", fields: [receivingWarehouseId], references: [id], onDelete: Restrict)
   referenceDeliveryNote DeliveryNote?            @relation(fields: [referenceDeliveryNoteId], references: [id], onDelete: SetNull)
+  vehicleTrip           VehicleTrip?             @relation("VehicleTripReturnNotes", fields: [vehicleTripId], references: [id], onDelete: SetNull)
   items                 MaterialReturnNoteItem[]
   evidences             MovementEvidence[]
   returnAllocations     RentalReturnAllocation[]
@@ -1146,24 +1167,32 @@ model MaterialReturnNote {
   @@index([customerId])
   @@index([customerSiteId])
   @@index([receivingWarehouseId])
+  @@index([vehicleTripId])
   @@index([status])
   @@index([returnDate])
 }
 
 model MaterialReturnNoteItem {
-  id                String  @id @default(uuid()) @db.Uuid
-  mrnId             String  @db.Uuid
-  materialVariantId String  @db.Uuid
-  ownershipType     String   @default("OWNED") // OWNED, HIRED_IN
-  returnedQty       Decimal  @db.Decimal(12, 3)
-  receivedQty       Decimal? @db.Decimal(12, 3)
-  acceptedQty       Decimal  @db.Decimal(12, 3)
-  damagedQty        Decimal  @default(0) @db.Decimal(12, 3)
-  missingQty        Decimal  @default(0) @db.Decimal(12, 3)
-  rejectedQty       Decimal? @default(0) @db.Decimal(12, 3)
-  condition         String   @default("GOOD")
-  remarks           String?
-  inspectionRemarks String?
+  id                 String   @id @default(uuid()) @db.Uuid
+  mrnId              String   @db.Uuid
+  materialVariantId  String   @db.Uuid
+  ownershipType      String   @default("OWNED") // OWNED, HIRED_IN
+  returnedQty        Decimal  @db.Decimal(12, 3)
+  receivedQty        Decimal? @db.Decimal(12, 3)
+  acceptedQty        Decimal  @db.Decimal(12, 3)
+  damagedQty         Decimal  @default(0) @db.Decimal(12, 3)
+  missingQty         Decimal  @default(0) @db.Decimal(12, 3)
+  rejectedQty        Decimal? @default(0) @db.Decimal(12, 3)
+  condition          String   @default("GOOD")
+  remarks            String?
+  inspectionRemarks  String?
+
+  expectedQty        Decimal? @db.Decimal(12, 3)
+  driverCollectedQty Decimal? @db.Decimal(12, 3)
+  driverGoodQty      Decimal? @db.Decimal(12, 3)
+  driverDamagedQty   Decimal? @db.Decimal(12, 3)
+  driverMissingQty   Decimal? @db.Decimal(12, 3)
+  driverRemarks      String?
 
   materialReturnNote MaterialReturnNote       @relation(fields: [mrnId], references: [id], onDelete: Cascade)
   materialVariant    MaterialVariant          @relation(fields: [materialVariantId], references: [id], onDelete: Restrict)
@@ -2663,6 +2692,7 @@ model VehicleTrip {
   deliveryNotes       VehicleTripDeliveryNote[]
   expenses            VehicleExpense[]
   directSiteTransfers DirectSiteTransferNote[]
+  returnNotes         MaterialReturnNote[]      @relation("VehicleTripReturnNotes")
 
   isDemo    Boolean @default(false)
   demoRunId String? @db.Uuid

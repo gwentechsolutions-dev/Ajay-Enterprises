@@ -15,6 +15,8 @@ export async function GET(req: NextRequest) {
           OR: [
             { driverName: { contains: session?.name || "", mode: "insensitive" as any } },
             { driverPhone: session?.mobile || undefined },
+            { vehicleTrip: { driver: { name: { contains: session?.name || "", mode: "insensitive" as any } } } },
+            { vehicleTrip: { driver: { mobileNumber: session?.mobile || undefined } } },
           ],
         }
       : {};
@@ -30,7 +32,7 @@ export async function GET(req: NextRequest) {
       },
       include: {
         customer: { select: { id: true, name: true, primaryMobile: true, whatsappNumber: true } },
-        customerSite: { select: { id: true, siteName: true, fullAddress: true, siteContactDetails: true, siteInCharge: true } },
+        customerSite: { select: { id: true, siteName: true, fullAddress: true, siteContactDetails: true, siteInCharge: true, gpsLatitude: true, gpsLongitude: true } },
         sourceWarehouse: { select: { id: true, name: true } },
         items: {
           include: {
@@ -61,18 +63,39 @@ export async function GET(req: NextRequest) {
       orderBy: { deliveredAt: "desc" },
     });
 
-    // 3. Active Material Pickups / Returns (MRN assigned to driver awaiting handover proof)
+    // 3. Active Material Pickups / Returns (Assigned to driver, en-route, arrived at site, or returning to yard)
     const activePickups = await db.materialReturnNote.findMany({
       where: {
-        status: { in: ["DRAFT", "ASSIGNED", "IN_TRANSIT", "POSTED"] },
-        photoUrl: null, // Awaiting driver site handover & GPS photo capture
+        status: {
+          in: [
+            "ASSIGNED",
+            "EN_ROUTE",
+            "ARRIVED_AT_SITE",
+            "PICKUP_IN_PROGRESS",
+            "PICKUP_COMPLETED",
+            "IN_TRANSIT",
+            "ARRIVED_AT_YARD",
+          ],
+        },
         ...driverFilter,
       },
       include: {
         customer: { select: { id: true, name: true, primaryMobile: true, whatsappNumber: true } },
-        customerSite: { select: { id: true, siteName: true, fullAddress: true, siteContactDetails: true, siteInCharge: true } },
-        receivingWarehouse: { select: { id: true, name: true } },
+        customerSite: { select: { id: true, siteName: true, fullAddress: true, siteContactDetails: true, siteInCharge: true, gpsLatitude: true, gpsLongitude: true } },
+        receivingWarehouse: { select: { id: true, name: true, addressLine1: true, city: true } },
         referenceDeliveryNote: { select: { id: true, dnNumber: true } },
+        vehicleTrip: {
+          select: {
+            id: true,
+            tripNumber: true,
+            status: true,
+            startOdometer: true,
+            endOdometer: true,
+            distanceKm: true,
+            driver: { select: { id: true, name: true, driverCode: true, mobileNumber: true } },
+            vehicle: { select: { id: true, vehicleNumber: true, make: true, model: true } },
+          },
+        },
         items: {
           include: {
             materialVariant: { select: { id: true, name: true, size: true, uom: true, materialCode: true } },
@@ -83,24 +106,39 @@ export async function GET(req: NextRequest) {
       orderBy: { returnDate: "asc" },
     });
 
-    // 4. Material Pickups Completed Today
+    // 4. Material Pickups Completed Today (Handed over to warehouse, inspected, or posted today)
     const completedPickupsToday = await db.materialReturnNote.findMany({
       where: {
-        photoUrl: { not: null },
-        postedAt: { gte: startOfToday },
+        status: {
+          in: [
+            "HANDED_OVER_TO_WAREHOUSE",
+            "AWAITING_INSPECTION",
+            "INSPECTION_COMPLETED",
+            "POSTED",
+            "FINALIZED",
+          ],
+        },
+        updatedAt: { gte: startOfToday },
         ...driverFilter,
       },
       include: {
         customer: { select: { id: true, name: true } },
         customerSite: { select: { id: true, siteName: true } },
         receivingWarehouse: { select: { id: true, name: true } },
+        vehicleTrip: {
+          select: {
+            id: true,
+            tripNumber: true,
+            vehicle: { select: { vehicleNumber: true } },
+          },
+        },
         items: {
           include: {
             materialVariant: { select: { id: true, name: true, size: true, uom: true } },
           },
         },
       },
-      orderBy: { postedAt: "desc" },
+      orderBy: { updatedAt: "desc" },
     });
 
     return NextResponse.json({
@@ -121,7 +159,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error: any) {
-    const status = error.message.startsWith("UNAUTHORIZED") ? 401 : error.message.startsWith("FORBIDDEN") ? 403 : 500;
+    const status = error.message?.startsWith("UNAUTHORIZED") ? 401 : error.message?.startsWith("FORBIDDEN") ? 403 : 500;
     return NextResponse.json({ success: false, error: { message: error.message } }, { status });
   }
 }

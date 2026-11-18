@@ -24,6 +24,12 @@ export async function GET(
         customer: true,
         customerSite: true,
         receivingWarehouse: true,
+        vehicleTrip: {
+          include: {
+            vehicle: true,
+            driver: true,
+          },
+        },
         items: {
           include: {
             materialVariant: true,
@@ -50,9 +56,10 @@ export async function GET(
       secondaryPartyName: `${mrn.customerSite.siteName} ➔ ${mrn.receivingWarehouse.name}`,
       secondaryPartyAddress: `Site: ${mrn.customerSite.fullAddress || "N/A"} | Yard: ${mrn.receivingWarehouse.addressLine1}, ${mrn.receivingWarehouse.city}`,
       transportDetails: {
-        vehicleNumber: mrn.vehicleNumber || undefined,
-        driverName: mrn.driverName || undefined,
-        driverPhone: mrn.driverPhone || undefined,
+        vehicleNumber: mrn.vehicleTrip?.vehicle?.vehicleNumber || mrn.vehicleNumber || undefined,
+        driverName: mrn.vehicleTrip?.driver?.name || mrn.driverName || undefined,
+        driverPhone: mrn.vehicleTrip?.driver?.mobileNumber || mrn.driverPhone || undefined,
+        driverTripNumber: mrn.vehicleTrip?.tripNumber || undefined,
       },
       receiverDetails: {
         name: mrn.receiverName || mrn.receivingWarehouse.contactPerson || undefined,

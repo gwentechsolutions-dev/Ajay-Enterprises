@@ -181,8 +181,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     .footer { margin-top: 25px; display: flex; justify-content: space-between; padding-top: 15px; border-top: 1px solid #e2e8f0; }
     .sig-box { width: 200px; text-align: center; border-top: 1px dashed #94a3b8; padding-top: 6px; font-size: 10px; }
     @media print {
-      .no-print { display: none !important; }
-      body { padding: 0 !important; background: transparent !important; }
+      .no-print, .no-print * { display: none !important; visibility: hidden !important; height: 0 !important; width: 0 !important; overflow: hidden !important; position: absolute !important; }
+      body { padding: 0 !important; margin: 0 !important; background: transparent !important; }
       .sheet-container { box-shadow: none !important; margin: 0 !important; max-width: 100% !important; border: none !important; padding: 0 !important; }
       .table-main th {
         background: #0B1E36 !important;

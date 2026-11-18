@@ -140,6 +140,7 @@ export const createVehicleTripSchema = z.object({
   startOdometer: z.coerce.number().min(0, "Start odometer is required"),
   tripPurpose: z.enum(TRIP_PURPOSES).default("DELIVERY"),
   deliveryNoteIds: z.array(z.string().uuid()).optional().default([]),
+  returnNoteIds: z.array(z.string().uuid()).optional().default([]),
   remarks: z.string().optional().nullable(),
 });
 

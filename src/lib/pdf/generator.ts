@@ -49,6 +49,7 @@ export interface PDFDocumentData {
     vehicleNumber?: string;
     driverName?: string;
     driverPhone?: string;
+    driverTripNumber?: string;
     eWayBillNumber?: string;
     transportCharges?: number;
   };
@@ -304,10 +305,11 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
   </table>
 
   ${
-    data.transportDetails && (data.transportDetails.vehicleNumber || data.transportDetails.driverName || data.transportDetails.eWayBillNumber || data.transportDetails.transportCharges)
+    data.transportDetails && (data.transportDetails.vehicleNumber || data.transportDetails.driverName || data.transportDetails.eWayBillNumber || data.transportDetails.transportCharges || data.transportDetails.driverTripNumber)
       ? `
     <div class="transport-box">
       <strong>Transport & Fleet Details:</strong>
+      ${data.transportDetails.driverTripNumber ? ` &bull; Trip #: <strong>${data.transportDetails.driverTripNumber}</strong>` : ""}
       ${data.transportDetails.vehicleNumber ? ` &bull; Vehicle: <strong>${data.transportDetails.vehicleNumber}</strong>` : ""}
       ${data.transportDetails.driverName ? ` &bull; Driver: <strong>${data.transportDetails.driverName}</strong>` : ""}
       ${data.transportDetails.driverPhone ? ` (+91 ${data.transportDetails.driverPhone})` : ""}

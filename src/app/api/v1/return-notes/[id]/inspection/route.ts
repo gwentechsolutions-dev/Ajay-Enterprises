@@ -149,6 +149,7 @@ export async function POST(
       const res = await tx.materialReturnNote.update({
         where: { id: mrn.id },
         data: {
+          status: mrn.status === "POSTED" ? "POSTED" : "INSPECTION_COMPLETED",
           inspectionStatus: "COMPLETED",
           inspectedById: actor.id,
           inspectorName: input.inspectorName,
