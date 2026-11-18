@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
     const endDate = searchParams.get("endDate") || undefined;
     const branchId = searchParams.get("branchId") || undefined;
     const warehouseId = searchParams.get("warehouseId") || undefined;
+    const forceRefresh = searchParams.get("forceRefresh") === "true";
 
     const filters: OwnerDashboardFilters = {
       period,
@@ -21,6 +22,7 @@ export async function GET(req: NextRequest) {
       endDate,
       branchId,
       warehouseId,
+      forceRefresh,
     };
 
     const data = await getOwnerDashboardData(filters);
@@ -29,7 +31,7 @@ export async function GET(req: NextRequest) {
       { success: true, data },
       {
         headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate",
+          "Cache-Control": "private, max-age=15, stale-while-revalidate=30",
         },
       }
     );

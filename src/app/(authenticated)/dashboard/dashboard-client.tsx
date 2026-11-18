@@ -39,9 +39,13 @@ export function OwnerDashboardClient() {
 
   const fetchDashboardData = React.useCallback(async (p: string, forceRefresh = false) => {
     try {
-      const json = await fetchWithClientCache(`/api/v1/dashboard?period=${p}`, {
+      if (forceRefresh) {
+        setIsLoading(true);
+      }
+      const url = `/api/v1/dashboard?period=${p}${forceRefresh ? "&forceRefresh=true" : ""}`;
+      const json = await fetchWithClientCache(url, {
         forceRefresh,
-        ttlMs: 20_000,
+        ttlMs: 60_000,
         onBackgroundUpdate: (fresh) => setData(fresh),
       });
       if (json) {
