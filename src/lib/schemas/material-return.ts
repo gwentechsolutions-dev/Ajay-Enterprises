@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { OptionalIndianMobileSchema } from "./common";
 
-export const MRN_STATUSES = ["DRAFT", "POSTED", "CANCELLED"] as const;
+export const MRN_STATUSES = ["DRAFT", "ASSIGNED", "IN_TRANSIT", "POSTED", "COMPLETED", "CANCELLED"] as const;
 
 export const materialReturnItemSchema = z.object({
   materialVariantId: z.string().uuid("Material variant is required"),
@@ -36,4 +36,23 @@ export const createMaterialReturnNoteSchema = z.object({
 });
 
 export type CreateMaterialReturnNoteInput = z.infer<typeof createMaterialReturnNoteSchema>;
+
+export const completeMrnPickupSchema = z.object({
+  receiverName: z.string().min(2, "Receiver/Handover person name is required").trim(),
+  receiverPhone: OptionalIndianMobileSchema,
+  receiverDesignation: z.string().optional().nullable(),
+  receiverSignatureUrl: z.string().optional().nullable(),
+  photoUrl: z.string().min(1, "Site pickup proof photo is required"),
+  gpsLatitude: z.coerce.number().min(-90).max(90).optional().nullable(),
+  gpsLongitude: z.coerce.number().min(-180).max(180).optional().nullable(),
+  gpsAccuracy: z.coerce.number().min(0).optional().nullable(),
+  missingEvidenceReason: z.string().optional().nullable(),
+  destinationType: z.enum(["YARD", "SITE_TRANSFER"]).default("YARD"),
+  destinationSiteName: z.string().optional().nullable(),
+  remarks: z.string().optional().nullable(),
+  completedAt: z.string().optional(),
+});
+
+export type CompleteMrnPickupInput = z.infer<typeof completeMrnPickupSchema>;
+
 

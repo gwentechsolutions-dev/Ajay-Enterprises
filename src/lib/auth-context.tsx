@@ -11,6 +11,7 @@ export interface AuthContextValue {
   isOwnerOrAdmin: boolean;
   canCreateDeliveryNote: boolean;
   canCreateReturnNote: boolean;
+  canCreateTrip: boolean;
 }
 
 const defaultAuthContextValue: AuthContextValue = {
@@ -21,6 +22,7 @@ const defaultAuthContextValue: AuthContextValue = {
   isOwnerOrAdmin: false,
   canCreateDeliveryNote: true,
   canCreateReturnNote: true,
+  canCreateTrip: false,
 };
 
 const AuthContext = React.createContext<AuthContextValue>(defaultAuthContextValue);
@@ -38,9 +40,10 @@ export function AuthProvider({
   const isOwnerOrAdmin = role === "OWNER" || role === "ADMINISTRATOR" || role === "ADMIN";
 
   // Delivery drivers are field personnel executing physical delivery/acknowledgement.
-  // They are strictly not permitted to create Delivery Notes or Material Return Notes.
+  // They are strictly not permitted to create Delivery Notes, Material Return Notes, or Vehicle Trips.
   const canCreateDeliveryNote = !isDeliveryPerson;
   const canCreateReturnNote = !isDeliveryPerson;
+  const canCreateTrip = !isDeliveryPerson;
 
   const value = React.useMemo<AuthContextValue>(
     () => ({
@@ -51,8 +54,9 @@ export function AuthProvider({
       isOwnerOrAdmin,
       canCreateDeliveryNote,
       canCreateReturnNote,
+      canCreateTrip,
     }),
-    [user, role, isDeliveryPerson, isWarehouseStaff, isOwnerOrAdmin, canCreateDeliveryNote, canCreateReturnNote]
+    [user, role, isDeliveryPerson, isWarehouseStaff, isOwnerOrAdmin, canCreateDeliveryNote, canCreateReturnNote, canCreateTrip]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -89,5 +93,6 @@ export function useCurrentUser(): AuthContextValue {
     isOwnerOrAdmin,
     canCreateDeliveryNote: !isDeliveryPerson,
     canCreateReturnNote: !isDeliveryPerson,
+    canCreateTrip: !isDeliveryPerson,
   };
 }

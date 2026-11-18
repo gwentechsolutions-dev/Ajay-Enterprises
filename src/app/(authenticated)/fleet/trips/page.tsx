@@ -16,8 +16,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useCurrentUser } from "@/lib/auth-context";
 
 export default function FleetTripsPage() {
+  const { isDeliveryPerson, canCreateTrip } = useCurrentUser();
   const [trips, setTrips] = React.useState<any[]>([]);
   const [vehicles, setVehicles] = React.useState<any[]>([]);
   const [drivers, setDrivers] = React.useState<any[]>([]);
@@ -198,14 +200,16 @@ export default function FleetTripsPage() {
             <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
-          <Button
-            size="sm"
-            onClick={() => setShowCreateModal(true)}
-            className="bg-[#F26522] hover:bg-[#EA580C] text-white"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            New Trip
-          </Button>
+          {canCreateTrip && !isDeliveryPerson && (
+            <Button
+              size="sm"
+              onClick={() => setShowCreateModal(true)}
+              className="bg-[#F26522] hover:bg-[#EA580C] text-white"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              New Trip
+            </Button>
+          )}
         </div>
       </div>
 
