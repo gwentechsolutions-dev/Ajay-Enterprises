@@ -74,6 +74,8 @@ export interface PDFDocumentData {
     signatureUrl?: string;
   };
   notes?: string;
+  origin?: string;
+  ogImageUrl?: string;
 }
 
 /**
@@ -124,12 +126,49 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
     day: "numeric",
   });
 
+  const baseUrl = data.origin ? data.origin.replace(/\/$/, "") : "";
+  const ogFilename =
+    data.documentType === "DN"
+      ? "og-delivery-note.png"
+      : data.documentType === "MRN"
+      ? "og-return-note.png"
+      : data.documentType === "PO" || data.documentType === "GRN"
+      ? "og-purchase-bill.png"
+      : "og-default.png";
+
+  const dynamicOgUrl = baseUrl
+    ? `${baseUrl}/api/og?type=${encodeURIComponent(data.documentType)}&docNumber=${encodeURIComponent(
+        data.documentNumber
+      )}&party=${encodeURIComponent(data.partyName)}&site=${encodeURIComponent(data.secondaryPartyName || "")}`
+    : `/images/og/${ogFilename}`;
+
+  const ogImageUrl = data.ogImageUrl || dynamicOgUrl;
+
   return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>${data.title} - ${data.documentNumber}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${data.title} - ${data.documentNumber} | AJAY ENTERPRISES</title>
+
+  <!-- Open Graph / WhatsApp Social Preview Metadata -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="AJAY ENTERPRISES · INVENTRA ERP">
+  <meta property="og:title" content="${data.title} • ${data.documentNumber}">
+  <meta property="og:description" content="Official ${data.title} for ${data.partyName}${data.secondaryPartyName ? ` (${data.secondaryPartyName})` : ""} — AJAY ENTERPRISES Centering Material Rental &amp; Operations">
+  <meta property="og:image" content="${ogImageUrl}">
+  <meta property="og:image:secure_url" content="${ogImageUrl}">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="${data.title} ${data.documentNumber} - AJAY ENTERPRISES">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="${data.title} • ${data.documentNumber}">
+  <meta name="twitter:description" content="Official ${data.title} for ${data.partyName} - AJAY ENTERPRISES">
+  <meta name="twitter:image" content="${ogImageUrl}">
   <style>
     @page { size: A4 portrait; margin: 12mm 15mm; }
     * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }

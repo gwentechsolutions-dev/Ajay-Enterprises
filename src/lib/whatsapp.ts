@@ -167,19 +167,19 @@ export function buildDocumentWhatsAppMessage(
       const ewb = doc.eWayBillNumber || doc.eWayBills?.[0]?.ewbNumber;
       const printUrl = baseUrl ? `${baseUrl}/api/v1/delivery-notes/${doc.id}/print` : "";
 
-      let msg = `*AJAY ENTERPRISES – Centering Material Delivery Note*\n\n`;
+      let msg = `*AJAY ENTERPRISES - Centering Material Delivery Note*\n\n`;
       msg += `Dear *${custName}*,\n`;
       msg += `Material custody dispatch details for your construction site are confirmed:\n\n`;
-      msg += `📋 *Delivery Note:* ${dnNum}\n`;
-      msg += `📍 *Construction Site:* ${siteName}\n`;
-      msg += `📅 *Date of Dispatch:* ${date}\n`;
-      msg += `🚛 *Vehicle:* ${vehicle}\n`;
-      msg += `📦 *Status:* ${status}\n`;
+      msg += `• *Delivery Note:* ${dnNum}\n`;
+      msg += `• *Construction Site:* ${siteName}\n`;
+      msg += `• *Date of Dispatch:* ${date}\n`;
+      msg += `• *Vehicle:* ${vehicle}\n`;
+      msg += `• *Status:* ${status}\n`;
       if (ewb) {
-        msg += `🚚 *E-Way Bill:* ${ewb}\n`;
+        msg += `• *E-Way Bill:* ${ewb}\n`;
       }
       if (printUrl) {
-        msg += `\n📄 *Official Document Slip:*\n${printUrl}\n`;
+        msg += `\n• *Official Document Slip:*\n${printUrl}\n`;
       }
       msg += `\nThank you for choosing *AJAY ENTERPRISES*!`;
       return msg;
@@ -194,16 +194,16 @@ export function buildDocumentWhatsAppMessage(
       const status = doc.status || "POSTED";
       const printUrl = baseUrl ? `${baseUrl}/api/v1/return-notes/${doc.id}/print` : "";
 
-      let msg = `*AJAY ENTERPRISES – Material Return Note (MRN)*\n\n`;
+      let msg = `*AJAY ENTERPRISES - Material Return Note (MRN)*\n\n`;
       msg += `Dear *${custName}*,\n`;
       msg += `Centering material return from your site has been inspected and credited:\n\n`;
-      msg += `📋 *Return Note:* ${mrnNum}\n`;
-      msg += `📍 *Returning Site:* ${siteName}\n`;
-      msg += `📅 *Return Date:* ${date}\n`;
-      msg += `🏭 *Receiving Yard:* ${yardName}\n`;
-      msg += `📦 *Status:* ${status}\n`;
+      msg += `• *Return Note:* ${mrnNum}\n`;
+      msg += `• *Returning Site:* ${siteName}\n`;
+      msg += `• *Return Date:* ${date}\n`;
+      msg += `• *Receiving Yard:* ${yardName}\n`;
+      msg += `• *Status:* ${status}\n`;
       if (printUrl) {
-        msg += `\n📄 *Official Return Slip:*\n${printUrl}\n`;
+        msg += `\n• *Official Return Slip:*\n${printUrl}\n`;
       }
       msg += `\nDaily rental charges will stop as of the effective return terms. Thank you!`;
       return msg;
@@ -226,17 +226,17 @@ export function buildDocumentWhatsAppMessage(
       const paymentStatus = doc.paymentStatus || "UNPAID";
       const printUrl = baseUrl ? `${baseUrl}/api/v1/invoices/${doc.id}/print` : "";
 
-      let msg = `*AJAY ENTERPRISES – Tax Invoice*\n\n`;
+      let msg = `*AJAY ENTERPRISES - Tax Invoice*\n\n`;
       msg += `Dear *${custName}*,\n`;
       msg += `Please find the tax invoice details for centering material rental and services:\n\n`;
-      msg += `📋 *Invoice #:* ${invNum}\n`;
-      msg += `📍 *Site / Project:* ${siteName}\n`;
-      msg += `📅 *Invoice Date:* ${date}\n`;
-      msg += `💰 *Grand Total:* ₹${totalAmt}\n`;
-      msg += `⏳ *Due Date:* ${dueDate}\n`;
-      msg += `💳 *Payment Status:* ${paymentStatus} (Due: ₹${balanceDue})\n`;
+      msg += `• *Invoice #:* ${invNum}\n`;
+      msg += `• *Site / Project:* ${siteName}\n`;
+      msg += `• *Invoice Date:* ${date}\n`;
+      msg += `• *Grand Total:* Rs. ${totalAmt}\n`;
+      msg += `• *Due Date:* ${dueDate}\n`;
+      msg += `• *Payment Status:* ${paymentStatus} (Due: Rs. ${balanceDue})\n`;
       if (printUrl) {
-        msg += `\n📄 *View / Download Tax Invoice:*\n${printUrl}\n`;
+        msg += `\n• *View / Download Tax Invoice:*\n${printUrl}\n`;
       }
       msg += `\nKindly arrange payment to the bank account listed on the invoice. Thank you!`;
       return msg;
@@ -252,15 +252,19 @@ export function buildDocumentWhatsAppMessage(
         maximumFractionDigits: 2,
       });
       const paymentStatus = doc.paymentStatus || "PENDING";
+      const printUrl = baseUrl ? `${baseUrl}/api/v1/purchases/bills/${doc.id}/print` : "";
 
-      let msg = `*AJAY ENTERPRISES – Purchase Bill Record*\n\n`;
+      let msg = `*AJAY ENTERPRISES - Purchase Bill Record*\n\n`;
       msg += `Dear *${suppName}*,\n`;
       msg += `Your supplier invoice has been booked into our Accounts Payable:\n\n`;
-      msg += `📋 *Internal Bill #:* ${billNum}\n`;
-      msg += `📄 *Your Invoice Ref:* ${ref}\n`;
-      msg += `📅 *Bill Booking Date:* ${date}\n`;
-      msg += `💰 *Total Amount:* ₹${totalAmt}\n`;
-      msg += `💳 *Payment Status:* ${paymentStatus}\n`;
+      msg += `• *Internal Bill #:* ${billNum}\n`;
+      msg += `• *Your Invoice Ref:* ${ref}\n`;
+      msg += `• *Bill Booking Date:* ${date}\n`;
+      msg += `• *Total Amount:* Rs. ${totalAmt}\n`;
+      msg += `• *Payment Status:* ${paymentStatus}\n`;
+      if (printUrl) {
+        msg += `\n• *Official Bill Record:*\n${printUrl}\n`;
+      }
       msg += `\nThank you for your business partnership with *AJAY ENTERPRISES*!`;
       return msg;
     }

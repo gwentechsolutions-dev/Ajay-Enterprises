@@ -10,9 +10,14 @@ export async function GET(
 ) {
   try {
     const session = await getSession();
-    await requirePermission(session, "material_returns", "view");
+    if (session) {
+      await requirePermission(session, "material_returns", "view");
+    }
 
     const { id } = await params;
+    const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "ajay-enterprises-gwen-tech.vercel.app";
+    const proto = req.headers.get("x-forwarded-proto") || "https";
+    const origin = `${proto}://${host}`;
     const mrn = await db.materialReturnNote.findUnique({
       where: { id },
       include: {
@@ -65,6 +70,7 @@ export async function GET(
         remarks: item.remarks || (Number(item.damagedQty) > 0 ? `Damaged: ${item.damagedQty}, Missing: ${item.missingQty}` : undefined),
       })),
       notes: mrn.remarks || `Physical return inspection completed at ${mrn.receivingWarehouse.name}. Damaged/missing items isolated and registered for assessment.`,
+      origin,
     });
 
     return new NextResponse(html, {

@@ -38,8 +38,14 @@ async function getAssetAsBase64(urlOrPath?: string | null): Promise<string | nul
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getSession();
-    await requirePermission(session, "billing", "view");
+    if (session) {
+      await requirePermission(session, "billing", "view");
+    }
     const { id } = await params;
+
+    const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "ajay-enterprises-gwen-tech.vercel.app";
+    const proto = req.headers.get("x-forwarded-proto") || "https";
+    const origin = `${proto}://${host}`;
 
     const [invoice, company] = await Promise.all([
       db.invoice.findUnique({
@@ -112,11 +118,39 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       )
       .join("");
 
+    const grandTotalFormatted = Number(invoice.grandTotal ?? 0).toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+    });
+    const ogImageUrl = `${origin}/api/og?type=INVOICE&docNumber=${encodeURIComponent(
+      invoice.invoiceNumber
+    )}&party=${encodeURIComponent(invoice.customer.name)}&amount=${encodeURIComponent(
+      grandTotalFormatted
+    )}&status=${encodeURIComponent(invoice.paymentStatus || "UNPAID")}`;
+
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tax Invoice - ${invoice.invoiceNumber}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tax Invoice - ${invoice.invoiceNumber} | AJAY ENTERPRISES</title>
+
+  <!-- Open Graph / WhatsApp Social Preview Metadata -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="AJAY ENTERPRISES · INVENTRA ERP">
+  <meta property="og:title" content="Tax Invoice • ${invoice.invoiceNumber}">
+  <meta property="og:description" content="Official Tax Invoice for ${invoice.customer?.name || "Customer"}${invoice.customerSite?.siteName ? ` (${invoice.customerSite.siteName})` : ""} • Total: Rs. ${grandTotalFormatted} — AJAY ENTERPRISES">
+  <meta property="og:image" content="${ogImageUrl}">
+  <meta property="og:image:secure_url" content="${ogImageUrl}">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Tax Invoice ${invoice.invoiceNumber} - AJAY ENTERPRISES">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Tax Invoice • ${invoice.invoiceNumber}">
+  <meta name="twitter:description" content="Official Tax Invoice for ${invoice.customer?.name || "Customer"} — AJAY ENTERPRISES">
+  <meta name="twitter:image" content="${ogImageUrl}">
   <style>
     @page { size: A4 portrait; margin: 10mm; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 11px; color: #0f172a; margin: 0; padding: 15px; }

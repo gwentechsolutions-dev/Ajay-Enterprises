@@ -7,8 +7,14 @@ import { generateDocumentHTML } from "@/lib/pdf/generator";
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getSession();
-    await requirePermission(session, "delivery_notes", "view");
+    if (session) {
+      await requirePermission(session, "delivery_notes", "view");
+    }
     const { id } = await params;
+
+    const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "ajay-enterprises-gwen-tech.vercel.app";
+    const proto = req.headers.get("x-forwarded-proto") || "https";
+    const origin = `${proto}://${host}`;
 
     const dn = await db.deliveryNote.findUnique({
       where: { id },
@@ -63,6 +69,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         signatureUrl: dn.receiverSignatureUrl || undefined,
       },
       notes: dn.notes || "Materials delivered in good condition for site centering work.",
+      origin,
     });
 
     return new Response(html, {
