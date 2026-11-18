@@ -1000,14 +1000,12 @@ export default function DeliveryPortalPage() {
                           {!isArrived && !isLoaded && (
                             <Button
                               onClick={() => handleMarkArrivalAtSite(mrn)}
+                              loading={loadingArrivalId === mrn.id}
+                              loadingText="Marking Arrival at Customer Site (GPS)..."
                               disabled={loadingArrivalId === mrn.id}
                               className="w-full bg-[#0B1E36] hover:bg-[#071424] text-white font-bold h-11 flex items-center justify-center gap-2 shadow"
                             >
-                              {loadingArrivalId === mrn.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <MapPin className="h-4 w-4 text-[#F26522]" />
-                              )}
+                              <MapPin className="h-4 w-4 text-[#F26522]" />
                               Mark Arrival at Customer Site (GPS)
                             </Button>
                           )}
@@ -1712,17 +1710,12 @@ export default function DeliveryPortalPage() {
               </Button>
               <Button
                 type="submit"
+                loading={submittingPickup}
+                loadingText="Confirming Pickup & Starting Transit..."
                 disabled={submittingPickup || uploadingPickupPhoto}
                 className="bg-[#F26522] hover:bg-[#EA580C] text-white font-bold"
               >
-                {submittingPickup ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                    Confirming Pickup...
-                  </>
-                ) : (
-                  "Confirm Material Pickup & Start Transit"
-                )}
+                Confirm Material Pickup & Start Transit
               </Button>
             </DialogFooter>
           </form>
@@ -1814,17 +1807,12 @@ export default function DeliveryPortalPage() {
               </Button>
               <Button
                 type="submit"
+                loading={submittingYardArrival}
+                loadingText="Confirming Yard Handover..."
                 disabled={submittingYardArrival}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
               >
-                {submittingYardArrival ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                    Confirming Yard Handover...
-                  </>
-                ) : (
-                  "Confirm Yard Arrival & Hand Over"
-                )}
+                Confirm Yard Arrival & Hand Over
               </Button>
             </DialogFooter>
           </form>

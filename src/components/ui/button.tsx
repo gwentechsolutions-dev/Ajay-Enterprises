@@ -92,6 +92,34 @@ function deriveLoadingText(text: string): string {
   return `${trimmed}...`;
 }
 
+function hasExistingSpinner(node: React.ReactNode): boolean {
+  if (!node) return false;
+  let hasSpinner = false;
+  React.Children.forEach(node, (child) => {
+    if (hasSpinner || !React.isValidElement(child)) return;
+    const type = child.type as any;
+    const typeName =
+      (typeof type === "function" ? type.displayName || type.name : "") ||
+      "";
+    const className = String((child.props as any)?.className || "");
+    if (
+      typeName.toLowerCase().includes("loader") ||
+      typeName.toLowerCase().includes("spinner") ||
+      className.includes("animate-spin")
+    ) {
+      hasSpinner = true;
+      return;
+    }
+    // Check nested children (e.g. in React.Fragment or wrapper span)
+    if ((child.props as any)?.children) {
+      if (hasExistingSpinner((child.props as any).children)) {
+        hasSpinner = true;
+      }
+    }
+  });
+  return hasSpinner;
+}
+
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
@@ -171,6 +199,9 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       );
     }
 
+    const shouldRenderButtonSpinner =
+      activeLoading && !hasExistingSpinner(displayContent);
+
     return (
       <button
         className={cn(buttonVariants({ variant, size, className }))}
@@ -181,7 +212,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         onClick={handleClick}
         {...props}
       >
-        {activeLoading && (
+        {shouldRenderButtonSpinner && (
           <Loader2 className="mr-2 h-4 w-4 animate-spin shrink-0 text-current" />
         )}
         {displayContent}
