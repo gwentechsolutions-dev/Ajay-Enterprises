@@ -122,7 +122,7 @@ export async function GET(req: NextRequest) {
       include: {
         customer: { select: { id: true, name: true, primaryMobile: true, whatsappNumber: true } },
         customerSite: { select: { id: true, siteName: true, fullAddress: true, siteContactDetails: true, siteInCharge: true, gpsLatitude: true, gpsLongitude: true } },
-        receivingWarehouse: { select: { id: true, name: true, addressLine1: true, city: true } },
+        receivingWarehouse: { select: { id: true, name: true, addressLine1: true, city: true, contactPerson: true, mobile: true } },
         referenceDeliveryNote: { select: { id: true, dnNumber: true } },
         vehicleTrip: {
           select: {
@@ -164,7 +164,7 @@ export async function GET(req: NextRequest) {
       include: {
         customer: { select: { id: true, name: true } },
         customerSite: { select: { id: true, siteName: true } },
-        receivingWarehouse: { select: { id: true, name: true } },
+        receivingWarehouse: { select: { id: true, name: true, contactPerson: true, mobile: true } },
         vehicleTrip: {
           select: {
             id: true,
@@ -181,6 +181,108 @@ export async function GET(req: NextRequest) {
       orderBy: { updatedAt: "desc" },
     });
 
+    // 5. Fetch Yard Receiving Personnel / Warehouse Staff from DB for automatic autofill
+    const [warehouseUsers, allWarehouses, recentReceivers] = await Promise.all([
+      db.user.findMany({
+        where: {
+          isActive: true,
+          role: { in: ["WAREHOUSE_MANAGER", "WAREHOUSE_STAFF", "ADMINISTRATOR", "OWNER"] },
+        },
+        select: {
+          id: true,
+          name: true,
+          role: true,
+          mobile: true,
+          warehouseId: true,
+          warehouse: { select: { id: true, name: true } },
+        },
+        orderBy: { name: "asc" },
+      }),
+      db.warehouse.findMany({
+        where: { isActive: true },
+        select: {
+          id: true,
+          name: true,
+          contactPerson: true,
+          mobile: true,
+          warehouseType: true,
+        },
+        orderBy: { name: "asc" },
+      }),
+      db.materialReturnNote.findMany({
+        where: { receiverName: { not: null } },
+        select: {
+          receiverName: true,
+          receiverDesignation: true,
+          receiverPhone: true,
+          receivingWarehouseId: true,
+        },
+        distinct: ["receiverName"],
+        orderBy: { updatedAt: "desc" },
+        take: 10,
+      }),
+    ]);
+
+    const receiversMap = new Map<string, {
+      id: string;
+      name: string;
+      designation: string;
+      phone: string;
+      warehouseId?: string | null;
+      warehouseName?: string | null;
+    }>();
+
+    const formatRole = (r: string) => {
+      switch (r) {
+        case "WAREHOUSE_MANAGER": return "Yard / Warehouse Manager";
+        case "WAREHOUSE_STAFF": return "Yard In-Charge / QC Staff";
+        case "OWNER": return "Proprietor / Yard Owner";
+        case "ADMINISTRATOR": return "Yard Administrator";
+        default: return "Yard In-Charge";
+      }
+    };
+
+    for (const u of warehouseUsers) {
+      if (u.name) {
+        receiversMap.set(u.name.toLowerCase().trim(), {
+          id: u.id,
+          name: u.name.trim(),
+          designation: formatRole(u.role),
+          phone: u.mobile || "",
+          warehouseId: u.warehouseId,
+          warehouseName: u.warehouse?.name || "",
+        });
+      }
+    }
+
+    for (const w of allWarehouses) {
+      if (w.contactPerson && !receiversMap.has(w.contactPerson.toLowerCase().trim())) {
+        receiversMap.set(w.contactPerson.toLowerCase().trim(), {
+          id: `wh-${w.id}`,
+          name: w.contactPerson.trim(),
+          designation: w.warehouseType === "MAIN_YARD" ? "Main Yard In-Charge" : "Yard In-Charge",
+          phone: w.mobile || "",
+          warehouseId: w.id,
+          warehouseName: w.name,
+        });
+      }
+    }
+
+    for (const r of recentReceivers) {
+      if (r.receiverName && !receiversMap.has(r.receiverName.toLowerCase().trim())) {
+        receiversMap.set(r.receiverName.toLowerCase().trim(), {
+          id: `mrn-${r.receiverName.toLowerCase().trim()}`,
+          name: r.receiverName.trim(),
+          designation: r.receiverDesignation || "Yard In-Charge",
+          phone: r.receiverPhone || "",
+          warehouseId: r.receivingWarehouseId,
+          warehouseName: "",
+        });
+      }
+    }
+
+    const yardReceivers = Array.from(receiversMap.values());
+
     return NextResponse.json({
       success: true,
       data: {
@@ -188,6 +290,7 @@ export async function GET(req: NextRequest) {
         completedToday,
         activePickups,
         completedPickupsToday,
+        yardReceivers,
         summary: {
           pendingCount: activeDeliveries.length + activePickups.length,
           pendingDeliveriesCount: activeDeliveries.length,

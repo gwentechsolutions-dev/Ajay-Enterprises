@@ -42,6 +42,8 @@ import { queueOfflineDraft, getOfflineQueue, syncPendingDrafts } from "@/lib/off
 import { stampGpsWatermarkOnPhoto } from "@/lib/gps-watermark";
 import { FormFieldError } from "@/components/ui/form-field-error";
 import { parseApiValidationErrors, formatValidationToast } from "@/lib/forms/validation-mapper";
+import { SearchableCombobox, ComboboxOption } from "@/components/ui/searchable-combobox";
+import { cn } from "@/lib/utils";
 
 // Responsive HTML5 Touch Signature Pad for Mobile Handover Acknowledgement
 function TouchSignaturePad({
@@ -515,16 +517,54 @@ export default function DeliveryPortalPage() {
   const openYardArrivalModal = (mrn: any) => {
     setSelectedYardMRN(mrn);
     const startOdo = mrn.vehicleTrip?.startOdometer ? Number(mrn.vehicleTrip.startOdometer) : 0;
+    const receivers: any[] = data?.yardReceivers || [];
+    const whId = mrn.receivingWarehouseId || mrn.receivingWarehouse?.id;
+    const whContact = mrn.receivingWarehouse?.contactPerson;
+
+    // Auto-match warehouse staff from database
+    const matched =
+      receivers.find((r) => whId && r.warehouseId === whId) ||
+      receivers.find((r) => whContact && r.name.toLowerCase() === whContact.toLowerCase()) ||
+      receivers[0] ||
+      null;
+
+    const defaultReceiverName =
+      matched?.name || mrn.receivingWarehouse?.contactPerson || "Yard Manager";
+    const defaultDesignation =
+      matched?.designation || "Yard In-Charge";
+    const defaultPhone =
+      matched?.phone || mrn.receivingWarehouse?.mobile || "";
+
     setYardArrivalForm({
       yardOdometer: startOdo > 0 ? startOdo + 15 : 0,
-      receiverName: "Yard Manager",
-      receiverDesignation: "Yard In-Charge",
-      receiverPhone: "",
+      receiverName: defaultReceiverName,
+      receiverDesignation: defaultDesignation,
+      receiverPhone: defaultPhone,
       remarks: `Materials from ${mrn.customerSite?.siteName} arrived at ${mrn.receivingWarehouse?.name || "Peenya Yard"} ready for physical QC inspection.`,
       gpsLatitude: 12.9716,
       gpsLongitude: 77.5946,
     });
     setIsYardModalOpen(true);
+  };
+
+  const handleSelectYardReceiver = (val: string) => {
+    const receivers: any[] = data?.yardReceivers || [];
+    const matched = receivers.find(
+      (r) => r.name.toLowerCase().trim() === val.toLowerCase().trim()
+    );
+    if (matched) {
+      setYardArrivalForm((prev) => ({
+        ...prev,
+        receiverName: matched.name,
+        receiverDesignation: matched.designation || prev.receiverDesignation,
+        receiverPhone: matched.phone || prev.receiverPhone,
+      }));
+    } else {
+      setYardArrivalForm((prev) => ({
+        ...prev,
+        receiverName: val,
+      }));
+    }
   };
 
   // Submit Delivery Note Handover
@@ -773,6 +813,20 @@ export default function DeliveryPortalPage() {
   const completedDeliveries = data?.completedToday || [];
   const pendingPickups = data?.activePickups || [];
   const completedPickups = data?.completedPickupsToday || [];
+  const yardReceivers: any[] = data?.yardReceivers || [];
+
+  const yardReceiverOptions: ComboboxOption[] = React.useMemo(() => {
+    return yardReceivers.map((r) => {
+      const isThisYard =
+        Boolean(selectedYardMRN?.receivingWarehouseId && r.warehouseId === selectedYardMRN.receivingWarehouseId);
+      return {
+        value: r.name,
+        label: r.name,
+        sublabel: `${r.designation}${r.phone ? ` • 📞 ${r.phone}` : ""}${r.warehouseName ? ` • ${r.warehouseName}` : ""}`,
+        badge: isThisYard ? "THIS YARD" : undefined,
+      };
+    });
+  }, [yardReceivers, selectedYardMRN]);
 
   return (
     <div className="space-y-4 max-w-lg mx-auto pb-16">
@@ -1747,7 +1801,7 @@ export default function DeliveryPortalPage() {
             </div>
 
             <div>
-              <Label className="text-xs font-semibold" required>Final Vehicle Odometer Reading (KM) *</Label>
+              <Label className="text-xs font-semibold" required>Final Vehicle Odometer Reading (KM)</Label>
               <Input
                 type="number"
                 min={0}
@@ -1762,14 +1816,58 @@ export default function DeliveryPortalPage() {
             </div>
 
             <div>
-              <Label className="text-xs font-semibold" required>Yard Receiving Employee Name *</Label>
-              <Input
+              <div className="flex items-center justify-between mb-1">
+                <Label className="text-xs font-semibold" required>
+                  Yard Receiving Employee Name
+                </Label>
+                <span className="text-[10px] text-slate-400 font-medium">
+                  Auto-populates designation & phone
+                </span>
+              </div>
+              <SearchableCombobox
+                options={yardReceiverOptions}
                 value={yardArrivalForm.receiverName}
-                maxLength={100}
-                onChange={(e) => setYardArrivalForm({ ...yardArrivalForm, receiverName: e.target.value })}
-                placeholder="Name of warehouse in-charge receiving the vehicle"
-                required
+                onChange={handleSelectYardReceiver}
+                allowCustomValue={true}
+                customBadge="CUSTOM"
+                placeholder="Select yard receiver from database..."
+                searchPlaceholder="Search staff by name, designation, yard or phone..."
+                className="w-full text-xs"
               />
+
+              {/* Quick Select Suggestion Pills */}
+              {yardReceivers.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                  <span className="text-[10px] text-slate-400 font-semibold">Quick Select:</span>
+                  {yardReceivers.slice(0, 4).map((r) => {
+                    const isSelected =
+                      yardArrivalForm.receiverName?.toLowerCase().trim() === r.name?.toLowerCase().trim();
+                    const isThisYard =
+                      Boolean(selectedYardMRN?.receivingWarehouseId && r.warehouseId === selectedYardMRN.receivingWarehouseId);
+
+                    return (
+                      <button
+                        key={r.name}
+                        type="button"
+                        onClick={() => handleSelectYardReceiver(r.name)}
+                        className={cn(
+                          "text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all flex items-center gap-1",
+                          isSelected
+                            ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                            : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300"
+                        )}
+                      >
+                        {r.name}
+                        {isThisYard && (
+                          <span className={cn("text-[9px] font-semibold", isSelected ? "text-emerald-200" : "text-emerald-700")}>
+                            (Yard)
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-2">
@@ -1778,6 +1876,7 @@ export default function DeliveryPortalPage() {
                 <Input
                   value={yardArrivalForm.receiverDesignation}
                   onChange={(e) => setYardArrivalForm({ ...yardArrivalForm, receiverDesignation: e.target.value })}
+                  placeholder="e.g. Yard In-Charge"
                 />
               </div>
 
@@ -1787,7 +1886,7 @@ export default function DeliveryPortalPage() {
                   type="tel"
                   value={yardArrivalForm.receiverPhone}
                   onChange={(e) => setYardArrivalForm({ ...yardArrivalForm, receiverPhone: e.target.value })}
-                  placeholder="Optional phone"
+                  placeholder="e.g. 9845011113"
                 />
               </div>
             </div>
