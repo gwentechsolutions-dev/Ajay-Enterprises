@@ -16,6 +16,7 @@ import {
   FolderPlus,
   FilePlus,
   Loader2,
+  FileSpreadsheet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TableSkeleton } from "@/components/ui/loading-states";
@@ -32,6 +33,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
+import { BulkMaterialImportModal } from "@/components/materials/bulk-material-import-modal";
 import { toast } from "sonner";
 
 export default function MaterialsPage() {
@@ -53,6 +55,7 @@ export default function MaterialsPage() {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = React.useState(false);
   const [isTypeModalOpen, setIsTypeModalOpen] = React.useState(false);
   const [isVariantModalOpen, setIsVariantModalOpen] = React.useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = React.useState(false);
   const [isRateModalOpen, setIsRateModalOpen] = React.useState(false);
   const [activeVariantForRate, setActiveVariantForRate] = React.useState<any | null>(null);
   const [rateHistoryList, setRateHistoryList] = React.useState<any[]>([]);
@@ -342,6 +345,16 @@ export default function MaterialsPage() {
             className="text-xs border-slate-300"
           >
             <FilePlus className="h-3.5 w-3.5 mr-1.5" /> Type
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsImportModalOpen(true)}
+            className="border-blue-300 bg-blue-50/50 hover:bg-blue-100/60 text-blue-900 text-xs font-semibold"
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5 mr-1.5 text-blue-600" />
+            Import Materials
           </Button>
 
           <Button
@@ -952,6 +965,13 @@ export default function MaterialsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Material Import Modal */}
+      <BulkMaterialImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={fetchData}
+      />
     </div>
   );
 }
