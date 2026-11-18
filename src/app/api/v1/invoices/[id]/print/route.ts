@@ -152,8 +152,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   <meta name="twitter:description" content="Official Tax Invoice for ${invoice.customer?.name || "Customer"} — AJAY ENTERPRISES">
   <meta name="twitter:image" content="${ogImageUrl}">
   <style>
-    @page { size: A4 portrait; margin: 10mm; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 11px; color: #0f172a; margin: 0; padding: 15px; }
+    @page { size: A4 portrait; margin: 10mm 12mm; }
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 11px; color: #0f172a; margin: 0; padding: 0; }
     .header { border-bottom: 2px solid #0B1E36; padding-bottom: 10px; margin-bottom: 12px; display: flex; justify-content: space-between; }
     .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; background: #e2e8f0; }
     .status-paid { background: #dcfce7; color: #15803d; }
@@ -180,8 +181,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     .footer { margin-top: 25px; display: flex; justify-content: space-between; padding-top: 15px; border-top: 1px solid #e2e8f0; }
     .sig-box { width: 200px; text-align: center; border-top: 1px dashed #94a3b8; padding-top: 6px; font-size: 10px; }
     @media print {
-      .no-print { display: none; }
-      body { padding: 0; }
+      .no-print { display: none !important; }
+      body { padding: 0 !important; background: transparent !important; }
+      .sheet-container { box-shadow: none !important; margin: 0 !important; max-width: 100% !important; border: none !important; padding: 0 !important; }
       .table-main th {
         background: #0B1E36 !important;
         color: white !important;
@@ -189,15 +191,33 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         print-color-adjust: exact !important;
       }
     }
+    @media screen {
+      body { background-color: #f1f5f9; padding-bottom: 40px; }
+      .sheet-container { background: #ffffff; max-width: 210mm; min-height: 297mm; margin: 16px auto; padding: 14mm 16mm; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border-radius: 6px; border: 1px solid #cbd5e1; }
+    }
   </style>
 </head>
 <body>
 
-  <div class="no-print" style="margin-bottom: 15px; display: flex; gap: 10px;">
-    <button onclick="window.print()" style="padding: 6px 14px; background: #F26522; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">
-      Print / Save as PDF
-    </button>
+  <!-- Screen Top Bar with Print Controls (Completely Hidden on Print / PDF export) -->
+  <div class="no-print" style="position: sticky; top: 0; background: #0B1E36; color: white; padding: 10px 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.25); z-index: 9999; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="font-weight: 700; font-size: 14px; letter-spacing: -0.2px;">Tax Invoice</span>
+      <span style="font-family: monospace; font-size: 13px; color: #94a3b8;">${invoice.invoiceNumber}</span>
+      <span class="badge ${invoice.paymentStatus === "PAID" ? "status-paid" : "status-unpaid"}" style="font-size: 10px;">${invoice.paymentStatus}</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <button onclick="window.print()" style="background: #F26522; color: #ffffff; border: none; padding: 7px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+        Print / Save as PDF
+      </button>
+      <button onclick="window.close()" style="background: rgba(255,255,255,0.1); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.2); padding: 7px 14px; border-radius: 6px; font-size: 13px; cursor: pointer;">
+        Close
+      </button>
+    </div>
   </div>
+
+  <div class="sheet-container">
 
   <div class="header">
     <div>
@@ -291,6 +311,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     </div>
   </div>
 
+  </div> <!-- Close sheet-container -->
 </body>
 </html>`;
 

@@ -159,7 +159,7 @@ export function generatePrintableHtml<T extends Record<string, any>>(
     .footer { margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 8px; font-size: 10px; color: #94a3b8; display: flex; justify-content: space-between; }
     @media print {
       body { margin: 0; }
-      .no-print { display: none; }
+      .no-print { display: none !important; }
     }
   </style>
 </head>
