@@ -278,82 +278,92 @@ export async function POST(req: NextRequest) {
 
     const invoiceNumber = await generateNextDocumentNumber("INV_RENTAL");
 
-    const createdInvoice = await db.$transaction(async (tx) => {
-      // Create Invoice
-      const inv = await tx.invoice.create({
-        data: {
-          invoiceNumber,
-          invoiceType: "RENTAL",
-          customerId: statement.customerId,
-          customerSiteId: statement.customerSiteId || null,
-          rentalStatementId: statement.id,
-          invoiceDate,
-          dueDate,
-          fiscalYear,
-          placeOfSupply,
-          isInterState,
-          customerGstin: statement.customer.gstin || null,
-          customerPan: statement.customer.pan || null,
-          subtotal,
-          taxableAmount: subtotal,
-          cgstAmount: totalCgst,
-          sgstAmount: totalSgst,
-          igstAmount: totalIgst,
-          totalTaxAmount: totalTax,
-          roundOff: roundOffAmount,
-          grandTotal: roundedTotal,
-          paidAmount: new Prisma.Decimal(0),
-          outstandingAmount: roundedTotal,
-          paymentStatus: "UNPAID",
-          status: "POSTED",
-          notes: notes || `Generated from Statement ${statement.statementNumber}`,
-          createdById: actor.id,
-          postedById: actor.id,
-          postedAt: new Date(),
-          items: {
-            create: invoiceItemsData,
-          },
-        },
-      });
+    // Pre-resolve all required Chart of Accounts OUTSIDE the transaction.
+    // This avoids exhausting Prisma's interactive transaction timeout during network latency or initial account seeding.
+    const [arAccount, rentalIncomeAcc, cgstAccount, sgstAccount, igstAccount] = await Promise.all([
+      getSystemAccount("1030"),
+      getSystemAccount("4010"),
+      getSystemAccount("2041"),
+      getSystemAccount("2042"),
+      getSystemAccount("2043"),
+    ]);
 
-      // Post Double-Entry Journal to General Ledger
-      const arAccount = await getSystemAccount("1030", tx);
-      const rentalIncomeAcc = await getSystemAccount("4010", tx);
-      const cgstAccount = await getSystemAccount("2041", tx);
-      const sgstAccount = await getSystemAccount("2042", tx);
-      const igstAccount = await getSystemAccount("2043", tx);
-
-      let transportIncomeAcc: any = null;
-      if (transportDecimal.gt(0)) {
-        try {
-          transportIncomeAcc = await resolveAccountByRole("TRANSPORT_INCOME", tx);
-        } catch {
-          transportIncomeAcc = (await getSystemAccount("4050", tx)) || (await getSystemAccount("4030", tx));
-        }
+    let transportIncomeAcc: any = null;
+    if (transportDecimal.gt(0)) {
+      try {
+        transportIncomeAcc = await resolveAccountByRole("TRANSPORT_INCOME");
+      } catch {
+        transportIncomeAcc = (await getSystemAccount("4050")) || (await getSystemAccount("4030"));
       }
+    }
 
-      const rentalIncomeCredit = transportDecimal.gt(0) && transportIncomeAcc
-        ? subtotal.minus(transportDecimal)
-        : subtotal;
+    let otherExpense: any = null;
+    if (!roundOffAmount.isZero()) {
+      otherExpense = await getSystemAccount("5060");
+    }
 
-      const journalLines = [
-        {
-          accountId: arAccount!.id,
-          description: `Rental Invoice ${invoiceNumber} - Receivable from ${statement.customer.name}`,
-          debitAmount: roundedTotal,
-          creditAmount: new Prisma.Decimal(0),
-          customerId: statement.customerId,
-          customerSiteId: statement.customerSiteId || null,
-        },
-        {
-          accountId: rentalIncomeAcc!.id,
-          description: `Rental Income for ${invoiceNumber}`,
-          debitAmount: new Prisma.Decimal(0),
-          creditAmount: rentalIncomeCredit,
-          customerId: statement.customerId,
-          customerSiteId: statement.customerSiteId || null,
-        },
-      ];
+    const rentalIncomeCredit = transportDecimal.gt(0) && transportIncomeAcc
+      ? subtotal.minus(transportDecimal)
+      : subtotal;
+
+    const createdInvoice = await db.$transaction(
+      async (tx) => {
+        // Create Invoice
+        const inv = await tx.invoice.create({
+          data: {
+            invoiceNumber,
+            invoiceType: "RENTAL",
+            customerId: statement.customerId,
+            customerSiteId: statement.customerSiteId || null,
+            rentalStatementId: statement.id,
+            invoiceDate,
+            dueDate,
+            fiscalYear,
+            placeOfSupply,
+            isInterState,
+            customerGstin: statement.customer.gstin || null,
+            customerPan: statement.customer.pan || null,
+            subtotal,
+            taxableAmount: subtotal,
+            cgstAmount: totalCgst,
+            sgstAmount: totalSgst,
+            igstAmount: totalIgst,
+            totalTaxAmount: totalTax,
+            roundOff: roundOffAmount,
+            grandTotal: roundedTotal,
+            paidAmount: new Prisma.Decimal(0),
+            outstandingAmount: roundedTotal,
+            paymentStatus: "UNPAID",
+            status: "POSTED",
+            notes: notes || `Generated from Statement ${statement.statementNumber}`,
+            createdById: actor.id,
+            postedById: actor.id,
+            postedAt: new Date(),
+            items: {
+              create: invoiceItemsData,
+            },
+          },
+        });
+
+        // Build Double-Entry Journal Lines
+        const journalLines = [
+          {
+            accountId: arAccount!.id,
+            description: `Rental Invoice ${invoiceNumber} - Receivable from ${statement.customer.name}`,
+            debitAmount: roundedTotal,
+            creditAmount: new Prisma.Decimal(0),
+            customerId: statement.customerId,
+            customerSiteId: statement.customerSiteId || null,
+          },
+          {
+            accountId: rentalIncomeAcc!.id,
+            description: `Rental Income for ${invoiceNumber}`,
+            debitAmount: new Prisma.Decimal(0),
+            creditAmount: rentalIncomeCredit,
+            customerId: statement.customerId,
+            customerSiteId: statement.customerSiteId || null,
+          },
+        ];
 
       if (transportDecimal.gt(0) && transportIncomeAcc) {
         journalLines.push({
@@ -397,17 +407,16 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      if (!roundOffAmount.isZero()) {
-        const otherExpense = await getSystemAccount("5060", tx);
-        journalLines.push({
-          accountId: otherExpense!.id,
-          description: `Round off on ${invoiceNumber}`,
-          debitAmount: roundOffAmount.lt(0) ? roundOffAmount.abs() : new Prisma.Decimal(0),
-          creditAmount: roundOffAmount.gt(0) ? roundOffAmount.abs() : new Prisma.Decimal(0),
-          customerId: statement.customerId,
-          customerSiteId: statement.customerSiteId || null,
-        });
-      }
+        if (!roundOffAmount.isZero() && otherExpense) {
+          journalLines.push({
+            accountId: otherExpense.id,
+            description: `Round off on ${invoiceNumber}`,
+            debitAmount: roundOffAmount.lt(0) ? roundOffAmount.abs() : new Prisma.Decimal(0),
+            creditAmount: roundOffAmount.gt(0) ? roundOffAmount.abs() : new Prisma.Decimal(0),
+            customerId: statement.customerId,
+            customerSiteId: statement.customerSiteId || null,
+          });
+        }
 
       const journal = await postJournalEntry(
         {
@@ -526,7 +535,8 @@ export async function POST(req: NextRequest) {
       }
 
       return inv;
-    });
+    },
+    { maxWait: 15000, timeout: 30000 });
 
     return NextResponse.json(
       {

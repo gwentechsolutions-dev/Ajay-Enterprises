@@ -120,75 +120,83 @@ export async function POST(req: NextRequest) {
     const docPrefix = input.invoiceType === "RENTAL" ? "INV_RENTAL" : input.invoiceType === "SALES" ? "SALES_INV" : "SERVICE_INV";
     const invoiceNumber = input.invoiceNumber || (await generateNextDocumentNumber(docPrefix as any));
 
-    const invoice = await db.$transaction(async (tx) => {
-      // 1. Create Invoice Header & Lines
-      const inv = await tx.invoice.create({
-        data: {
-          invoiceNumber,
-          invoiceType: input.invoiceType,
-          customerId: input.customerId,
-          customerSiteId: input.customerSiteId || null,
-          rentalStatementId: input.rentalStatementId || null,
-          invoiceDate,
-          dueDate,
-          fiscalYear,
-          placeOfSupply: input.placeOfSupply,
-          isInterState: input.placeOfSupply !== "33",
-          customerGstin: input.customerGstin || null,
-          customerPan: input.customerPan || null,
-          billingAddress: input.billingAddress || null,
-          shippingAddress: input.shippingAddress || null,
-          subtotal,
-          taxableAmount: subtotal,
-          cgstAmount: totalCgst,
-          sgstAmount: totalSgst,
-          igstAmount: totalIgst,
-          totalTaxAmount: totalTax,
-          roundOff: roundOffAmount,
-          grandTotal: roundedTotal,
-          paidAmount: new Prisma.Decimal(0),
-          outstandingAmount: roundedTotal,
-          paymentStatus: "UNPAID",
-          status: "POSTED",
-          notes: input.notes || null,
-          termsAndConditions: input.termsAndConditions || null,
-          createdById: actor.id,
-          postedById: actor.id,
-          postedAt: new Date(),
-          items: {
-            create: processedItems,
+    // Pre-resolve Control Accounts outside the transaction to prevent Prisma transaction timeout
+    const [arAccount, incomeAccount, cgstAccount, sgstAccount, igstAccount] = await Promise.all([
+      getSystemAccount("1030"),
+      getSystemAccount(input.invoiceType === "RENTAL" ? "4010" : "4020"),
+      getSystemAccount("2041"),
+      getSystemAccount("2042"),
+      getSystemAccount("2043"),
+    ]);
+
+    let otherExpense: any = null;
+    if (!roundOffAmount.isZero()) {
+      otherExpense = await getSystemAccount("5060");
+    }
+
+    const invoice = await db.$transaction(
+      async (tx) => {
+        // 1. Create Invoice Header & Lines
+        const inv = await tx.invoice.create({
+          data: {
+            invoiceNumber,
+            invoiceType: input.invoiceType,
+            customerId: input.customerId,
+            customerSiteId: input.customerSiteId || null,
+            rentalStatementId: input.rentalStatementId || null,
+            invoiceDate,
+            dueDate,
+            fiscalYear,
+            placeOfSupply: input.placeOfSupply,
+            isInterState: input.placeOfSupply !== "33",
+            customerGstin: input.customerGstin || null,
+            customerPan: input.customerPan || null,
+            billingAddress: input.billingAddress || null,
+            shippingAddress: input.shippingAddress || null,
+            subtotal,
+            taxableAmount: subtotal,
+            cgstAmount: totalCgst,
+            sgstAmount: totalSgst,
+            igstAmount: totalIgst,
+            totalTaxAmount: totalTax,
+            roundOff: roundOffAmount,
+            grandTotal: roundedTotal,
+            paidAmount: new Prisma.Decimal(0),
+            outstandingAmount: roundedTotal,
+            paymentStatus: "UNPAID",
+            status: "POSTED",
+            notes: input.notes || null,
+            termsAndConditions: input.termsAndConditions || null,
+            createdById: actor.id,
+            postedById: actor.id,
+            postedAt: new Date(),
+            items: {
+              create: processedItems,
+            },
           },
-        },
-      });
+        });
 
-      // 2. Fetch Control Accounts for General Ledger Posting
-      const arAccount = await getSystemAccount("1030", tx); // Debtors Control
-      const incomeAccount = await getSystemAccount(input.invoiceType === "RENTAL" ? "4010" : "4020", tx);
-      const cgstAccount = await getSystemAccount("2041", tx);
-      const sgstAccount = await getSystemAccount("2042", tx);
-      const igstAccount = await getSystemAccount("2043", tx);
-
-      // 3. Build Balanced Double-Entry Journal Lines
-      const journalLines = [
-        // Dr: Accounts Receivable (Grand Total)
-        {
-          accountId: arAccount!.id,
-          description: `Invoice ${invoiceNumber} - Receivable from customer`,
-          debitAmount: roundedTotal,
-          creditAmount: new Prisma.Decimal(0),
-          customerId: input.customerId,
-          customerSiteId: input.customerSiteId || null,
-        },
-        // Cr: Revenue / Income (Taxable Subtotal)
-        {
-          accountId: incomeAccount!.id,
-          description: `Revenue for Invoice ${invoiceNumber}`,
-          debitAmount: new Prisma.Decimal(0),
-          creditAmount: subtotal,
-          customerId: input.customerId,
-          customerSiteId: input.customerSiteId || null,
-        },
-      ];
+        // 2. Build Balanced Double-Entry Journal Lines
+        const journalLines = [
+          // Dr: Accounts Receivable (Grand Total)
+          {
+            accountId: arAccount!.id,
+            description: `Invoice ${invoiceNumber} - Receivable from customer`,
+            debitAmount: roundedTotal,
+            creditAmount: new Prisma.Decimal(0),
+            customerId: input.customerId,
+            customerSiteId: input.customerSiteId || null,
+          },
+          // Cr: Revenue / Income (Taxable Subtotal)
+          {
+            accountId: incomeAccount!.id,
+            description: `Revenue for Invoice ${invoiceNumber}`,
+            debitAmount: new Prisma.Decimal(0),
+            creditAmount: subtotal,
+            customerId: input.customerId,
+            customerSiteId: input.customerSiteId || null,
+          },
+        ];
 
       // Cr: CGST Output Liability
       if (totalCgst.gt(0)) {
@@ -227,12 +235,11 @@ export async function POST(req: NextRequest) {
       }
 
       // Handle roundOff line if non-zero
-      if (!roundOffAmount.isZero()) {
-        const otherExpense = await getSystemAccount("5060", tx);
+      if (!roundOffAmount.isZero() && otherExpense) {
         if (roundOffAmount.gt(0)) {
           // Rounded up: Extra income / credit
           journalLines.push({
-            accountId: otherExpense!.id,
+            accountId: otherExpense.id,
             description: `Round off adjustment on ${invoiceNumber}`,
             debitAmount: new Prisma.Decimal(0),
             creditAmount: roundOffAmount.abs(),
@@ -242,7 +249,7 @@ export async function POST(req: NextRequest) {
         } else {
           // Rounded down: Expense / debit
           journalLines.push({
-            accountId: otherExpense!.id,
+            accountId: otherExpense.id,
             description: `Round off adjustment on ${invoiceNumber}`,
             debitAmount: roundOffAmount.abs(),
             creditAmount: new Prisma.Decimal(0),
@@ -285,7 +292,8 @@ export async function POST(req: NextRequest) {
       });
 
       return inv;
-    });
+    },
+    { maxWait: 15000, timeout: 30000 });
 
     return NextResponse.json(
       {

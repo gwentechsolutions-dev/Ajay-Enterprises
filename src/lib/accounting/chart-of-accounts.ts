@@ -380,38 +380,40 @@ export const DEFAULT_CHART_OF_ACCOUNTS: DefaultAccountSpec[] = [
 ];
 
 /**
- * Seeds or synchronizes the default Chart of Accounts idempotently.
+ * Seeds or synchronizes the default Chart of Accounts idempotently and in batch.
  */
 export async function seedDefaultChartOfAccounts(tx?: Prisma.TransactionClient) {
   const runner = tx || db;
-  const created: string[] = [];
 
-  for (const item of DEFAULT_CHART_OF_ACCOUNTS) {
-    const existing = await runner.chartOfAccount.findUnique({
-      where: { accountCode: item.accountCode },
-    });
+  // 1. Fetch all existing account codes in one fast query
+  const existing = await runner.chartOfAccount.findMany({
+    select: { accountCode: true },
+  });
+  const existingSet = new Set(existing.map((a) => a.accountCode));
 
-    if (!existing) {
-      await runner.chartOfAccount.create({
-        data: {
-          accountCode: item.accountCode,
-          accountName: item.accountName,
-          accountCategory: item.accountCategory,
-          accountSubcategory: item.accountSubcategory,
-          openingBalanceType: item.openingBalanceType,
-          openingBalance: new Prisma.Decimal(0),
-          currentBalance: new Prisma.Decimal(0),
-          isControlAccount: item.isControlAccount,
-          isSystemProtected: item.isSystemProtected,
-          notes: item.notes,
-        },
-      });
-      created.push(item.accountCode);
-    }
-    // Existing accounts are preserved and never overwritten or renamed
+  const missing = DEFAULT_CHART_OF_ACCOUNTS.filter((item) => !existingSet.has(item.accountCode));
+  if (missing.length === 0) {
+    return { seededCount: 0, createdCodes: [] };
   }
 
-  return { seededCount: created.length, createdCodes: created };
+  // 2. Batch insert missing accounts with skipDuplicates
+  await runner.chartOfAccount.createMany({
+    data: missing.map((item) => ({
+      accountCode: item.accountCode,
+      accountName: item.accountName,
+      accountCategory: item.accountCategory,
+      accountSubcategory: item.accountSubcategory,
+      openingBalanceType: item.openingBalanceType,
+      openingBalance: new Prisma.Decimal(0),
+      currentBalance: new Prisma.Decimal(0),
+      isControlAccount: item.isControlAccount,
+      isSystemProtected: item.isSystemProtected,
+      notes: item.notes,
+    })),
+    skipDuplicates: true,
+  });
+
+  return { seededCount: missing.length, createdCodes: missing.map((m) => m.accountCode) };
 }
 
 /**

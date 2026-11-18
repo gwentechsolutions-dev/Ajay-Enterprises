@@ -163,11 +163,15 @@ export async function postJournalEntry(
     },
   });
 
-  // 6. Update running account balances
+  // 6. Update running account balances in optimized batch
+  const accountIds = Array.from(new Set(parsedLines.map((l) => l.accountId)));
+  const accounts = await runner.chartOfAccount.findMany({
+    where: { id: { in: accountIds } },
+  });
+  const accountMap = new Map(accounts.map((a) => [a.id, a]));
+
   for (const line of parsedLines) {
-    const acc = await runner.chartOfAccount.findUnique({
-      where: { id: line.accountId },
-    });
+    const acc = accountMap.get(line.accountId);
     if (acc) {
       const newBal = updateAccountBalanceFormula(
         acc.accountCategory,
@@ -175,6 +179,8 @@ export async function postJournalEntry(
         line.debitAmount,
         line.creditAmount
       );
+      // update map state for any duplicate account occurrences in the same journal
+      acc.currentBalance = newBal;
       await runner.chartOfAccount.update({
         where: { id: acc.id },
         data: { currentBalance: newBal },
