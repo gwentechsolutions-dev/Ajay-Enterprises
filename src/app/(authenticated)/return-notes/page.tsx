@@ -1334,11 +1334,13 @@ export default function MaterialReturnsPage() {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-12 gap-2.5 items-end">
-                    <div className="col-span-12 md:col-span-5">
-                      <Label className="text-[10px] text-slate-500 uppercase font-bold">
-                        Material Variant *
-                      </Label>
+                  <div className="flex flex-col md:flex-row items-stretch md:items-end gap-2.5">
+                    <div className="flex-1 min-w-[180px]">
+                      <div className="h-4 mb-1 flex items-center">
+                        <Label className="text-[10px] text-slate-500 uppercase font-bold whitespace-nowrap">
+                          Material Variant *
+                        </Label>
+                      </div>
                       <SearchableCombobox
                         options={variants.map((v) => ({
                           value: v.id,
@@ -1363,9 +1365,9 @@ export default function MaterialReturnsPage() {
                       />
                     </div>
 
-                    <div className="col-span-4 md:col-span-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-[10px] text-slate-500 uppercase font-bold">
+                    <div className="w-full md:w-28 shrink-0">
+                      <div className="h-4 mb-1 flex items-center justify-between">
+                        <Label className="text-[10px] text-slate-500 uppercase font-bold whitespace-nowrap">
                           Returned Qty *
                         </Label>
                         {item.heldQty !== undefined && item.heldQty > 0 && item.returnedQty !== item.heldQty && (
@@ -1377,7 +1379,7 @@ export default function MaterialReturnsPage() {
                               updated[idx].acceptedQty = Math.max(0, item.heldQty! - (updated[idx].damagedQty || 0));
                               setMrnForm({ ...mrnForm, items: updated });
                             }}
-                            className="text-[10px] text-[#F26522] hover:underline font-medium"
+                            className="text-[10px] text-[#F26522] hover:underline font-medium whitespace-nowrap ml-1"
                             title="Fill maximum quantity held on site"
                           >
                             Fill Max
@@ -1396,18 +1398,21 @@ export default function MaterialReturnsPage() {
                           updated[idx].acceptedQty = Math.max(0, val - (updated[idx].damagedQty || 0));
                           setMrnForm({ ...mrnForm, items: updated });
                         }}
+                        className="text-sm font-semibold"
                       />
                       {item.heldQty !== undefined && item.heldQty > 0 && item.returnedQty > item.heldQty && (
-                        <p className="text-[10px] text-amber-600 mt-0.5 leading-tight">
-                          ⚠ Exceeds site stock ({item.heldQty})
+                        <p className="text-[10px] text-amber-600 mt-0.5 leading-tight truncate">
+                          ⚠ Exceeds ({item.heldQty})
                         </p>
                       )}
                     </div>
 
-                    <div className="col-span-4 md:col-span-2">
-                      <Label className="text-[10px] text-emerald-600 uppercase font-bold">
-                        Accepted (Good)
-                      </Label>
+                    <div className="w-full md:w-28 shrink-0">
+                      <div className="h-4 mb-1 flex items-center">
+                        <Label className="text-[10px] text-emerald-600 uppercase font-bold whitespace-nowrap">
+                          Accepted (Good)
+                        </Label>
+                      </div>
                       <Input
                         type="number"
                         step="any"
@@ -1419,11 +1424,16 @@ export default function MaterialReturnsPage() {
                           updated[idx].acceptedQty = val;
                           setMrnForm({ ...mrnForm, items: updated });
                         }}
+                        className="text-sm font-bold text-emerald-700 bg-emerald-50/30 border-emerald-300"
                       />
                     </div>
 
-                    <div className="col-span-3 md:col-span-2">
-                      <Label className="text-[10px] text-amber-600 uppercase font-bold">Damaged</Label>
+                    <div className="w-full md:w-24 shrink-0">
+                      <div className="h-4 mb-1 flex items-center">
+                        <Label className="text-[10px] text-amber-600 uppercase font-bold whitespace-nowrap">
+                          Damaged
+                        </Label>
+                      </div>
                       <Input
                         type="number"
                         step="any"
@@ -1436,11 +1446,16 @@ export default function MaterialReturnsPage() {
                           updated[idx].acceptedQty = Math.max(0, updated[idx].returnedQty - dmg - (updated[idx].missingQty || 0));
                           setMrnForm({ ...mrnForm, items: updated });
                         }}
+                        className="text-sm font-semibold text-amber-700 bg-amber-50/30 border-amber-300"
                       />
                     </div>
 
-                    <div className="col-span-3 md:col-span-2">
-                      <Label className="text-[10px] text-red-600 uppercase font-bold">Missing</Label>
+                    <div className="w-full md:w-24 shrink-0">
+                      <div className="h-4 mb-1 flex items-center">
+                        <Label className="text-[10px] text-red-600 uppercase font-bold whitespace-nowrap">
+                          Missing
+                        </Label>
+                      </div>
                       <Input
                         type="number"
                         step="any"
@@ -1453,16 +1468,17 @@ export default function MaterialReturnsPage() {
                           updated[idx].acceptedQty = Math.max(0, updated[idx].returnedQty - (updated[idx].damagedQty || 0) - mis);
                           setMrnForm({ ...mrnForm, items: updated });
                         }}
+                        className="text-sm font-semibold text-red-700 bg-red-50/30 border-red-300"
                       />
                     </div>
 
-                    <div className="col-span-1 flex justify-center">
+                    <div className="shrink-0 flex items-center justify-end md:justify-center md:pb-0.5">
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
                         onClick={() => handleRemoveLine(idx)}
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50 h-9 w-9 p-0"
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50 h-10 w-10 p-0"
                         title="Remove material from this return note"
                       >
                         <Trash2 className="h-4 w-4" />
