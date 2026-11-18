@@ -7,6 +7,7 @@ import { generateNextDocumentNumber } from "@/lib/document-series";
 import { logAuditEvent } from "@/lib/audit";
 import { createDeliveryNoteSchema } from "@/lib/schemas/delivery-note";
 import { validationErrorResponse } from "@/lib/api-validation";
+import { createRentalAgreementFromOrder } from "@/lib/rentals/agreement-service";
 
 export async function GET(req: NextRequest) {
   try {
@@ -47,6 +48,7 @@ export async function GET(req: NextRequest) {
         customerSite: { select: { id: true, siteName: true, siteCode: true, fullAddress: true, siteContactDetails: true, siteOwnerContact: true, siteInCharge: true } },
         sourceWarehouse: { select: { id: true, name: true, warehouseCode: true } },
         contactPerson: { select: { id: true, name: true, mobile: true, designation: true } },
+        rentalAgreement: { select: { id: true, agreementNumber: true, status: true, whatsAppStatus: true, version: true } },
         items: {
           include: {
             materialVariant: { select: { id: true, name: true, size: true, materialCode: true, uom: true } },
@@ -88,12 +90,64 @@ export async function POST(req: NextRequest) {
     const input = parsed.data;
     const dnNumber = input.dnNumber || (await generateNextDocumentNumber("DN"));
 
+    // Auto-link or auto-generate Rental Agreement for this delivery / order
+    let agreementId = input.rentalAgreementId || null;
+    if (!agreementId) {
+      const activeAgr = await db.rentalAgreement.findFirst({
+        where: {
+          customerId: input.customerId,
+          customerSiteId: input.customerSiteId,
+          status: { in: ["ACTIVE", "APPROVED", "GENERATED", "PENDING_WHATSAPP", "SENT", "DELIVERED", "ACKNOWLEDGED"] },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (activeAgr) {
+        agreementId = activeAgr.id;
+      } else if (input.autoGenerateAgreement !== false) {
+        try {
+          const actor = {
+            id: session!.id,
+            name: session!.name,
+            role: session!.role,
+            ipAddress: req.headers.get("x-forwarded-for") || undefined,
+          };
+          const host =
+            req.headers.get("x-forwarded-host") ||
+            req.headers.get("host") ||
+            "ajay-enterprises-gwen-tech.vercel.app";
+          const proto = req.headers.get("x-forwarded-proto") || "https";
+          const origin = `${proto}://${host}`;
+
+          const generatedAgr = await createRentalAgreementFromOrder(
+            {
+              customerId: input.customerId,
+              customerSiteId: input.customerSiteId,
+              startDate: input.deliveryDate ? new Date(input.deliveryDate) : new Date(),
+              orderReference: dnNumber,
+              items: input.items.map((it) => ({
+                materialVariantId: it.materialVariantId,
+                quantity: it.quantity,
+                agreedDailyRate: it.dailyRate ? Number(it.dailyRate) : 0,
+              })),
+            },
+            actor,
+            origin
+          );
+          agreementId = generatedAgr.agreement.id;
+        } catch (agrErr: any) {
+          console.warn("Failed to auto-generate rental agreement for DN:", agrErr.message);
+        }
+      }
+    }
+
     const dn = await db.deliveryNote.create({
       data: {
         dnNumber,
         customerId: input.customerId,
         customerSiteId: input.customerSiteId,
         sourceWarehouseId: input.sourceWarehouseId,
+        rentalAgreementId: agreementId,
         deliveryDate: input.deliveryDate ? new Date(input.deliveryDate) : new Date(),
         status: "DRAFT",
         driverName: input.driverName,
@@ -119,6 +173,7 @@ export async function POST(req: NextRequest) {
         items: true,
         customer: true,
         customerSite: true,
+        rentalAgreement: { select: { id: true, agreementNumber: true, status: true, whatsAppStatus: true, version: true } },
       },
     });
 

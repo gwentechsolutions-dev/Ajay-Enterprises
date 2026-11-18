@@ -30,6 +30,8 @@ export const createDeliveryNoteSchema = z.object({
   transportMode: z.string().default("COMPANY_VEHICLE"),
   eWayBillNumber: z.string().optional().nullable(),
   contactPersonId: z.string().uuid().optional().nullable().or(z.literal("")),
+  rentalAgreementId: z.string().uuid().optional().nullable().or(z.literal("")),
+  autoGenerateAgreement: z.boolean().default(true),
   notes: z.string().optional().nullable(),
   transportCharges: z.coerce.number().min(0, "Transport charges cannot be negative").optional().nullable(),
   items: z.array(deliveryNoteItemSchema).min(1, "At least one material item is required"),

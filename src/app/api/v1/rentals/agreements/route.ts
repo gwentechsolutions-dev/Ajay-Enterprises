@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
-import { generateNextDocumentNumber } from "@/lib/document-series";
-import { logAuditEvent } from "@/lib/audit";
 import { createRentalAgreementSchema } from "@/lib/schemas/rental";
 import { validationErrorResponse } from "@/lib/api-validation";
+import { createRentalAgreementFromOrder } from "@/lib/rentals/agreement-service";
 
 export async function GET(req: NextRequest) {
   try {
@@ -22,18 +20,18 @@ export async function GET(req: NextRequest) {
       where: {
         customerId,
         customerSiteId,
-        status,
+        status: status === "ALL" ? undefined : status,
       },
       include: {
-        customer: { select: { id: true, name: true, customerCode: true } },
-        customerSite: { select: { id: true, siteName: true, siteCode: true } },
+        customer: { select: { id: true, name: true, customerCode: true, primaryMobile: true, whatsappNumber: true } },
+        customerSite: { select: { id: true, siteName: true, siteCode: true, fullAddress: true, siteInCharge: true, siteContactDetails: true } },
         items: {
           include: {
-            materialVariant: { select: { id: true, name: true, materialCode: true, uom: true } },
+            materialVariant: { select: { id: true, name: true, materialCode: true, size: true, uom: true } },
           },
         },
         _count: {
-          select: { deposits: true, statements: true },
+          select: { deposits: true, statements: true, deliveryNotes: true, rentalBatches: true },
         },
       },
       orderBy: { createdAt: "desc" },
@@ -41,7 +39,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ success: true, data: agreements });
   } catch (error: any) {
-    const status = error.message.startsWith("UNAUTHORIZED") ? 401 : error.message.startsWith("FORBIDDEN") ? 403 : 500;
+    const status = error.message?.startsWith("UNAUTHORIZED") ? 401 : error.message?.startsWith("FORBIDDEN") ? 403 : 500;
     return NextResponse.json({ success: false, error: { message: error.message } }, { status });
   }
 }
@@ -58,6 +56,13 @@ export async function POST(req: NextRequest) {
     }
 
     const input = parsed.data;
+    const host =
+      req.headers.get("x-forwarded-host") ||
+      req.headers.get("host") ||
+      "ajay-enterprises-gwen-tech.vercel.app";
+    const proto = req.headers.get("x-forwarded-proto") || "https";
+    const origin = `${proto}://${host}`;
+
     const actor = {
       id: session!.id,
       name: session!.name,
@@ -65,60 +70,44 @@ export async function POST(req: NextRequest) {
       ipAddress: req.headers.get("x-forwarded-for") || undefined,
     };
 
-    const agreementNumber = input.agreementNumber || (await generateNextDocumentNumber("AGR"));
-
-    const agreement = await db.$transaction(async (tx) => {
-      const created = await tx.rentalAgreement.create({
-        data: {
-          agreementNumber,
-          customerId: input.customerId,
-          customerSiteId: input.customerSiteId,
-          startDate: new Date(input.startDate),
-          endDate: input.endDate ? new Date(input.endDate) : null,
-          billingFrequency: input.billingFrequency,
-          billingCycleDay: input.billingCycleDay,
-          depositAmount: new Prisma.Decimal(input.depositAmount),
-          depositStatus: input.depositStatus,
-          paymentTerms: input.paymentTerms,
-          specialTerms: input.specialTerms,
-          notes: input.notes,
-          status: "DRAFT",
-          createdById: actor.id,
-          items: {
-            create: input.items.map((it) => ({
-              materialVariantId: it.materialVariantId,
-              agreedDailyRate: new Prisma.Decimal(it.agreedDailyRate),
-              securityDepositRate: it.securityDepositRate ? new Prisma.Decimal(it.securityDepositRate) : null,
-              remarks: it.remarks,
-            })),
-          },
-        },
-        include: {
-          items: true,
-        },
-      });
-
-      await logAuditEvent({
-        userId: actor.id,
-        userName: actor.name,
-        userRole: actor.role,
-        ipAddress: actor.ipAddress,
-        action: "CREATE",
-        module: "RENTALS",
-        entityType: "RentalAgreement",
-        entityId: created.id,
-        notes: `Created Rental Agreement ${agreementNumber} for site with ${input.items.length} rate terms`,
-      });
-
-      return created;
-    });
+    const result = await createRentalAgreementFromOrder(
+      {
+        customerId: input.customerId,
+        customerSiteId: input.customerSiteId,
+        startDate: input.startDate,
+        endDate: input.endDate,
+        billingFrequency: input.billingFrequency,
+        billingCycleDay: input.billingCycleDay,
+        depositAmount: input.depositAmount,
+        depositStatus: input.depositStatus,
+        paymentTerms: input.paymentTerms || undefined,
+        specialTerms: input.specialTerms || undefined,
+        notes: input.notes || undefined,
+        orderReference: (input as any).orderReference || null,
+        autoSendWhatsApp: (input as any).autoSendWhatsApp ?? true,
+        items: input.items.map((it) => ({
+          materialVariantId: it.materialVariantId,
+          agreedDailyRate: it.agreedDailyRate,
+          quantity: (it as any).quantity ? Number((it as any).quantity) : 0,
+          securityDepositRate: it.securityDepositRate,
+          remarks: it.remarks,
+        })),
+      },
+      actor,
+      origin
+    );
 
     return NextResponse.json(
-      { success: true, data: agreement, message: `Rental Agreement ${agreement.agreementNumber} created.` },
+      {
+        success: true,
+        data: result.agreement,
+        whatsApp: result.whatsApp,
+        message: result.message,
+      },
       { status: 201 }
     );
   } catch (error: any) {
-    const status = error.message.startsWith("UNAUTHORIZED") ? 401 : error.message.startsWith("FORBIDDEN") ? 403 : 500;
+    const status = error.message?.startsWith("UNAUTHORIZED") ? 401 : error.message?.startsWith("FORBIDDEN") ? 403 : 500;
     return NextResponse.json({ success: false, error: { message: error.message } }, { status });
   }
 }

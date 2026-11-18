@@ -40,6 +40,10 @@ export async function middleware(request: NextRequest) {
         pathname === "/forgot-password" ||
         pathname === "/reset-password";
 
+      const isPublicPage =
+        isAuthPage ||
+        (pathname.startsWith("/rentals/agreements/") && pathname.includes("/acknowledge"));
+
       const isPublicApi =
         pathname.startsWith("/api/v1/auth/login") ||
         pathname.startsWith("/api/v1/auth/setup") ||
@@ -47,7 +51,7 @@ export async function middleware(request: NextRequest) {
         pathname.startsWith("/api/v1/auth/reset-password");
 
       // Redirect unauthenticated web page visits to /login preserving intended destination
-      if (!user && !isAuthPage && !isPublicApi && !pathname.startsWith("/api/")) {
+      if (!user && !isPublicPage && !isPublicApi && !pathname.startsWith("/api/")) {
         const url = request.nextUrl.clone();
         url.pathname = "/login";
         const target = pathname + (request.nextUrl.search || "");

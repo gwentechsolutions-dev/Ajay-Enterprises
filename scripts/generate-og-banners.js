@@ -45,6 +45,15 @@ const BANNERS = [
     iconType: "bill",
   },
   {
+    filename: "og-rental-agreement.png",
+    badge: "RENTAL AGREEMENT & CONTRACT",
+    badgeBg: "#D97706",
+    title: "Centering Material Rental Agreement",
+    subtitle: "Official Commercial Rate Contract, Security Terms & Multi-Site Agreement",
+    accentColor: "#F59E0B",
+    iconType: "agreement",
+  },
+  {
     filename: "og-default.png",
     badge: "OPERATIONS & INVENTORY ERP",
     badgeBg: "#EA580C",
@@ -78,6 +87,12 @@ function getIconSvg(type) {
       return `
         <rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="#818CF8" stroke-width="2"/>
         <path d="M7 8h10M7 12h10M7 16h6" stroke="#818CF8" stroke-width="2" stroke-linecap="round"/>
+      `;
+    case "agreement":
+      return `
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="none" stroke="#F59E0B" stroke-width="2"/>
+        <polyline points="14 2 14 8 20 8" fill="none" stroke="#F59E0B" stroke-width="2"/>
+        <path d="M16 13H8M16 17H8M10 9H8" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
       `;
     default:
       return `

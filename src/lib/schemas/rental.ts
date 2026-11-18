@@ -7,6 +7,7 @@ import { z } from "zod";
 export const rentalAgreementItemSchema = z.object({
   materialVariantId: z.string().uuid("Invalid material variant ID"),
   agreedDailyRate: z.coerce.number().min(0, "Agreed daily rate cannot be negative"),
+  quantity: z.coerce.number().min(0).optional().nullable(),
   securityDepositRate: z.coerce.number().min(0).optional().nullable(),
   remarks: z.string().optional().nullable(),
 });

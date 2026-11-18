@@ -39,6 +39,13 @@ function getIconSvg(type: string): string {
         <rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="#818CF8" stroke-width="2"/>
         <path d="M7 8h10M7 12h10M7 16h6" stroke="#818CF8" stroke-width="2" stroke-linecap="round"/>
       `;
+    case "AGREEMENT":
+    case "AGR":
+      return `
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="none" stroke="#F59E0B" stroke-width="2"/>
+        <polyline points="14 2 14 8 20 8" fill="none" stroke="#F59E0B" stroke-width="2"/>
+        <path d="M16 13H8M16 17H8M10 9H8" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
+      `;
     default:
       return `
         <polygon points="12 2 2 7 12 12 22 7 12 2" fill="none" stroke="#F26522" stroke-width="2"/>
@@ -97,6 +104,15 @@ export async function GET(req: NextRequest) {
         title = docNumber ? `Purchase Bill: ${docNumber}` : "Supplier Purchase Bill";
         subtitle = party ? `Supplier: ${party}${amount ? ` • Total: Rs. ${amount}` : ""}` : "Accounts Payable & Input Tax Credit Record";
         fallbackFileName = "og-purchase-bill.png";
+        break;
+      case "AGREEMENT":
+      case "AGR":
+        badge = "RENTAL AGREEMENT & CONTRACT";
+        badgeBg = "#D97706";
+        accentColor = "#F59E0B";
+        title = docNumber ? `Agreement: ${docNumber}` : "Material Rental Agreement";
+        subtitle = party ? `Contract for ${party}${site ? ` (${site})` : ""}` : "Official Centering Material Rental Contract & Rate Terms";
+        fallbackFileName = "og-rental-agreement.png";
         break;
     }
 

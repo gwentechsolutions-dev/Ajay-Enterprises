@@ -41,7 +41,7 @@ export function normalizeWhatsAppNumber(rawPhone?: string | null): { phone: stri
  * Intelligently extracts the designated phone number from customer, site, receiver, or supplier details.
  */
 export function resolveDocumentWhatsAppContact(
-  docType: "DN" | "MRN" | "INVOICE" | "BILL",
+  docType: "DN" | "MRN" | "INVOICE" | "BILL" | "AGREEMENT",
   doc: any
 ): ResolvedWhatsAppContact {
   if (!doc) {
@@ -150,7 +150,7 @@ export function resolveDocumentWhatsAppContact(
  * Builds formatted text payload for WhatsApp sharing per document type.
  */
 export function buildDocumentWhatsAppMessage(
-  docType: "DN" | "MRN" | "INVOICE" | "BILL",
+  docType: "DN" | "MRN" | "INVOICE" | "BILL" | "AGREEMENT",
   doc: any,
   origin: string = ""
 ): string {
@@ -268,6 +268,41 @@ export function buildDocumentWhatsAppMessage(
       msg += `\nThank you for your business partnership with *AJAY ENTERPRISES*!`;
       return msg;
     }
+
+    case "AGREEMENT": {
+      const agrNum = doc.agreementNumber || "AGR";
+      const custName = doc.customer?.name || "Customer";
+      const siteName = doc.customerSite?.siteName || "Construction Site";
+      const date = doc.startDate ? new Date(doc.startDate).toLocaleDateString("en-IN") : "Today";
+      const itemsCount = doc.items?.length || 0;
+      const status = doc.status || "GENERATED";
+      const token = doc.acknowledgementToken;
+      const reviewUrl = baseUrl && token
+        ? `${baseUrl}/rentals/agreements/${doc.id}/acknowledge?token=${token}`
+        : baseUrl
+        ? `${baseUrl}/api/v1/rentals/agreements/${doc.id}/print`
+        : "";
+      const printUrl = baseUrl ? `${baseUrl}/api/v1/rentals/agreements/${doc.id}/print` : "";
+
+      let msg = `*AJAY ENTERPRISES - Centering Material Rental Agreement*\n\n`;
+      msg += `Dear *${custName}*,\n`;
+      msg += `Thank you for choosing *AJAY ENTERPRISES*.\n\n`;
+      msg += `Your material rental agreement details for *${siteName}* have been generated:\n\n`;
+      msg += `• *Agreement #:* ${agrNum}\n`;
+      msg += `• *Construction Site:* ${siteName}\n`;
+      msg += `• *Commencement Date:* ${date}\n`;
+      msg += `• *Materials Configured:* ${itemsCount} material items\n`;
+      msg += `• *Status:* ${status}\n`;
+      if (reviewUrl) {
+        msg += `\n• *Review & Acknowledge Agreement:*\n${reviewUrl}\n`;
+      }
+      if (printUrl && printUrl !== reviewUrl) {
+        msg += `\n• *Official Agreement Slip:*\n${printUrl}\n`;
+      }
+      msg += `\nPlease review the contractual conditions and confirm your acceptance.\n`;
+      msg += `Thank you for your business partnership with *AJAY ENTERPRISES*!`;
+      return msg;
+    }
   }
 }
 
@@ -275,7 +310,7 @@ export function buildDocumentWhatsAppMessage(
  * Returns the direct `wa.me` URL for opening WhatsApp.
  */
 export function getWhatsAppShareUrl(
-  docType: "DN" | "MRN" | "INVOICE" | "BILL",
+  docType: "DN" | "MRN" | "INVOICE" | "BILL" | "AGREEMENT",
   doc: any,
   origin: string = ""
 ): { url: string; contact: ResolvedWhatsAppContact; message: string } {

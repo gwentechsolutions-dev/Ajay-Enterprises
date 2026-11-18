@@ -29,30 +29,54 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       ipAddress: req.headers.get("x-forwarded-for") || undefined,
     };
 
-    const updated = await db.$transaction(async (tx) => {
-      const res = await tx.rentalAgreement.update({
-        where: { id },
-        data: {
-          status: "ACTIVE",
-          approvedById: actor.id,
-          approvedAt: new Date(),
-        },
-      });
+    const host =
+      req.headers.get("x-forwarded-host") ||
+      req.headers.get("host") ||
+      "ajay-enterprises-gwen-tech.vercel.app";
+    const proto = req.headers.get("x-forwarded-proto") || "https";
+    const origin = `${proto}://${host}`;
 
-      await logAuditEvent({
-        userId: actor.id,
-        userName: actor.name,
-        userRole: actor.role,
-        ipAddress: actor.ipAddress,
-        action: "APPROVE",
-        module: "RENTALS",
-        entityType: "RentalAgreement",
-        entityId: id,
-        notes: `Approved Rental Agreement ${agreement.agreementNumber}. Status is now ACTIVE.`,
-      });
+    const updated = await db.$transaction(
+      async (tx) => {
+        const res = await tx.rentalAgreement.update({
+          where: { id },
+          data: {
+            status: "ACTIVE",
+            approvedById: actor.id,
+            approvedAt: new Date(),
+          },
+        });
 
-      return res;
-    });
+        await logAuditEvent(
+          {
+            userId: actor.id,
+            userName: actor.name,
+            userRole: actor.role,
+            ipAddress: actor.ipAddress,
+            action: "APPROVE",
+            module: "RENTALS",
+            entityType: "RentalAgreement",
+            entityId: id,
+            notes: `Approved Rental Agreement ${agreement.agreementNumber}. Status is now ACTIVE.`,
+          },
+          tx
+        );
+
+        return res;
+      },
+      { maxWait: 15000, timeout: 30000 }
+    );
+
+    // Generate PDF and dispatch WhatsApp
+    const { generateAgreementPDFAndSave, dispatchAgreementWhatsApp } = await import(
+      "@/lib/rentals/agreement-service"
+    );
+    try {
+      await generateAgreementPDFAndSave(id, origin);
+      await dispatchAgreementWhatsApp(id, origin, actor);
+    } catch (err: any) {
+      console.error(`[Agreement Approval PDF/WhatsApp Notice] ${agreement.agreementNumber}:`, err.message);
+    }
 
     return NextResponse.json({
       success: true,

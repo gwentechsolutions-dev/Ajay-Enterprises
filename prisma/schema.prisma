@@ -97,6 +97,7 @@ model CompanyProfile {
   gstStateCode         String?
   gstRegistrationDate  DateTime?
   logoAssetUrl         String?
+  defaultRentalTerms   String?   @db.Text
   isOnboardingComplete Boolean   @default(false)
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
@@ -1026,6 +1027,7 @@ model DeliveryNote {
   transportCharges      Decimal?                  @default(0) @db.Decimal(15, 2)
   isTransportBilled     Boolean                   @default(false)
   billedInvoiceId       String?                   @db.Uuid
+  rentalAgreementId     String?                   @db.Uuid
   createdAt             DateTime                  @default(now())
   updatedAt             DateTime                  @updatedAt
 
@@ -1034,6 +1036,7 @@ model DeliveryNote {
   sourceWarehouse   Warehouse                 @relation("SourceWarehouseDN", fields: [sourceWarehouseId], references: [id], onDelete: Restrict)
   contactPerson     ContactPerson?            @relation(fields: [contactPersonId], references: [id], onDelete: SetNull)
   billedInvoice     Invoice?                  @relation("BilledDeliveryNotes", fields: [billedInvoiceId], references: [id], onDelete: SetNull)
+  rentalAgreement   RentalAgreement?          @relation("AgreementDeliveryNotes", fields: [rentalAgreementId], references: [id], onDelete: SetNull)
   items             DeliveryNoteItem[]
   evidences         MovementEvidence[]
   eWayBills         EWayBill[]
@@ -1052,6 +1055,7 @@ model DeliveryNote {
   @@index([deliveryDate])
   @@index([isTransportBilled])
   @@index([billedInvoiceId])
+  @@index([rentalAgreementId])
 }
 
 model DeliveryNoteItem {
@@ -1427,7 +1431,7 @@ model RentalAgreement {
   depositStatus    String    @default("PENDING") // PENDING, PARTIALLY_PAID, FULLY_PAID, REFUNDED
   paymentTerms     String?
   specialTerms     String?
-  status           String    @default("DRAFT") // DRAFT, ACTIVE, SUSPENDED, COMPLETED, CANCELLED
+  status           String    @default("DRAFT") // DRAFT, GENERATED, PENDING_WHATSAPP, SENT, DELIVERED, ACKNOWLEDGED, ACCEPTED, REJECTED, CANCELLED, ACTIVE, SUSPENDED, COMPLETED
   createdById      String?   @db.Uuid
   approvedById     String?   @db.Uuid
   approvedAt       DateTime?
@@ -1436,13 +1440,41 @@ model RentalAgreement {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
+  // Automated Workflow, PDF Storage, WhatsApp Delivery & Customer Acknowledgement
+  orderReference          String?
+  pdfStoragePath          String?
+  pdfGeneratedAt          DateTime?
+  pdfSha256               String?
+  whatsAppStatus          String    @default("PENDING") // PENDING, QUEUED, SENT, DELIVERED, FAILED, PENDING_CONFIGURATION
+  whatsAppMessageId       String?
+  whatsAppSentAt          DateTime?
+  whatsAppDeliveredAt     DateTime?
+  whatsAppRecipient       String?
+  whatsAppError           String?
+  acknowledgementToken    String?   @unique
+  tokenExpiresAt          DateTime?
+  acknowledgedAt          DateTime?
+  acknowledgedBy          String?
+  acknowledgedPhone       String?
+  acknowledgedDesignation String?
+  acknowledgedIp          String?
+  rejectionReason         String?
+  version                 Int       @default(1)
+  parentAgreementId       String?   @db.Uuid
+  amendmentReason         String?
+
   customer             Customer                   @relation(fields: [customerId], references: [id], onDelete: Restrict)
   customerSite         CustomerSite               @relation(fields: [customerSiteId], references: [id], onDelete: Restrict)
+  parentAgreement      RentalAgreement?           @relation("AgreementAmendments", fields: [parentAgreementId], references: [id], onDelete: SetNull)
+  amendments           RentalAgreement[]          @relation("AgreementAmendments")
   items                RentalAgreementItem[]
   deposits             RentalDepositTransaction[]
   statements           RentalStatement[]
   sourceTransfers      DirectSiteTransferNote[]   @relation("SourceTransferAgreement")
   destinationTransfers DirectSiteTransferNote[]   @relation("DestTransferAgreement")
+  deliveryNotes        DeliveryNote[]             @relation("AgreementDeliveryNotes")
+  rentalBatches        RentalBatch[]
+  invoices             Invoice[]
 
   isDemo    Boolean @default(false)
   demoRunId String? @db.Uuid
@@ -1451,13 +1483,16 @@ model RentalAgreement {
   @@index([customerId])
   @@index([customerSiteId])
   @@index([status])
+  @@index([whatsAppStatus])
   @@index([startDate])
+  @@index([parentAgreementId])
 }
 
 model RentalAgreementItem {
   id                  String   @id @default(uuid()) @db.Uuid
   rentalAgreementId   String   @db.Uuid
   materialVariantId   String   @db.Uuid
+  quantity            Decimal? @default(0) @db.Decimal(12, 3)
   agreedDailyRate     Decimal  @db.Decimal(15, 2)
   securityDepositRate Decimal? @db.Decimal(15, 2)
   remarks             String?
@@ -1484,6 +1519,7 @@ model RentalBatch {
   deliveryNoteItemId       String?  @db.Uuid
   directSiteTransferId     String?  @db.Uuid
   directSiteTransferItemId String?  @db.Uuid
+  rentalAgreementId        String?  @db.Uuid
   deliveryDate             DateTime
   includeDeliveryDate      Boolean  @default(true)
   deliveredQty             Decimal  @db.Decimal(12, 3)
@@ -1503,6 +1539,7 @@ model RentalBatch {
   deliveryNoteItem       DeliveryNoteItem?          @relation(fields: [deliveryNoteItemId], references: [id], onDelete: SetNull)
   directSiteTransfer     DirectSiteTransferNote?    @relation("DestBatchTransfer", fields: [directSiteTransferId], references: [id], onDelete: SetNull)
   directSiteTransferItem DirectSiteTransferItem?    @relation("DestBatchTransferItem", fields: [directSiteTransferItemId], references: [id], onDelete: SetNull)
+  rentalAgreement        RentalAgreement?           @relation(fields: [rentalAgreementId], references: [id], onDelete: SetNull)
   returnAllocations      RentalReturnAllocation[]
   statementItems         RentalStatementItem[]
   dayDetails             RentalStatementDayDetail[]
@@ -1520,6 +1557,7 @@ model RentalBatch {
   @@index([ownershipType])
   @@index([status])
   @@index([deliveryDate])
+  @@index([rentalAgreementId])
 }
 
 model RentalReturnAllocation {
@@ -2055,6 +2093,7 @@ model Invoice {
   customerId         String    @db.Uuid
   customerSiteId     String?   @db.Uuid // Nullable for consolidated invoices
   rentalStatementId  String?   @db.Uuid // Linked to Phase 4 statement
+  rentalAgreementId  String?   @db.Uuid // Direct reference to master agreement
   invoiceDate        DateTime  @default(now())
   dueDate            DateTime
   fiscalYear         String // "2026-27"
@@ -2094,6 +2133,7 @@ model Invoice {
   customer           Customer            @relation(fields: [customerId], references: [id], onDelete: Restrict)
   customerSite       CustomerSite?       @relation(fields: [customerSiteId], references: [id], onDelete: SetNull)
   rentalStatement    RentalStatement?    @relation(fields: [rentalStatementId], references: [id], onDelete: SetNull)
+  rentalAgreement    RentalAgreement?    @relation(fields: [rentalAgreementId], references: [id], onDelete: SetNull)
   journalEntry       JournalEntry?       @relation(fields: [journalEntryId], references: [id], onDelete: SetNull)
   items              InvoiceItem[]
   creditDebitNotes   CreditDebitNote[]
@@ -2107,6 +2147,7 @@ model Invoice {
   @@index([customerId])
   @@index([customerSiteId])
   @@index([rentalStatementId])
+  @@index([rentalAgreementId])
   @@index([invoiceDate])
   @@index([fiscalYear])
   @@index([status])

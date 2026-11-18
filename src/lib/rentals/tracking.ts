@@ -67,6 +67,7 @@ export async function syncRentalBatchesFromDelivery(
     }
 
     const batchNumber = await generateNextDocumentNumber("RB", undefined, externalTx);
+    const agreementId = (dn as any).rentalAgreementId || activeAgreement?.id || null;
 
     await runner.rentalBatch.create({
       data: {
@@ -77,6 +78,7 @@ export async function syncRentalBatchesFromDelivery(
         ownershipType: item.ownershipType || "OWNED",
         deliveryNoteId: dn.id,
         deliveryNoteItemId: item.id,
+        rentalAgreementId: agreementId,
         deliveryDate: dn.deliveryDate,
         includeDeliveryDate: (dn as any).includeDeliveryDate ?? true,
         deliveredQty: item.quantity,
