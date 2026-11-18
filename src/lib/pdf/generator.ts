@@ -63,6 +63,13 @@ export interface PDFDocumentData {
     total?: number;
     condition?: string;
     remarks?: string;
+    declaredQty?: number;
+    receivedQty?: number;
+    acceptedQty?: number;
+    damagedQty?: number;
+    missingQty?: number;
+    rejectedQty?: number;
+    inspectionRemarks?: string;
   }>;
   subtotal?: number;
   taxAmount?: number;
@@ -72,6 +79,24 @@ export interface PDFDocumentData {
     phone?: string;
     designation?: string;
     signatureUrl?: string;
+    receivedAt?: Date | string;
+    yardName?: string;
+  };
+  customerHandoverDetails?: {
+    name?: string;
+    phone?: string;
+    designation?: string;
+    signatureUrl?: string;
+    handoverAt?: Date | string;
+    customerAgreedDamage?: boolean;
+  };
+  inspectionDetails?: {
+    status: "PENDING" | "COMPLETED";
+    inspectorName?: string;
+    inspectorDesignation?: string;
+    inspectedAt?: Date | string;
+    remarks?: string;
+    customerAgreedDamage?: boolean;
   };
   notes?: string;
   origin?: string;
@@ -286,38 +311,175 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
       : ""
   }
 
-  <table class="item-table">
-    <thead>
-      <tr>
-        <th class="text-center" style="width: 5%;">#</th>
-        <th style="width: 15%;">Code</th>
-        <th>Material Description</th>
-        <th style="width: 12%;">Size</th>
-        <th class="text-right" style="width: 12%;">Qty</th>
-        <th class="text-center" style="width: 8%;">UOM</th>
-        ${data.items.some((i) => i.rate !== undefined) ? '<th class="text-right" style="width: 12%;">Rate (₹)</th>' : ""}
-        ${data.items.some((i) => i.total !== undefined) ? '<th class="text-right" style="width: 14%;">Amount (₹)</th>' : ""}
-      </tr>
-    </thead>
-    <tbody>
-      ${data.items
-        .map(
-          (it) => `
+  ${
+    data.documentType === "MRN"
+      ? `
+    <!-- MRN Inspection & Discrepancy Header Badge -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; margin-bottom: 6px;">
+      <span style="font-weight: 800; color: #0B1E36; font-size: 10pt; text-transform: uppercase; letter-spacing: 0.3px;">
+        Returned Materials &amp; Physical Inspection Breakdown
+      </span>
+      ${
+        data.inspectionDetails?.status === "PENDING"
+          ? `<span style="background: #fffbeb; color: #b45309; border: 1.5px solid #fcd34d; font-size: 8pt; font-weight: 800; padding: 3px 10px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.3px;">
+              ⏳ Inspection Pending · Awaiting Yard Verification
+            </span>`
+          : `<span style="background: #f0fdf4; color: #166534; border: 1.5px solid #86efac; font-size: 8pt; font-weight: 800; padding: 3px 10px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.3px;">
+              ✓ Inspection Completed &amp; Verified
+            </span>`
+      }
+    </div>
+
+    <!-- MRN Inspection & Discrepancy Table -->
+    <table class="item-table" style="font-size: 8.5pt;">
+      <thead>
         <tr>
-          <td class="text-center">${it.sn}</td>
-          <td style="font-family: monospace; font-weight: 600;">${it.code}</td>
-          <td><strong>${it.name}</strong> ${it.remarks ? `<br><small style="color: #64748b;">${it.remarks}</small>` : ""}</td>
-          <td>${it.size || "-"}</td>
-          <td class="text-right" style="font-weight: 700;">${it.quantity.toFixed(it.uom === "Nos." ? 0 : 2)}</td>
-          <td class="text-center">${it.uom}</td>
-          ${it.rate !== undefined ? `<td class="text-right">₹${it.rate.toFixed(2)}</td>` : ""}
-          ${it.total !== undefined ? `<td class="text-right" style="font-weight: 600;">₹${it.total.toFixed(2)}</td>` : ""}
+          <th class="text-center" style="width: 4%;">#</th>
+          <th style="width: 12%;">Code</th>
+          <th>Material Description</th>
+          <th style="width: 9%;">Size</th>
+          <th class="text-right" style="width: 9%;" title="Declared for return by customer site">Declared</th>
+          <th class="text-right" style="width: 9%;" title="Physically received at yard">Received</th>
+          <th class="text-right" style="width: 9%;" title="Accepted in good condition">Accepted</th>
+          <th class="text-right" style="width: 8%;" title="Received damaged">Damaged</th>
+          <th class="text-right" style="width: 8%;" title="Shortage / Missing">Missing</th>
+          <th class="text-center" style="width: 6%;">UOM</th>
+          <th style="width: 14%;">Inspection Remarks</th>
         </tr>
-      `
-        )
-        .join("")}
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        ${data.items
+          .map((it) => {
+            const declared = it.declaredQty !== undefined ? it.declaredQty : it.quantity;
+            const accepted = it.acceptedQty !== undefined ? it.acceptedQty : it.quantity;
+            const damaged = it.damagedQty || 0;
+            const missing = it.missingQty || 0;
+            const rejected = it.rejectedQty || 0;
+            const received =
+              it.receivedQty !== undefined
+                ? it.receivedQty
+                : accepted + damaged + rejected;
+
+            const isQtyFormatted = it.uom === "Nos." ? 0 : 2;
+
+            return `
+          <tr>
+            <td class="text-center">${it.sn}</td>
+            <td style="font-family: monospace; font-weight: 600;">${it.code}</td>
+            <td><strong>${it.name}</strong></td>
+            <td>${it.size || "-"}</td>
+            <td class="text-right" style="font-weight: 600;">${declared.toFixed(isQtyFormatted)}</td>
+            <td class="text-right" style="font-weight: 600; color: #0f172a;">${received.toFixed(isQtyFormatted)}</td>
+            <td class="text-right" style="font-weight: 700; color: #166534;">${accepted.toFixed(isQtyFormatted)}</td>
+            <td class="text-right" style="font-weight: 700; color: ${damaged > 0 ? "#b45309" : "#64748b"};">${damaged > 0 ? damaged.toFixed(isQtyFormatted) : "-"}</td>
+            <td class="text-right" style="font-weight: 700; color: ${missing > 0 ? "#b91c1c" : "#64748b"};">${missing > 0 ? missing.toFixed(isQtyFormatted) : "-"}</td>
+            <td class="text-center">${it.uom}</td>
+            <td style="font-size: 8pt; color: #475569;">
+              ${it.inspectionRemarks || it.remarks || (it.condition ? `Condition: ${it.condition}` : "-")}
+              ${rejected > 0 ? `<br><span style="color: #b91c1c;">Rejected: ${rejected.toFixed(isQtyFormatted)}</span>` : ""}
+            </td>
+          </tr>
+        `;
+          })
+          .join("")}
+        <!-- Totals Row -->
+        <tr style="background-color: #f1f5f9; font-weight: 800; border-top: 2px solid #0B1E36;">
+          <td colspan="4" class="text-right" style="text-transform: uppercase; font-size: 8pt; padding-right: 8px;">
+            Total Quantities:
+          </td>
+          <td class="text-right">
+            ${data.items.reduce((sum, it) => sum + (it.declaredQty !== undefined ? it.declaredQty : it.quantity), 0).toFixed(0)}
+          </td>
+          <td class="text-right">
+            ${data.items.reduce((sum, it) => sum + (it.receivedQty !== undefined ? it.receivedQty : (it.acceptedQty !== undefined ? it.acceptedQty : it.quantity) + (it.damagedQty || 0)), 0).toFixed(0)}
+          </td>
+          <td class="text-right" style="color: #166534;">
+            ${data.items.reduce((sum, it) => sum + (it.acceptedQty !== undefined ? it.acceptedQty : it.quantity), 0).toFixed(0)}
+          </td>
+          <td class="text-right" style="color: #b45309;">
+            ${data.items.reduce((sum, it) => sum + (it.damagedQty || 0), 0).toFixed(0)}
+          </td>
+          <td class="text-right" style="color: #b91c1c;">
+            ${data.items.reduce((sum, it) => sum + (it.missingQty || 0), 0).toFixed(0)}
+          </td>
+          <td colspan="2"></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Material Inspection Reconciliation & Audit Notes -->
+    <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 4px; padding: 8px 12px; margin-bottom: 14px; font-size: 8.5pt; line-height: 1.4;">
+      <div style="font-weight: 700; color: #0B1E36; margin-bottom: 2px;">Material Custody &amp; Inspection Audit Note:</div>
+      ${
+        data.inspectionDetails?.status === "PENDING"
+          ? `<div style="color: #b45309;">
+              <strong>Notice:</strong> Materials have been physically transferred into yard custody based on customer declared quantities. Detailed inspection for damaged or missing components is currently pending and will be updated upon final verification.
+            </div>`
+          : `<div>
+              Accepted units (${data.items.reduce((sum, it) => sum + (it.acceptedQty !== undefined ? it.acceptedQty : it.quantity), 0).toFixed(0)}) have been re-credited to AJAY ENTERPRISES available rental stock.
+              ${
+                data.items.some((it) => (it.damagedQty || 0) > 0)
+                  ? ` Damaged units (${data.items.reduce((sum, it) => sum + (it.damagedQty || 0), 0).toFixed(0)}) are segregated for repair.`
+                  : ""
+              }
+              ${
+                data.items.some((it) => (it.missingQty || 0) > 0)
+                  ? ` Missing units (${data.items.reduce((sum, it) => sum + (it.missingQty || 0), 0).toFixed(0)}) represent site shortage and were not received into the yard.`
+                  : ""
+              }
+              <br>
+              <span style="font-weight: 600; color: ${data.customerHandoverDetails?.customerAgreedDamage || data.inspectionDetails?.customerAgreedDamage ? "#166534" : "#b45309"};">
+                Customer Damage Acceptance: ${
+                  data.customerHandoverDetails?.customerAgreedDamage || data.inspectionDetails?.customerAgreedDamage
+                    ? "Explicitly acknowledged &amp; signed off by customer representative."
+                    : "Inspection findings recorded by AJAY ENTERPRISES quality control; subject to formal joint reconciliation."
+                }
+              </span>
+              ${
+                data.inspectionDetails?.inspectorName
+                  ? `<br><span style="color: #64748b; font-size: 8pt;">Inspected By: <strong>${data.inspectionDetails.inspectorName}</strong> (${data.inspectionDetails.inspectorDesignation || "Yard In-Charge"}) on ${data.inspectionDetails.inspectedAt ? new Date(data.inspectionDetails.inspectedAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : formattedDate}</span>`
+                  : ""
+              }
+            </div>`
+      }
+    </div>
+  `
+      : `
+    <!-- Standard Items Table for non-MRN documents -->
+    <table class="item-table">
+      <thead>
+        <tr>
+          <th class="text-center" style="width: 5%;">#</th>
+          <th style="width: 15%;">Code</th>
+          <th>Material Description</th>
+          <th style="width: 12%;">Size</th>
+          <th class="text-right" style="width: 12%;">Qty</th>
+          <th class="text-center" style="width: 8%;">UOM</th>
+          ${data.items.some((i) => i.rate !== undefined) ? '<th class="text-right" style="width: 12%;">Rate (₹)</th>' : ""}
+          ${data.items.some((i) => i.total !== undefined) ? '<th class="text-right" style="width: 14%;">Amount (₹)</th>' : ""}
+        </tr>
+      </thead>
+      <tbody>
+        ${data.items
+          .map(
+            (it) => `
+          <tr>
+            <td class="text-center">${it.sn}</td>
+            <td style="font-family: monospace; font-weight: 600;">${it.code}</td>
+            <td><strong>${it.name}</strong> ${it.remarks ? `<br><small style="color: #64748b;">${it.remarks}</small>` : ""}</td>
+            <td>${it.size || "-"}</td>
+            <td class="text-right" style="font-weight: 700;">${it.quantity.toFixed(it.uom === "Nos." ? 0 : 2)}</td>
+            <td class="text-center">${it.uom}</td>
+            ${it.rate !== undefined ? `<td class="text-right">₹${it.rate.toFixed(2)}</td>` : ""}
+            ${it.total !== undefined ? `<td class="text-right" style="font-weight: 600;">₹${it.total.toFixed(2)}</td>` : ""}
+          </tr>
+        `
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `
+  }
 
   ${
     data.grandTotal !== undefined
@@ -331,28 +493,91 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
       : ""
   }
 
-  <table class="ack-table">
-    <tr>
-      <td class="ack-box">
-        <div style="font-weight: 700; color: #0B1E36; font-size: 8.5pt; text-transform: uppercase; margin-bottom: 4px;">Receiver Acknowledgement</div>
-        <div style="font-size: 8.5pt; line-height: 1.5; color: #334155;">
-          ${data.receiverDetails?.name ? `Name: <strong>${data.receiverDetails.name}</strong><br>` : "Name: ______________________<br>"}
-          ${data.receiverDetails?.designation ? `Designation: ${data.receiverDetails.designation}<br>` : "Designation: ________________<br>"}
-          ${data.receiverDetails?.phone ? `Phone: +91 ${data.receiverDetails.phone}<br>` : "Phone: _____________________<br>"}
-        </div>
-        <div style="margin-top: 8px; font-size: 8pt; color: #64748b; border-top: 1px dashed #cbd5e1; padding-top: 4px; display: flex; justify-content: space-between; align-items: flex-end;">
-          <span>Signature & Site Stamp</span>
-          ${data.receiverDetails?.signatureUrl ? `<img src="${data.receiverDetails.signatureUrl}" alt="Receiver Signature" style="max-height: 32px; max-width: 100px; object-fit: contain;" />` : ""}
-        </div>
-      </td>
-      <td style="width: 4%;"></td>
-      <td class="ack-box" style="text-align: right; position: relative; vertical-align: bottom;">
-        <div style="font-weight: 700; color: #0B1E36; font-size: 8.5pt; text-transform: uppercase;">For ${tradeName}</div>
-        <div style="min-height: 52px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin: 4px 0;">
-          ${stampBase64 ? `<img src="${stampBase64}" alt="Company Seal" style="max-height: 60px; max-width: 90px; object-fit: contain; opacity: 0.9;" />` : ""}
-          ${signatureBase64 ? `<img src="${signatureBase64}" alt="Authorised Signature" style="max-height: 48px; max-width: 130px; object-fit: contain;" />` : '<div style="height: 48px;"></div>'}
-        </div>
-        <div style="font-weight: 700; font-size: 9pt; color: #0B1E36;">${signatoryName}</div>
+  ${
+    data.documentType === "MRN"
+      ? `
+    <!-- Dedicated Two-Section Acknowledgement for Material Return Note -->
+    <table class="ack-table" style="page-break-inside: avoid;">
+      <tr>
+        <!-- 1. Customer / Site Representative - Material Handover -->
+        <td class="ack-box" style="width: 48%; vertical-align: top; height: auto; min-height: 140px; background-color: #fafaf9;">
+          <div style="font-weight: 800; color: #0B1E36; font-size: 8.5pt; text-transform: uppercase; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 4px; margin-bottom: 6px; display: flex; justify-content: space-between;">
+            <span>1. Customer Handover Sign-Off</span>
+            <span style="font-size: 7.5pt; color: #64748b; font-weight: normal;">Site Custody Release</span>
+          </div>
+          <div style="font-size: 8pt; color: #475569; margin-bottom: 6px; line-height: 1.3;">
+            I hereby confirm that the declared centering materials listed above have been released and handed over from construction site custody to AJAY ENTERPRISES.
+          </div>
+          <div style="font-size: 8.5pt; line-height: 1.55; color: #1e293b;">
+            ${data.customerHandoverDetails?.name ? `Representative: <strong>${data.customerHandoverDetails.name}</strong><br>` : "Representative: ___________________________<br>"}
+            ${data.customerHandoverDetails?.designation ? `Designation: <strong>${data.customerHandoverDetails.designation}</strong><br>` : "Designation: ____________________________<br>"}
+            ${data.customerHandoverDetails?.phone ? `Mobile: <strong>+91 ${data.customerHandoverDetails.phone}</strong><br>` : "Mobile: _________________________________<br>"}
+            ${data.customerHandoverDetails?.handoverAt ? `Handover Date: <strong>${new Date(data.customerHandoverDetails.handoverAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</strong><br>` : `Handover Date: <strong>${formattedDate}</strong><br>`}
+          </div>
+          <div style="margin-top: 10px; font-size: 8pt; color: #64748b; border-top: 1px dashed #cbd5e1; padding-top: 4px; display: flex; justify-content: space-between; align-items: flex-end; min-height: 38px;">
+            <span>Representative Signature</span>
+            ${data.customerHandoverDetails?.signatureUrl ? `<img src="${data.customerHandoverDetails.signatureUrl}" alt="Customer Signature" style="max-height: 36px; max-width: 110px; object-fit: contain;" />` : `<div style="color: #94a3b8; font-style: italic; font-size: 7.5pt;">(Authorised Signatory / Stamp)</div>`}
+          </div>
+        </td>
+
+        <td style="width: 4%;"></td>
+
+        <!-- 2. AJAY ENTERPRISES - Material Receiving Acknowledgement -->
+        <td class="ack-box" style="width: 48%; vertical-align: top; height: auto; min-height: 140px; background-color: #f8fafc;">
+          <div style="font-weight: 800; color: #0B1E36; font-size: 8.5pt; text-transform: uppercase; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 4px; margin-bottom: 6px; display: flex; justify-content: space-between;">
+            <span>2. AJAY ENTERPRISES Receipt</span>
+            <span style="font-size: 7.5pt; color: #64748b; font-weight: normal;">Yard Custody</span>
+          </div>
+          <div style="font-size: 8pt; color: #475569; margin-bottom: 6px; line-height: 1.3;">
+            Confirmed material receipt at AJAY ENTERPRISES yard custody. Accepted stock credited; damaged/missing units isolated.
+          </div>
+          <div style="font-size: 8.5pt; line-height: 1.55; color: #1e293b;">
+            Receiving Staff: <strong>${data.receiverDetails?.name || signatoryName}</strong><br>
+            Designation: <strong>${data.receiverDetails?.designation || signatoryDesignation}</strong><br>
+            Receiving Yard: <strong>${data.receiverDetails?.yardName || data.secondaryPartyName || "Centering Yard"}</strong><br>
+            ${data.receiverDetails?.receivedAt ? `Received Date: <strong>${new Date(data.receiverDetails.receivedAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</strong><br>` : `Received Date: <strong>${formattedDate}</strong><br>`}
+          </div>
+          <div style="margin-top: 6px; min-height: 48px; display: flex; align-items: center; justify-content: flex-end; gap: 8px;">
+            ${stampBase64 ? `<img src="${stampBase64}" alt="Company Seal" style="max-height: 52px; max-width: 80px; object-fit: contain; opacity: 0.9;" />` : ""}
+            ${signatureBase64 ? `<img src="${signatureBase64}" alt="Authorised Signature" style="max-height: 42px; max-width: 110px; object-fit: contain;" />` : ""}
+          </div>
+          <div style="font-size: 7.5pt; color: #64748b; text-align: right; border-top: 1px dashed #cbd5e1; padding-top: 2px;">
+            For ${tradeName} • Authorised Yard In-Charge
+          </div>
+        </td>
+      </tr>
+    </table>
+  `
+      : `
+    <!-- Standard Single Acknowledgement for other documents -->
+    <table class="ack-table">
+      <tr>
+        <td class="ack-box">
+          <div style="font-weight: 700; color: #0B1E36; font-size: 8.5pt; text-transform: uppercase; margin-bottom: 4px;">Receiver Acknowledgement</div>
+          <div style="font-size: 8.5pt; line-height: 1.5; color: #334155;">
+            ${data.receiverDetails?.name ? `Name: <strong>${data.receiverDetails.name}</strong><br>` : "Name: ______________________<br>"}
+            ${data.receiverDetails?.designation ? `Designation: ${data.receiverDetails.designation}<br>` : "Designation: ________________<br>"}
+            ${data.receiverDetails?.phone ? `Phone: +91 ${data.receiverDetails.phone}<br>` : "Phone: _____________________<br>"}
+          </div>
+          <div style="margin-top: 8px; font-size: 8pt; color: #64748b; border-top: 1px dashed #cbd5e1; padding-top: 4px; display: flex; justify-content: space-between; align-items: flex-end;">
+            <span>Signature & Site Stamp</span>
+            ${data.receiverDetails?.signatureUrl ? `<img src="${data.receiverDetails.signatureUrl}" alt="Receiver Signature" style="max-height: 32px; max-width: 100px; object-fit: contain;" />` : ""}
+          </div>
+        </td>
+        <td style="width: 4%;"></td>
+        <td class="ack-box" style="text-align: right; position: relative; vertical-align: bottom;">
+          <div style="font-weight: 700; color: #0B1E36; font-size: 8.5pt; text-transform: uppercase;">For ${tradeName}</div>
+          <div style="min-height: 52px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin: 4px 0;">
+            ${stampBase64 ? `<img src="${stampBase64}" alt="Company Seal" style="max-height: 60px; max-width: 90px; object-fit: contain; opacity: 0.9;" />` : ""}
+            ${signatureBase64 ? `<img src="${signatureBase64}" alt="Authorised Signature" style="max-height: 48px; max-width: 130px; object-fit: contain;" />` : '<div style="height: 48px;"></div>'}
+          </div>
+          <div style="font-weight: 700; font-size: 9pt; color: #0B1E36;">${signatoryName}</div>
+          <div style="font-size: 8pt; color: #64748b;">${signatoryDesignation}</div>
+        </td>
+      </tr>
+    </table>
+  `
+  }
         <div style="font-size: 8pt; color: #64748b;">${signatoryDesignation}</div>
       </td>
     </tr>

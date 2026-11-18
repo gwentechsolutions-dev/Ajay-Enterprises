@@ -1094,9 +1094,31 @@ model MaterialReturnNote {
   driverName              String?
   driverPhone             String?
   vehicleNumber           String?
+
+  // Customer / Site Representative – Material Handover
+  customerRepresentativeName        String?
+  customerRepresentativeDesignation String?
+  customerRepresentativePhone       String?
+  customerSignatureUrl              String?
+  handoverAt                        DateTime?
+  customerAgreedDamage              Boolean   @default(false)
+
+  // AJAY ENTERPRISES – Material Receiving Acknowledgement
   receiverName            String?
   receiverPhone           String?
+  receiverDesignation     String?
   receiverSignatureUrl    String?
+  receivedAt              DateTime?
+  companyStampUrl         String?
+
+  // Material Inspection Lifecycle & Delayed Inspection
+  inspectionStatus        String    @default("COMPLETED") // PENDING, COMPLETED
+  inspectedById           String?   @db.Uuid
+  inspectorName           String?
+  inspectorDesignation    String?
+  inspectedAt             DateTime?
+  inspectionRemarks       String?
+
   gpsLatitude             Decimal?  @db.Decimal(10, 7)
   gpsLongitude            Decimal?  @db.Decimal(10, 7)
   photoUrl                String?
@@ -1132,13 +1154,16 @@ model MaterialReturnNoteItem {
   id                String  @id @default(uuid()) @db.Uuid
   mrnId             String  @db.Uuid
   materialVariantId String  @db.Uuid
-  ownershipType     String  @default("OWNED") // OWNED, HIRED_IN
-  returnedQty       Decimal @db.Decimal(12, 3)
-  acceptedQty       Decimal @db.Decimal(12, 3)
-  damagedQty        Decimal @default(0) @db.Decimal(12, 3)
-  missingQty        Decimal @default(0) @db.Decimal(12, 3)
-  condition         String  @default("GOOD")
+  ownershipType     String   @default("OWNED") // OWNED, HIRED_IN
+  returnedQty       Decimal  @db.Decimal(12, 3)
+  receivedQty       Decimal? @db.Decimal(12, 3)
+  acceptedQty       Decimal  @db.Decimal(12, 3)
+  damagedQty        Decimal  @default(0) @db.Decimal(12, 3)
+  missingQty        Decimal  @default(0) @db.Decimal(12, 3)
+  rejectedQty       Decimal? @default(0) @db.Decimal(12, 3)
+  condition         String   @default("GOOD")
   remarks           String?
+  inspectionRemarks String?
 
   materialReturnNote MaterialReturnNote       @relation(fields: [mrnId], references: [id], onDelete: Cascade)
   materialVariant    MaterialVariant          @relation(fields: [materialVariantId], references: [id], onDelete: Restrict)

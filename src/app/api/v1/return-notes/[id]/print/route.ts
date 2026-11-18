@@ -55,21 +55,59 @@ export async function GET(
         driverPhone: mrn.driverPhone || undefined,
       },
       receiverDetails: {
-        name: mrn.receiverName || undefined,
-        phone: mrn.receiverPhone || undefined,
+        name: mrn.receiverName || mrn.receivingWarehouse.contactPerson || undefined,
+        phone: mrn.receiverPhone || mrn.receivingWarehouse.mobile || undefined,
+        designation: mrn.receiverDesignation || "Yard In-Charge",
         signatureUrl: mrn.receiverSignatureUrl || undefined,
+        receivedAt: mrn.receivedAt || mrn.returnDate,
+        yardName: mrn.receivingWarehouse.name,
       },
-      items: mrn.items.map((item, idx) => ({
-        sn: idx + 1,
-        code: item.materialVariant.materialCode,
-        name: item.materialVariant.name,
-        size: item.materialVariant.size || undefined,
-        quantity: Number(item.acceptedQty),
-        uom: item.materialVariant.uom,
-        condition: item.condition,
-        remarks: item.remarks || (Number(item.damagedQty) > 0 ? `Damaged: ${item.damagedQty}, Missing: ${item.missingQty}` : undefined),
-      })),
-      notes: mrn.remarks || `Physical return inspection completed at ${mrn.receivingWarehouse.name}. Damaged/missing items isolated and registered for assessment.`,
+      customerHandoverDetails: {
+        name: mrn.customerRepresentativeName || mrn.customerSite.siteInCharge || undefined,
+        phone: mrn.customerRepresentativePhone || mrn.customerSite.siteContactDetails || undefined,
+        designation: mrn.customerRepresentativeDesignation || "Site Representative",
+        signatureUrl: mrn.customerSignatureUrl || undefined,
+        handoverAt: mrn.handoverAt || mrn.returnDate,
+        customerAgreedDamage: mrn.customerAgreedDamage,
+      },
+      inspectionDetails: {
+        status: (mrn.inspectionStatus as "PENDING" | "COMPLETED") || "COMPLETED",
+        inspectorName: mrn.inspectorName || mrn.receiverName || undefined,
+        inspectorDesignation: mrn.inspectorDesignation || mrn.receiverDesignation || "Quality Inspector",
+        inspectedAt: mrn.inspectedAt || undefined,
+        remarks: mrn.inspectionRemarks || undefined,
+        customerAgreedDamage: mrn.customerAgreedDamage,
+      },
+      items: mrn.items.map((item, idx) => {
+        const declared = Number(item.returnedQty);
+        const accepted = Number(item.acceptedQty);
+        const damaged = Number(item.damagedQty || 0);
+        const missing = Number(item.missingQty || 0);
+        const rejected = Number(item.rejectedQty || 0);
+        const received =
+          item.receivedQty !== null && item.receivedQty !== undefined
+            ? Number(item.receivedQty)
+            : accepted + damaged + rejected;
+
+        return {
+          sn: idx + 1,
+          code: item.materialVariant.materialCode,
+          name: item.materialVariant.name,
+          size: item.materialVariant.size || undefined,
+          quantity: accepted,
+          declaredQty: declared,
+          receivedQty: received,
+          acceptedQty: accepted,
+          damagedQty: damaged,
+          missingQty: missing,
+          rejectedQty: rejected,
+          uom: item.materialVariant.uom,
+          condition: item.condition,
+          remarks: item.remarks || undefined,
+          inspectionRemarks: item.inspectionRemarks || undefined,
+        };
+      }),
+      notes: mrn.remarks || `Physical return inspection conducted at ${mrn.receivingWarehouse.name}. Damaged and shortage items isolated in accordance with custody rules.`,
       origin,
     });
 

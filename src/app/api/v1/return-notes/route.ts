@@ -73,76 +73,106 @@ export async function POST(req: NextRequest) {
         const mrnNumber = input.mrnNumber || (await generateNextDocumentNumber("MRN", undefined, tx));
 
         // 1. Create MRN Header
-      const mrn = await tx.materialReturnNote.create({
-        data: {
-          mrnNumber,
-          customerId: input.customerId,
-          customerSiteId: input.customerSiteId,
-          receivingWarehouseId: input.receivingWarehouseId,
-          referenceDeliveryNoteId: input.referenceDeliveryNoteId || null,
-          returnDate: input.returnDate ? new Date(input.returnDate) : new Date(),
-          status: "POSTED",
-          driverName: input.driverName,
-          driverPhone: input.driverPhone,
-          vehicleNumber: input.vehicleNumber,
-          receiverName: input.receiverName,
-          receiverPhone: input.receiverPhone,
-          receiverSignatureUrl: input.receiverSignatureUrl,
-          gpsLatitude: input.gpsLatitude ? new Prisma.Decimal(input.gpsLatitude) : null,
-          gpsLongitude: input.gpsLongitude ? new Prisma.Decimal(input.gpsLongitude) : null,
-          photoUrl: input.photoUrl,
-          missingEvidenceReason: input.missingEvidenceReason,
-          postedById: actor.id,
-          postedAt: new Date(),
-          remarks: input.remarks,
-        },
-      });
-
-      // 2. Process each returned material line
-      for (const item of input.items) {
-        const returnedQty = new Prisma.Decimal(item.returnedQty);
-        const acceptedQty = new Prisma.Decimal(item.acceptedQty);
-        const damagedQty = new Prisma.Decimal(item.damagedQty || 0);
-        const missingQty = new Prisma.Decimal(item.missingQty || 0);
-
-        if (acceptedQty.plus(damagedQty).plus(missingQty).gt(returnedQty)) {
-          throw new Error(
-            `Sum of accepted (${acceptedQty}), damaged (${damagedQty}), and missing (${missingQty}) cannot exceed returned quantity (${returnedQty}).`
-          );
-        }
-
-        // Check customer site stock balance
-        const siteBalance = await tx.stockBalance.findFirst({
-          where: {
-            warehouseId: null,
-            siteId: input.customerSiteId,
-            materialVariantId: item.materialVariantId,
-            ownershipType: item.ownershipType,
-            locationType: "CUSTOMER_SITE",
-          },
-        });
-
-        const availableOnSite = siteBalance?.availableQty || new Prisma.Decimal(0);
-        if (availableOnSite.lt(returnedQty)) {
-          throw new Error(
-            `Insufficient stock on customer site to process return. Available on site: ${availableOnSite.toString()}, Requested return: ${returnedQty.toString()}`
-          );
-        }
-
-        // Create Item line
-        await tx.materialReturnNoteItem.create({
+        const mrn = await tx.materialReturnNote.create({
           data: {
-            mrnId: mrn.id,
-            materialVariantId: item.materialVariantId,
-            ownershipType: item.ownershipType,
-            returnedQty,
-            acceptedQty,
-            damagedQty,
-            missingQty,
-            condition: item.condition,
-            remarks: item.remarks,
+            mrnNumber,
+            customerId: input.customerId,
+            customerSiteId: input.customerSiteId,
+            receivingWarehouseId: input.receivingWarehouseId,
+            referenceDeliveryNoteId: input.referenceDeliveryNoteId || null,
+            returnDate: input.returnDate ? new Date(input.returnDate) : new Date(),
+            status: "POSTED",
+            driverName: input.driverName,
+            driverPhone: input.driverPhone,
+            vehicleNumber: input.vehicleNumber,
+
+            // Customer / Site Representative - Material Handover
+            customerRepresentativeName: input.customerRepresentativeName || null,
+            customerRepresentativeDesignation: input.customerRepresentativeDesignation || null,
+            customerRepresentativePhone: input.customerRepresentativePhone || null,
+            customerSignatureUrl: input.customerSignatureUrl || null,
+            handoverAt: input.handoverAt ? new Date(input.handoverAt) : new Date(input.returnDate || Date.now()),
+            customerAgreedDamage: input.customerAgreedDamage || false,
+
+            // AJAY ENTERPRISES - Material Receiving Acknowledgement
+            receiverName: input.receiverName,
+            receiverPhone: input.receiverPhone,
+            receiverDesignation: input.receiverDesignation || null,
+            receiverSignatureUrl: input.receiverSignatureUrl,
+            receivedAt: input.receivedAt ? new Date(input.receivedAt) : new Date(input.returnDate || Date.now()),
+            companyStampUrl: input.companyStampUrl || null,
+
+            // Material Inspection Lifecycle & Delayed Inspection
+            inspectionStatus: input.inspectionStatus || "COMPLETED",
+            inspectedById: input.inspectionStatus === "COMPLETED" ? actor.id : null,
+            inspectorName: input.inspectorName || (input.inspectionStatus === "COMPLETED" ? input.receiverName : null),
+            inspectorDesignation: input.inspectorDesignation || (input.inspectionStatus === "COMPLETED" ? input.receiverDesignation : null),
+            inspectedAt: input.inspectedAt ? new Date(input.inspectedAt) : (input.inspectionStatus === "COMPLETED" ? new Date() : null),
+            inspectionRemarks: input.inspectionRemarks || null,
+
+            gpsLatitude: input.gpsLatitude ? new Prisma.Decimal(input.gpsLatitude) : null,
+            gpsLongitude: input.gpsLongitude ? new Prisma.Decimal(input.gpsLongitude) : null,
+            photoUrl: input.photoUrl,
+            missingEvidenceReason: input.missingEvidenceReason,
+            postedById: actor.id,
+            postedAt: new Date(),
+            remarks: input.remarks,
           },
         });
+
+        // 2. Process each returned material line
+        for (const item of input.items) {
+          const returnedQty = new Prisma.Decimal(item.returnedQty);
+          const acceptedQty = new Prisma.Decimal(item.acceptedQty);
+          const damagedQty = new Prisma.Decimal(item.damagedQty || 0);
+          const missingQty = new Prisma.Decimal(item.missingQty || 0);
+          const rejectedQty = new Prisma.Decimal(item.rejectedQty || 0);
+          const receivedQty =
+            item.receivedQty !== undefined && item.receivedQty !== null
+              ? new Prisma.Decimal(item.receivedQty)
+              : acceptedQty.plus(damagedQty).plus(rejectedQty);
+
+          if (acceptedQty.plus(damagedQty).plus(missingQty).plus(rejectedQty).gt(returnedQty)) {
+            throw new Error(
+              `Sum of accepted (${acceptedQty}), damaged (${damagedQty}), missing (${missingQty}), and rejected (${rejectedQty}) cannot exceed returned quantity (${returnedQty}).`
+            );
+          }
+
+          // Check customer site stock balance
+          const siteBalance = await tx.stockBalance.findFirst({
+            where: {
+              warehouseId: null,
+              siteId: input.customerSiteId,
+              materialVariantId: item.materialVariantId,
+              ownershipType: item.ownershipType,
+              locationType: "CUSTOMER_SITE",
+            },
+          });
+
+          const availableOnSite = siteBalance?.availableQty || new Prisma.Decimal(0);
+          if (availableOnSite.lt(returnedQty)) {
+            throw new Error(
+              `Insufficient stock on customer site to process return. Available on site: ${availableOnSite.toString()}, Requested return: ${returnedQty.toString()}`
+            );
+          }
+
+          // Create Item line
+          await tx.materialReturnNoteItem.create({
+            data: {
+              mrnId: mrn.id,
+              materialVariantId: item.materialVariantId,
+              ownershipType: item.ownershipType,
+              returnedQty,
+              receivedQty,
+              acceptedQty,
+              damagedQty,
+              missingQty,
+              rejectedQty,
+              condition: item.condition,
+              remarks: item.remarks,
+              inspectionRemarks: item.inspectionRemarks || null,
+            },
+          });
 
         // 3. Post Inventory Movement for Accepted Stock (Added to warehouse available pool)
         if (acceptedQty.gt(0)) {

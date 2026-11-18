@@ -192,20 +192,34 @@ export function buildDocumentWhatsAppMessage(
       const date = doc.returnDate ? new Date(doc.returnDate).toLocaleDateString("en-IN") : "Today";
       const yardName = doc.receivingWarehouse?.name || "AJAY ENTERPRISES Yard";
       const status = doc.status || "POSTED";
+      const isInspectionPending = doc.inspectionStatus === "PENDING";
+      const handoverPerson = doc.customerRepresentativeName;
+      const receiverPerson = doc.receiverName;
       const printUrl = baseUrl ? `${baseUrl}/api/v1/return-notes/${doc.id}/print` : "";
 
       let msg = `*AJAY ENTERPRISES - Material Return Note (MRN)*\n\n`;
       msg += `Dear *${custName}*,\n`;
-      msg += `Centering material return from your site has been inspected and credited:\n\n`;
+      if (isInspectionPending) {
+        msg += `Centering materials handed over from your site have been received at our yard (Inspection Pending):\n\n`;
+      } else {
+        msg += `Centering materials returned from your site have been inspected and credited into yard stock:\n\n`;
+      }
       msg += `• *Return Note:* ${mrnNum}\n`;
       msg += `• *Returning Site:* ${siteName}\n`;
       msg += `• *Return Date:* ${date}\n`;
       msg += `• *Receiving Yard:* ${yardName}\n`;
-      msg += `• *Status:* ${status}\n`;
-      if (printUrl) {
-        msg += `\n• *Official Return Slip:*\n${printUrl}\n`;
+      if (handoverPerson) {
+        msg += `• *Customer Handover:* ${handoverPerson}\n`;
       }
-      msg += `\nDaily rental charges will stop as of the effective return terms. Thank you!`;
+      if (receiverPerson) {
+        msg += `• *Company Receiver:* ${receiverPerson}\n`;
+      }
+      msg += `• *Inspection Status:* ${isInspectionPending ? "PENDING (Under physical verification)" : "COMPLETED & VERIFIED"}\n`;
+      msg += `• *Document Status:* ${status}\n`;
+      if (printUrl) {
+        msg += `\n• *Official Return & Inspection Slip:*\n${printUrl}\n`;
+      }
+      msg += `\nDaily rental billing will reconcile based on the effective return terms. Thank you!`;
       return msg;
     }
 
