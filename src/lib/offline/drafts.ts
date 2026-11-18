@@ -9,6 +9,8 @@ export interface OfflineDraft<T = any> {
   documentType: "DELIVERY_NOTE" | "RETURN_NOTE" | "EVIDENCE";
   title: string;
   payload: T;
+  userId?: string; // Driver / user isolation
+  capturedAt?: string; // Physical capture time at site
   createdAt: string;
   updatedAt: string;
   syncStatus: "draft" | "pending_sync" | "syncing" | "synced" | "failed";
@@ -22,13 +24,17 @@ export interface OfflineDraft<T = any> {
 const STORAGE_KEY = "inventra_offline_drafts_v1";
 
 /**
- * Retrieves all offline drafts saved in browser local storage
+ * Retrieves offline drafts saved in browser local storage, optionally scoped to the authenticated user
  */
-export function getOfflineDrafts(): OfflineDraft[] {
+export function getOfflineDrafts(userId?: string): OfflineDraft[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const drafts: OfflineDraft[] = raw ? JSON.parse(raw) : [];
+    if (userId) {
+      return drafts.filter((d) => !d.userId || d.userId === userId);
+    }
+    return drafts;
   } catch (e) {
     console.error("Failed to read offline drafts from storage", e);
     return [];
@@ -38,8 +44,8 @@ export function getOfflineDrafts(): OfflineDraft[] {
 /**
  * Alias for getOfflineDrafts returning items with .status for convenience
  */
-export function getOfflineQueue(): OfflineDraft[] {
-  const drafts = getOfflineDrafts();
+export function getOfflineQueue(userId?: string): OfflineDraft[] {
+  const drafts = getOfflineDrafts(userId);
   return drafts.map((d) => ({
     ...d,
     status: d.syncStatus,
@@ -51,13 +57,19 @@ export function getOfflineQueue(): OfflineDraft[] {
  */
 export function saveOfflineDraft(draft: OfflineDraft): void {
   if (typeof window === "undefined") return;
-  const drafts = getOfflineDrafts();
+  const raw = localStorage.getItem(STORAGE_KEY);
+  const drafts: OfflineDraft[] = raw ? JSON.parse(raw) : [];
   const existingIdx = drafts.findIndex((d) => d.idempotencyKey === draft.idempotencyKey);
 
   if (existingIdx >= 0) {
     drafts[existingIdx] = { ...draft, updatedAt: new Date().toISOString() };
   } else {
-    drafts.push({ ...draft, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+    drafts.push({
+      ...draft,
+      createdAt: draft.createdAt || new Date().toISOString(),
+      capturedAt: draft.capturedAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
   }
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify(drafts));
@@ -70,15 +82,19 @@ export function queueOfflineDraft<T = any>(params: {
   documentType: OfflineDraft["documentType"];
   title?: string;
   payload: T;
+  userId?: string;
 }): string {
   const idempotencyKey = `draft_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  const now = new Date().toISOString();
   const draft: OfflineDraft<T> = {
     idempotencyKey,
     documentType: params.documentType,
     title: params.title || `${params.documentType} Offline Handover`,
     payload: params.payload,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    userId: params.userId,
+    capturedAt: now,
+    createdAt: now,
+    updatedAt: now,
     syncStatus: "pending_sync",
     status: "pending_sync",
   };

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import {
   Compass,
   Phone,
@@ -23,6 +24,18 @@ import {
   AlertTriangle,
   X,
   Plus,
+  Home,
+  User,
+  Download,
+  Smartphone,
+  ExternalLink,
+  LogOut,
+  Info,
+  ShieldCheck,
+  ChevronRight,
+  Calendar,
+  Gauge,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +59,11 @@ import { SearchableCombobox, ComboboxOption } from "@/components/ui/searchable-c
 import { cn } from "@/lib/utils";
 import { DriverLanguageProvider, useDriverTranslation, DriverLanguage } from "@/lib/i18n/driver-portal";
 import { DriverLanguageSelector } from "@/components/driver-portal/DriverLanguageSelector";
+import { usePwa, PwaProvider } from "@/components/pwa/pwa-install-provider";
+import { IosInstallDialog } from "@/components/pwa/ios-install-dialog";
+import { DriverBottomNav, DriverNavTab } from "@/components/driver-portal/DriverBottomNav";
+import { DriverQuickActions } from "@/components/driver-portal/DriverQuickActions";
+import { useCurrentUser } from "@/lib/auth-context";
 
 // Responsive HTML5 Touch Signature Pad for Mobile Handover Acknowledgement
 function TouchSignaturePad({
@@ -145,13 +163,36 @@ function DeliveryPortalContent({
 }: {
   onServerLanguageLoaded?: (lang: DriverLanguage) => void;
 }) {
+  const router = useRouter();
   const { t } = useDriverTranslation();
+  const { isInstalled, canInstall, isStandalone, isIos, promptInstall, setShowIosInstructions } = usePwa();
+  const { user, canCreateDeliveryNote, canCreateReturnNote, canCreateInvoice } = useCurrentUser();
+
+  const [currentNavTab, setCurrentNavTab] = React.useState<DriverNavTab>("HOME");
+  const [signingOut, setSigningOut] = React.useState(false);
+
   const [data, setData] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
   const [isOnline, setIsOnline] = React.useState(true);
   const [offlineCount, setOfflineCount] = React.useState(0);
   const [syncing, setSyncing] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<"ALL" | "DELIVERIES" | "PICKUPS" | "COMPLETED">("ALL");
+
+  const handleSignOut = async () => {
+    try {
+      setSigningOut(true);
+      const res = await fetch("/api/v1/auth/logout", { method: "POST" });
+      if (res.ok) {
+        toast.success("Signed out successfully");
+        router.push("/login");
+        router.refresh();
+      }
+    } catch {
+      toast.error("Sign out failed");
+    } finally {
+      setSigningOut(false);
+    }
+  };
 
   // Loading state for site arrival
   const [loadingArrivalId, setLoadingArrivalId] = React.useState<string | null>(null);
@@ -831,28 +872,54 @@ function DeliveryPortalContent({
     });
   }, [yardReceivers, selectedYardMRN, t.thisYard]);
 
+  const { language, setLanguage } = useDriverTranslation();
+
+  const driverProfile = data?.driverProfile || {
+    name: user?.name || "Ramesh",
+    role: user?.role || "DELIVERY_PERSONNEL",
+    mobile: user?.mobile || "",
+    email: user?.email || "",
+  };
+  const assignedTrips: any[] = data?.assignedTrips || [];
+  const activeTrip = assignedTrips.find((t: any) => t.status === "IN_TRANSIT") || assignedTrips[0] || null;
+  const activeVehicleNumber =
+    activeTrip?.vehicle?.vehicleNumber ||
+    pendingPickups[0]?.vehicleTrip?.vehicle?.vehicleNumber ||
+    pendingPickups[0]?.vehicleNumber ||
+    pendingDeliveries[0]?.vehicleNumber ||
+    "KA-01-EA-7890";
+
   return (
-    <div className="space-y-4 max-w-lg mx-auto pb-16">
-      {/* Top Mobile Bar */}
-      <div className="bg-[#0B1E36] text-white p-4 rounded-2xl shadow-lg flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <Compass className="h-5 w-5 text-[#F26522]" />
-            <h1 className="font-black text-lg tracking-tight">{t.portalTitle}</h1>
+    <div className="space-y-4 max-w-6xl mx-auto pb-24 md:pb-12">
+      {/* 1. TOP PORTAL HEADER (Compact Mobile, Tablet & Desktop) */}
+      <div className="bg-[#0B1E36] text-white p-3.5 sm:p-4 rounded-2xl shadow-lg flex items-center justify-between border border-slate-800">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-[#F26522] flex items-center justify-center text-white font-black text-sm shadow-md shrink-0">
+            {driverProfile.name ? driverProfile.name.charAt(0).toUpperCase() : "D"}
           </div>
-          <p className="text-xs text-slate-300">{t.portalSubtitle}</p>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <h1 className="font-black text-sm sm:text-base tracking-tight">{t.portalTitle}</h1>
+              <span className="text-[10px] font-bold bg-[#F26522]/20 text-orange-300 px-1.5 py-0.5 rounded border border-orange-500/30 hidden xs:inline-block">
+                AJAY ENTERPRISES
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300 font-medium truncate max-w-[200px] sm:max-w-none">
+              {driverProfile.name} &bull; <span className="font-mono text-amber-300">{activeVehicleNumber}</span>
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
           <DriverLanguageSelector />
 
           {isOnline ? (
-            <Badge className="bg-emerald-600/30 text-emerald-300 border-emerald-500/40 text-[10px] flex items-center gap-1">
-              <Wifi className="h-3 w-3" /> {t.online}
+            <Badge className="bg-emerald-600/30 text-emerald-300 border-emerald-500/40 text-[10px] flex items-center gap-1 font-semibold">
+              <Wifi className="h-3 w-3" /> <span className="hidden sm:inline">{t.online}</span>
             </Badge>
           ) : (
-            <Badge className="bg-red-600/30 text-red-300 border-red-500/40 text-[10px] flex items-center gap-1">
-              <WifiOff className="h-3 w-3" /> {t.offline}
+            <Badge className="bg-red-600/30 text-red-300 border-red-500/40 text-[10px] flex items-center gap-1 font-semibold animate-pulse">
+              <WifiOff className="h-3 w-3" /> <span className="hidden sm:inline">{t.offline}</span>
             </Badge>
           )}
 
@@ -862,7 +929,7 @@ function DeliveryPortalContent({
               variant="outline"
               onClick={handleManualSync}
               disabled={syncing || !isOnline}
-              className="bg-[#F26522] hover:bg-[#EA580C] text-white border-none text-xs h-7 px-2"
+              className="bg-[#F26522] hover:bg-[#EA580C] text-white border-none text-[11px] h-7 px-2 font-bold shadow"
             >
               <RefreshCw className={`h-3 w-3 mr-1 ${syncing ? "animate-spin" : ""}`} />
               {t.sync} ({offlineCount})
@@ -871,386 +938,1249 @@ function DeliveryPortalContent({
         </div>
       </div>
 
-      {/* Segmented Filter Pills */}
-      <div className="grid grid-cols-4 gap-1 bg-slate-100 p-1 rounded-xl text-xs font-bold text-slate-600">
-        <button
-          onClick={() => setActiveTab("ALL")}
-          className={`py-2 rounded-lg transition ${activeTab === "ALL" ? "bg-white text-slate-900 shadow-sm" : "hover:text-slate-900"}`}
-        >
-          {t.tabAll} ({pendingDeliveries.length + pendingPickups.length})
-        </button>
-        <button
-          onClick={() => setActiveTab("DELIVERIES")}
-          className={`py-2 rounded-lg transition ${activeTab === "DELIVERIES" ? "bg-sky-50 text-sky-900 shadow-sm" : "hover:text-slate-900"}`}
-        >
-          {t.tabDeliveries} ({pendingDeliveries.length})
-        </button>
-        <button
-          onClick={() => setActiveTab("PICKUPS")}
-          className={`py-2 rounded-lg transition ${activeTab === "PICKUPS" ? "bg-amber-50 text-amber-900 shadow-sm" : "hover:text-slate-900"}`}
-        >
-          {t.tabPickups} ({pendingPickups.length})
-        </button>
-        <button
-          onClick={() => setActiveTab("COMPLETED")}
-          className={`py-2 rounded-lg transition ${activeTab === "COMPLETED" ? "bg-emerald-50 text-emerald-900 shadow-sm" : "hover:text-slate-900"}`}
-        >
-          {t.tabDone} ({completedDeliveries.length + completedPickups.length})
-        </button>
+      {/* 2. TABLET & DESKTOP TOP NAVIGATION PILLS (Hidden on mobile < md since DriverBottomNav is active) */}
+      <div className="hidden md:flex items-center justify-between gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setCurrentNavTab("HOME")}
+            className={cn(
+              "flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all",
+              currentNavTab === "HOME"
+                ? "bg-[#0B1E36] text-white shadow-sm"
+                : "text-slate-600 hover:bg-slate-100"
+            )}
+          >
+            <Home className="h-4 w-4" />
+            {t.navHome}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCurrentNavTab("DELIVERIES")}
+            className={cn(
+              "flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all relative",
+              currentNavTab === "DELIVERIES"
+                ? "bg-sky-600 text-white shadow-sm"
+                : "text-slate-600 hover:bg-slate-100"
+            )}
+          >
+            <Truck className="h-4 w-4" />
+            {t.navDeliveries}
+            {pendingDeliveries.length > 0 && (
+              <span
+                className={cn(
+                  "text-[10px] px-1.5 py-0.2 rounded-full font-black",
+                  currentNavTab === "DELIVERIES" ? "bg-white text-sky-700" : "bg-sky-100 text-sky-800"
+                )}
+              >
+                {pendingDeliveries.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCurrentNavTab("PICKUPS")}
+            className={cn(
+              "flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all relative",
+              currentNavTab === "PICKUPS"
+                ? "bg-amber-600 text-white shadow-sm"
+                : "text-slate-600 hover:bg-slate-100"
+            )}
+          >
+            <RotateCcw className="h-4 w-4" />
+            {t.navPickups}
+            {pendingPickups.length > 0 && (
+              <span
+                className={cn(
+                  "text-[10px] px-1.5 py-0.2 rounded-full font-black",
+                  currentNavTab === "PICKUPS" ? "bg-white text-amber-700" : "bg-amber-100 text-amber-800"
+                )}
+              >
+                {pendingPickups.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCurrentNavTab("TRIPS")}
+            className={cn(
+              "flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all",
+              currentNavTab === "TRIPS"
+                ? "bg-[#0B1E36] text-white shadow-sm"
+                : "text-slate-600 hover:bg-slate-100"
+            )}
+          >
+            <Compass className="h-4 w-4" />
+            {t.navTrips}
+            {assignedTrips.length > 0 && (
+              <span
+                className={cn(
+                  "text-[10px] px-1.5 py-0.2 rounded-full font-bold",
+                  currentNavTab === "TRIPS" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-700"
+                )}
+              >
+                {assignedTrips.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCurrentNavTab("PROFILE")}
+            className={cn(
+              "flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all",
+              currentNavTab === "PROFILE"
+                ? "bg-[#0B1E36] text-white shadow-sm"
+                : "text-slate-600 hover:bg-slate-100"
+            )}
+          >
+            <User className="h-4 w-4" />
+            {t.navProfile}
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2 pr-2">
+          <span className="text-[11px] font-bold text-slate-500 font-mono">
+            {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+          </span>
+        </div>
       </div>
 
-      {/* Active Tasks Feed */}
-      <div className="space-y-4">
-        {loading ? (
-          <div className="py-12 text-center text-slate-400">
-            <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-[#0B1E36]" />
-            {t.loadingTasks}
-          </div>
-        ) : (
-          <>
-            {/* 1. PICKUPS / RETURNS SECTION (RESTRUCTURED WORKFLOW) */}
-            {(activeTab === "ALL" || activeTab === "PICKUPS") && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
-                    <RotateCcw className="h-3.5 w-3.5 text-amber-600" />
-                    {t.assignedReturnPickups} ({pendingPickups.length})
-                  </h2>
-                </div>
-
-                {pendingPickups.length === 0 ? (
-                  activeTab === "PICKUPS" && (
-                    <Card className="p-6 text-center text-slate-500 border-slate-200">
-                      <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto mb-2" />
-                      <p className="font-semibold text-sm">{t.noPendingPickups}</p>
-                      <p className="text-xs text-slate-400 mt-1">{t.noPendingPickupsDesc}</p>
+      {/* 3. MAIN RESPONSIVE CONTENT AREA */}
+      {/* On Tablet/Desktop (md+): 2-Column Side-by-Side Layout */}
+      {/* On Mobile (< md): 1-Column Full Mobile Phone Experience */}
+      <div className="md:grid md:grid-cols-12 md:gap-6 items-start">
+        {/* LEFT MAIN COLUMN: Active View (col-span-12 on mobile, col-span-7 or 8 on md+) */}
+        <div className="md:col-span-7 lg:col-span-8 space-y-4">
+          {loading ? (
+            <div className="py-16 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">
+              <Loader2 className="h-7 w-7 animate-spin mx-auto mb-2 text-[#0B1E36]" />
+              <p className="text-xs font-medium">{t.loadingTasks}</p>
+            </div>
+          ) : (
+            <>
+              {/* === TAB 1: HOME DASHBOARD === */}
+              {currentNavTab === "HOME" && (
+                <div className="space-y-4">
+                  {/* PWA Install Banner (Mobile & Tablet) */}
+                  {(canInstall || isIos) && !isStandalone && (
+                    <Card className="bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-orange-500/5 border-amber-300 p-3.5 rounded-2xl shadow-sm flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-[#F26522] text-white flex items-center justify-center shrink-0 shadow">
+                          <Smartphone className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-black text-slate-900">{t.installAppTitle}</div>
+                          <div className="text-[11px] text-slate-600 mt-0.5">{t.installAppDesc}</div>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          if (isIos) setShowIosInstructions(true);
+                          else promptInstall();
+                        }}
+                        className="bg-[#F26522] hover:bg-[#EA580C] text-white font-black text-xs h-8 px-3 shrink-0 shadow"
+                      >
+                        <Download className="h-3.5 w-3.5 mr-1" />
+                        {t.btnInstallApp}
+                      </Button>
                     </Card>
-                  )
-                ) : (
-                  pendingPickups.map((mrn: any) => {
-                    const status = mrn.status;
-                    const isArrived = status === "ARRIVED_AT_SITE" || status === "PICKUP_IN_PROGRESS";
-                    const isLoaded = status === "PICKUP_COMPLETED" || status === "IN_TRANSIT";
-                    const navQuery = encodeURIComponent(
-                      `${mrn.customerSite?.siteName || ""} ${mrn.customerSite?.fullAddress || ""}`.trim()
-                    );
-                    const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${navQuery}`;
+                  )}
 
-                    return (
-                      <Card key={mrn.id} className="border-amber-300 shadow-sm overflow-hidden bg-white">
-                        <div className="bg-amber-50 px-4 py-2.5 border-b border-amber-200 flex justify-between items-center">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-mono text-xs font-black text-amber-950">{mrn.mrnNumber}</span>
-                            <span className="text-[10px] font-bold text-amber-800 bg-amber-200/80 px-2 py-0.5 rounded">
-                              {t.badgeReturnPickup}
+                  {/* 2x2 Mobile / 4-Col Tablet Quick Stat KPI Cards */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+                    {/* Deliveries Card */}
+                    <button
+                      type="button"
+                      onClick={() => setCurrentNavTab("DELIVERIES")}
+                      className="bg-white p-3.5 rounded-2xl border border-sky-200 shadow-sm text-left hover:border-sky-400 transition-all group"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="w-8 h-8 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center">
+                          <Truck className="h-4 w-4" />
+                        </div>
+                        <span className="text-[10px] font-bold text-sky-600 uppercase tracking-wider group-hover:translate-x-0.5 transition-transform">
+                          &rarr;
+                        </span>
+                      </div>
+                      <div className="text-2xl font-black text-slate-900 font-mono">
+                        {pendingDeliveries.length}
+                      </div>
+                      <div className="text-xs font-bold text-sky-900">{t.tabDeliveries}</div>
+                      <div className="text-[10px] text-slate-400">{t.statusDispatched}</div>
+                    </button>
+
+                    {/* Pickups Card */}
+                    <button
+                      type="button"
+                      onClick={() => setCurrentNavTab("PICKUPS")}
+                      className="bg-white p-3.5 rounded-2xl border border-amber-200 shadow-sm text-left hover:border-amber-400 transition-all group"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                          <RotateCcw className="h-4 w-4" />
+                        </div>
+                        <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider group-hover:translate-x-0.5 transition-transform">
+                          &rarr;
+                        </span>
+                      </div>
+                      <div className="text-2xl font-black text-slate-900 font-mono">
+                        {pendingPickups.length}
+                      </div>
+                      <div className="text-xs font-bold text-amber-900">{t.tabPickups}</div>
+                      <div className="text-[10px] text-slate-400">{t.assignedReturnPickups}</div>
+                    </button>
+
+                    {/* Trips Card */}
+                    <button
+                      type="button"
+                      onClick={() => setCurrentNavTab("TRIPS")}
+                      className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm text-left hover:border-slate-400 transition-all group"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
+                          <Compass className="h-4 w-4" />
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider group-hover:translate-x-0.5 transition-transform">
+                          &rarr;
+                        </span>
+                      </div>
+                      <div className="text-2xl font-black text-slate-900 font-mono">
+                        {assignedTrips.length}
+                      </div>
+                      <div className="text-xs font-bold text-slate-800">{t.navTrips}</div>
+                      <div className="text-[10px] text-slate-400">{activeVehicleNumber}</div>
+                    </button>
+
+                    {/* Completed Today Card */}
+                    <button
+                      type="button"
+                      onClick={() => setCurrentNavTab("DELIVERIES")}
+                      className="bg-white p-3.5 rounded-2xl border border-emerald-200 shadow-sm text-left hover:border-emerald-400 transition-all group"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                          <CheckCircle2 className="h-4 w-4" />
+                        </div>
+                        <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider group-hover:translate-x-0.5 transition-transform">
+                          &rarr;
+                        </span>
+                      </div>
+                      <div className="text-2xl font-black text-slate-900 font-mono">
+                        {completedDeliveries.length + completedPickups.length}
+                      </div>
+                      <div className="text-xs font-bold text-emerald-900">{t.tabDone}</div>
+                      <div className="text-[10px] text-slate-400">{t.completedTasksToday}</div>
+                    </button>
+                  </div>
+
+                  {/* Priority Next Assigned Action Card */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between px-1">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                        <Clock className="h-3.5 w-3.5 text-[#F26522]" />
+                        Priority Action
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-medium">
+                        {pendingPickups.length + pendingDeliveries.length} Pending
+                      </span>
+                    </div>
+
+                    {pendingPickups.length > 0 ? (
+                      (() => {
+                        const topMRN = pendingPickups[0];
+                        const status = topMRN.status;
+                        const isArrived = status === "ARRIVED_AT_SITE" || status === "PICKUP_IN_PROGRESS";
+                        const isLoaded = status === "PICKUP_COMPLETED" || status === "IN_TRANSIT";
+                        const navQuery = encodeURIComponent(
+                          `${topMRN.customerSite?.siteName || ""} ${topMRN.customerSite?.fullAddress || ""}`.trim()
+                        );
+                        const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${navQuery}`;
+
+                        return (
+                          <Card className="border-amber-300 shadow-sm overflow-hidden bg-white">
+                            <div className="bg-amber-50 px-4 py-2.5 border-b border-amber-200 flex justify-between items-center">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono text-xs font-black text-amber-950">{topMRN.mrnNumber}</span>
+                                <span className="text-[10px] font-bold text-amber-800 bg-amber-200/80 px-2 py-0.5 rounded">
+                                  {t.badgeReturnPickup}
+                                </span>
+                              </div>
+                              <span className="font-mono text-[11px] font-bold text-slate-700">
+                                {topMRN.vehicleTrip?.vehicle?.vehicleNumber || topMRN.vehicleNumber || activeVehicleNumber}
+                              </span>
+                            </div>
+
+                            <CardContent className="p-4 space-y-3">
+                              <div>
+                                <div className="text-[11px] font-bold uppercase text-slate-400">{t.customer}</div>
+                                <h3 className="font-black text-base text-slate-900">{topMRN.customer?.name}</h3>
+                                <div className="flex items-start gap-1.5 text-xs text-slate-600 mt-1">
+                                  <MapPin className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                                  <span>
+                                    <strong>{topMRN.customerSite?.siteName}</strong> &bull; {topMRN.customerSite?.fullAddress || "Site location"}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  asChild
+                                  className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200 text-xs h-8 px-3"
+                                >
+                                  <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer">
+                                    <Navigation className="h-3.5 w-3.5 mr-1 text-blue-600" />
+                                    {t.navigate}
+                                  </a>
+                                </Button>
+
+                                {topMRN.customerSite?.siteContactDetails ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    asChild
+                                    className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200 text-xs h-8 px-3"
+                                  >
+                                    <a href={`tel:${topMRN.customerSite.siteContactDetails}`}>
+                                      <Phone className="h-3.5 w-3.5 mr-1" />
+                                      {t.call}
+                                    </a>
+                                  </Button>
+                                ) : (
+                                  <Button size="sm" variant="outline" disabled className="text-xs h-8 opacity-50">
+                                    {t.call}
+                                  </Button>
+                                )}
+                              </div>
+
+                              {/* Stepped Driver Actions */}
+                              {!isArrived && !isLoaded && (
+                                <Button
+                                  onClick={() => handleMarkArrivalAtSite(topMRN)}
+                                  loading={loadingArrivalId === topMRN.id}
+                                  loadingText={t.btnMarkingArrival}
+                                  disabled={loadingArrivalId === topMRN.id}
+                                  className="w-full bg-[#0B1E36] hover:bg-[#071424] text-white font-bold h-11 flex items-center justify-center gap-2 shadow"
+                                >
+                                  <MapPin className="h-4 w-4 text-[#F26522]" />
+                                  {t.btnMarkArrivalAtSite}
+                                </Button>
+                              )}
+
+                              {isArrived && (
+                                <Button
+                                  onClick={() => openPickupModal(topMRN)}
+                                  className="w-full bg-[#F26522] hover:bg-[#EA580C] text-white font-bold h-11 flex items-center justify-center gap-2 shadow"
+                                >
+                                  <FileCheck className="h-4 w-4 text-white" />
+                                  {t.btnCountMaterialsAndHandover}
+                                </Button>
+                              )}
+
+                              {isLoaded && (
+                                <Button
+                                  onClick={() => openYardArrivalModal(topMRN)}
+                                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11 flex items-center justify-center gap-2 shadow"
+                                >
+                                  <Warehouse className="h-4 w-4 text-white" />
+                                  {t.btnMarkArrivalAtYard}
+                                </Button>
+                              )}
+                            </CardContent>
+                          </Card>
+                        );
+                      })()
+                    ) : pendingDeliveries.length > 0 ? (
+                      (() => {
+                        const topDN = pendingDeliveries[0];
+                        const navQuery = encodeURIComponent(
+                          `${topDN.customerSite?.siteName || ""} ${topDN.customerSite?.fullAddress || ""}`.trim()
+                        );
+                        const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${navQuery}`;
+
+                        return (
+                          <Card className="border-sky-300 shadow-sm overflow-hidden bg-white">
+                            <div className="bg-sky-50 px-4 py-2.5 border-b border-sky-200 flex justify-between items-center">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono text-xs font-black text-sky-950">{topDN.dnNumber}</span>
+                                <span className="text-[10px] font-bold text-sky-800 bg-sky-200/80 px-2 py-0.5 rounded">
+                                  {t.badgeOutwardDelivery}
+                                </span>
+                              </div>
+                              <span className="font-mono text-[11px] font-bold text-slate-700">
+                                {topDN.vehicleNumber || activeVehicleNumber}
+                              </span>
+                            </div>
+
+                            <CardContent className="p-4 space-y-3">
+                              <div>
+                                <div className="text-[11px] font-bold uppercase text-slate-400">{t.customer}</div>
+                                <h3 className="font-black text-base text-slate-900">{topDN.customer?.name}</h3>
+                                <div className="flex items-start gap-1.5 text-xs text-slate-600 mt-1">
+                                  <MapPin className="h-4 w-4 text-[#F26522] shrink-0 mt-0.5" />
+                                  <span>
+                                    <strong>{topDN.customerSite?.siteName}</strong> &bull; {topDN.customerSite?.fullAddress || "Site location"}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  asChild
+                                  className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200 text-xs h-8 px-3"
+                                >
+                                  <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer">
+                                    <Navigation className="h-3.5 w-3.5 mr-1 text-blue-600" />
+                                    {t.navigate}
+                                  </a>
+                                </Button>
+
+                                {topDN.customerSite?.siteContactDetails ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    asChild
+                                    className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200 text-xs h-8 px-3"
+                                  >
+                                    <a href={`tel:${topDN.customerSite.siteContactDetails}`}>
+                                      <Phone className="h-3.5 w-3.5 mr-1" />
+                                      {t.call}
+                                    </a>
+                                  </Button>
+                                ) : (
+                                  <Button size="sm" variant="outline" disabled className="text-xs h-8 opacity-50">
+                                    {t.call}
+                                  </Button>
+                                )}
+                              </div>
+
+                              <Button
+                                onClick={() => openDeliveryModal(topDN)}
+                                className="w-full bg-[#F26522] hover:bg-[#EA580C] text-white font-bold h-11 flex items-center justify-center gap-2 shadow"
+                              >
+                                <Camera className="h-4 w-4" />
+                                {t.btnConfirmDeliveryAndSignature}
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        );
+                      })()
+                    ) : (
+                      <Card className="p-6 text-center text-slate-600 border-slate-200 bg-white">
+                        <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto mb-2" />
+                        <p className="font-bold text-sm text-slate-900">{t.noCompletedToday}</p>
+                        <p className="text-xs text-slate-400 mt-1">{t.noCompletedTodayDesc}</p>
+                      </Card>
+                    )}
+                  </div>
+
+                  {/* Navigation Shortcut Cards */}
+                  <div className="space-y-2 pt-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500 px-1">
+                      Quick Access
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setCurrentNavTab("DELIVERIES")}
+                        className="bg-white p-3.5 rounded-xl border border-slate-200 hover:border-sky-300 flex items-center justify-between transition-all group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center">
+                            <Truck className="h-4 w-4" />
+                          </div>
+                          <div className="text-left">
+                            <div className="text-xs font-bold text-slate-900">{t.navDeliveries}</div>
+                            <div className="text-[10px] text-slate-400">{pendingDeliveries.length} items awaiting delivery</div>
+                          </div>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setCurrentNavTab("PICKUPS")}
+                        className="bg-white p-3.5 rounded-xl border border-slate-200 hover:border-amber-300 flex items-center justify-between transition-all group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
+                            <RotateCcw className="h-4 w-4" />
+                          </div>
+                          <div className="text-left">
+                            <div className="text-xs font-bold text-slate-900">{t.navPickups}</div>
+                            <div className="text-[10px] text-slate-400">{pendingPickups.length} scheduled return collections</div>
+                          </div>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setCurrentNavTab("TRIPS")}
+                        className="bg-white p-3.5 rounded-xl border border-slate-200 hover:border-slate-300 flex items-center justify-between transition-all group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-lg bg-slate-50 text-slate-700 flex items-center justify-center">
+                            <Compass className="h-4 w-4" />
+                          </div>
+                          <div className="text-left">
+                            <div className="text-xs font-bold text-slate-900">{t.navTrips}</div>
+                            <div className="text-[10px] text-slate-400">{assignedTrips.length} assigned vehicle runs</div>
+                          </div>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setCurrentNavTab("PROFILE")}
+                        className="bg-white p-3.5 rounded-xl border border-slate-200 hover:border-slate-300 flex items-center justify-between transition-all group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-lg bg-slate-50 text-slate-700 flex items-center justify-center">
+                            <User className="h-4 w-4" />
+                          </div>
+                          <div className="text-left">
+                            <div className="text-xs font-bold text-slate-900">{t.navProfile}</div>
+                            <div className="text-[10px] text-slate-400">{t.selectLanguage} &bull; App Info</div>
+                          </div>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* === TAB 2: DELIVERIES (OUTWARD DISPATCHES) === */}
+              {currentNavTab === "DELIVERIES" && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between bg-white p-3 rounded-2xl border border-slate-200">
+                    <div>
+                      <h2 className="text-sm font-black text-sky-950 flex items-center gap-1.5">
+                        <Truck className="h-4 w-4 text-sky-600" />
+                        {t.assignedOutwardDeliveries}
+                      </h2>
+                      <p className="text-[11px] text-slate-500">Unload and obtain customer proof at construction sites</p>
+                    </div>
+                    <Badge className="bg-sky-100 text-sky-800 border-sky-200 font-mono text-xs font-bold">
+                      {pendingDeliveries.length} {t.items}
+                    </Badge>
+                  </div>
+
+                  {pendingDeliveries.length === 0 ? (
+                    <Card className="p-8 text-center text-slate-500 border-slate-200 bg-white rounded-2xl">
+                      <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto mb-2" />
+                      <p className="font-bold text-sm text-slate-900">{t.noPendingDeliveries}</p>
+                      <p className="text-xs text-slate-400 mt-1">{t.noPendingDeliveriesDesc}</p>
+                    </Card>
+                  ) : (
+                    pendingDeliveries.map((dn: any) => {
+                      const navQuery = encodeURIComponent(
+                        `${dn.customerSite?.siteName || ""} ${dn.customerSite?.fullAddress || ""}`.trim()
+                      );
+                      const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${navQuery}`;
+
+                      return (
+                        <Card key={dn.id} className="border-sky-200/80 shadow-sm overflow-hidden bg-white rounded-2xl">
+                          <div className="bg-sky-50 px-4 py-2.5 border-b border-sky-200/80 flex justify-between items-center">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono text-xs font-black text-sky-950">{dn.dnNumber}</span>
+                              <span className="text-[10px] font-bold text-sky-700 bg-sky-100 px-2 py-0.5 rounded">
+                                {t.badgeOutwardDelivery}
+                              </span>
+                            </div>
+                            <span className="font-mono text-[11px] font-bold text-slate-700">
+                              {dn.vehicleNumber || activeVehicleNumber}
                             </span>
                           </div>
 
-                          <span className="font-mono text-[11px] font-bold text-slate-700">
-                            {mrn.vehicleTrip?.vehicle?.vehicleNumber || mrn.vehicleNumber || t.vehicle}
-                          </span>
-                        </div>
-
-                        <CardContent className="p-4 space-y-3">
-                          {/* Status Pill Indicator */}
-                          <div className="flex items-center justify-between">
-                            <div className="text-[11px] font-bold uppercase text-slate-400">{t.status}</div>
+                          <CardContent className="p-4 space-y-3">
                             <div>
-                              {status === "ASSIGNED" && (
-                                <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-[10px] font-bold">
-                                  {t.statusDriverAssigned}
-                                </Badge>
-                              )}
-                              {isArrived && (
-                                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px] font-bold">
-                                  {t.statusArrivedAtSite}
-                                </Badge>
-                              )}
-                              {isLoaded && (
-                                <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-[10px] font-bold">
-                                  {t.statusInTransitToYard}
-                                </Badge>
-                              )}
+                              <div className="text-[11px] font-bold uppercase text-slate-400">{t.customer}</div>
+                              <h3 className="font-black text-base text-slate-900">{dn.customer?.name}</h3>
+                              <div className="flex items-start gap-1.5 text-xs text-slate-600 mt-1">
+                                <MapPin className="h-4 w-4 text-[#F26522] shrink-0 mt-0.5" />
+                                <span>
+                                  <strong>{dn.customerSite?.siteName}</strong> &bull; {dn.customerSite?.fullAddress || "Site location"}
+                                </span>
+                              </div>
                             </div>
-                          </div>
 
-                          {/* Customer & Construction Site */}
-                          <div>
-                            <div className="text-[11px] font-bold uppercase text-slate-400">{t.customer}</div>
-                            <h3 className="font-black text-base text-slate-900">{mrn.customer?.name}</h3>
-                            <div className="flex items-start gap-1.5 text-xs text-slate-600 mt-1">
-                              <MapPin className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                              <span>
-                                <strong>{mrn.customerSite?.siteName}</strong> &bull; {mrn.customerSite?.fullAddress || "Site location"}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Action Buttons: Navigate + Call Site */}
-                          <div className="grid grid-cols-2 gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              asChild
-                              className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200 text-xs h-8 px-3"
-                            >
-                              <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer">
-                                <Navigation className="h-3.5 w-3.5 mr-1 text-blue-600" />
-                                {t.navigate}
-                              </a>
-                            </Button>
-
-                            {mrn.customerSite?.siteContactDetails ? (
+                            <div className="grid grid-cols-2 gap-2">
                               <Button
                                 size="sm"
                                 variant="outline"
                                 asChild
-                                className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200 text-xs h-8 px-3"
+                                className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200 text-xs h-8 px-3"
                               >
-                                <a href={`tel:${mrn.customerSite.siteContactDetails}`}>
-                                  <Phone className="h-3.5 w-3.5 mr-1" />
-                                  {t.call}
+                                <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer">
+                                  <Navigation className="h-3.5 w-3.5 mr-1 text-blue-600" />
+                                  {t.navigate}
                                 </a>
                               </Button>
-                            ) : (
-                              <Button size="sm" variant="outline" disabled className="text-xs h-8 opacity-50">
-                                {t.call}
-                              </Button>
-                            )}
-                          </div>
 
-                          {/* Destination Yard & Trip Info */}
-                          <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs text-slate-700 space-y-1">
-                            <div className="flex justify-between items-center">
-                              <span className="text-[10px] font-bold uppercase text-slate-400">{t.destinationYard}</span>
-                              {mrn.vehicleTrip?.tripNumber && (
-                                <span className="font-mono text-[10px] bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">
-                                  {t.trip}: {mrn.vehicleTrip.tripNumber}
-                                </span>
+                              {dn.customerSite?.siteContactDetails ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  asChild
+                                  className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200 text-xs h-8 px-3"
+                                >
+                                  <a href={`tel:${dn.customerSite.siteContactDetails}`}>
+                                    <Phone className="h-3.5 w-3.5 mr-1" />
+                                    {t.call}
+                                  </a>
+                                </Button>
+                              ) : (
+                                <Button size="sm" variant="outline" disabled className="text-xs h-8 opacity-50">
+                                  {t.call}
+                                </Button>
                               )}
                             </div>
-                            <div className="font-bold text-slate-800 flex items-center gap-1.5">
-                              <Warehouse className="w-4 h-4 text-slate-600 shrink-0" />
-                              {mrn.receivingWarehouse?.name || "Main Peenya Centering Yard"}
-                            </div>
-                            {mrn.pickupInstructions && (
-                              <p className="text-[11px] text-slate-500 italic mt-1">
-                                &ldquo;{mrn.pickupInstructions}&rdquo;
-                              </p>
-                            )}
-                          </div>
 
-                          {/* Items to Collect */}
-                          <div className="border-t border-slate-100 pt-2">
-                            <div className="text-[11px] uppercase font-bold text-slate-500 mb-1">
-                              {t.items} ({mrn.items?.length || 0})
-                            </div>
-                            <div className="grid grid-cols-2 gap-1 text-xs">
-                              {mrn.items?.map((it: any) => (
-                                <div key={it.id} className="bg-amber-50/60 border border-amber-100 px-2 py-1 rounded text-slate-800">
-                                  &bull; <strong className="font-mono text-amber-900">{Number(it.expectedQty || it.returnedQty)}</strong> &times; {it.materialVariant?.name}
+                            {dn.customerSite?.siteContactDetails && (
+                              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex items-center justify-between text-xs">
+                                <div>
+                                  <div className="text-[10px] text-slate-400 font-bold uppercase">{t.designationOnSite}</div>
+                                  <div className="font-bold text-slate-800">
+                                    {dn.customerSite?.siteInCharge || "Site In-Charge"} ({dn.customerSite?.siteContactDetails})
+                                  </div>
                                 </div>
-                              ))}
+                              </div>
+                            )}
+
+                            {/* Checklist */}
+                            <div className="border-t border-slate-100 pt-2">
+                              <div className="text-[11px] uppercase font-bold text-slate-500 mb-1">
+                                {t.deliveryItemsChecklist} ({dn.items?.length || 0} {t.items})
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
+                                {dn.items?.map((it: any) => (
+                                  <div key={it.id} className="bg-slate-50 px-2 py-1 rounded text-slate-700 border border-slate-100">
+                                    &bull; <strong className="font-mono text-slate-900">{Number(it.quantity)}</strong> &times; {it.materialVariant?.name}
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                          </div>
 
-                          {/* STEPPED DRIVER ACTIONS */}
-                          {/* Step A: Driver has not marked arrival at site yet */}
-                          {!isArrived && !isLoaded && (
                             <Button
-                              onClick={() => handleMarkArrivalAtSite(mrn)}
-                              loading={loadingArrivalId === mrn.id}
-                              loadingText={t.btnMarkingArrival}
-                              disabled={loadingArrivalId === mrn.id}
-                              className="w-full bg-[#0B1E36] hover:bg-[#071424] text-white font-bold h-11 flex items-center justify-center gap-2 shadow"
-                            >
-                              <MapPin className="h-4 w-4 text-[#F26522]" />
-                              {t.btnMarkArrivalAtSite}
-                            </Button>
-                          )}
-
-                          {/* Step B: Driver arrived at site -> count items, photos, customer signature */}
-                          {isArrived && (
-                            <Button
-                              onClick={() => openPickupModal(mrn)}
+                              onClick={() => openDeliveryModal(dn)}
                               className="w-full bg-[#F26522] hover:bg-[#EA580C] text-white font-bold h-11 flex items-center justify-center gap-2 shadow"
                             >
-                              <FileCheck className="h-4 w-4 text-white" />
-                              {t.btnCountMaterialsAndHandover}
+                              <Camera className="h-4 w-4" />
+                              {t.btnConfirmDeliveryAndSignature}
                             </Button>
-                          )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })
+                  )}
 
-                          {/* Step C: Materials loaded in transit -> driver marks arrival at yard */}
-                          {isLoaded && (
-                            <Button
-                              onClick={() => openYardArrivalModal(mrn)}
-                              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11 flex items-center justify-center gap-2 shadow"
-                            >
-                              <Warehouse className="h-4 w-4 text-white" />
-                              {t.btnMarkArrivalAtYard}
-                            </Button>
-                          )}
-                        </CardContent>
-                      </Card>
-                    );
-                  })
-                )}
-              </div>
-            )}
-
-            {/* 2. DELIVERIES SECTION */}
-            {(activeTab === "ALL" || activeTab === "DELIVERIES") && (
-              <div className="space-y-3 pt-2">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xs font-bold text-sky-900 uppercase tracking-wider flex items-center gap-1.5">
-                    <Truck className="h-3.5 w-3.5 text-sky-600" />
-                    {t.assignedOutwardDeliveries} ({pendingDeliveries.length})
-                  </h2>
-                </div>
-
-                {pendingDeliveries.length === 0 ? (
-                  activeTab === "DELIVERIES" && (
-                    <Card className="p-6 text-center text-slate-500 border-slate-200">
-                      <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto mb-2" />
-                      <p className="font-semibold text-sm">{t.noPendingDeliveries}</p>
-                      <p className="text-xs text-slate-400 mt-1">{t.noPendingDeliveriesDesc}</p>
-                    </Card>
-                  )
-                ) : (
-                  pendingDeliveries.map((dn: any) => (
-                    <Card key={dn.id} className="border-sky-200/80 shadow-sm overflow-hidden bg-white">
-                      <div className="bg-sky-50 px-4 py-2 border-b border-sky-200/80 flex justify-between items-center">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono text-xs font-black text-sky-950">{dn.dnNumber}</span>
-                          <span className="text-[10px] font-bold text-sky-700 bg-sky-100 px-1.5 py-0.2 rounded">
-                            {t.badgeOutwardDelivery}
-                          </span>
-                        </div>
-                        {dn.vehicleNumber && (
-                          <span className="font-mono text-[11px] font-bold text-slate-700">
-                            {dn.vehicleNumber}
-                          </span>
-                        )}
+                  {/* Completed Outward Deliveries Collapsible */}
+                  {completedDeliveries.length > 0 && (
+                    <div className="space-y-2 pt-4 border-t border-slate-200">
+                      <div className="text-xs font-bold uppercase tracking-wider text-emerald-900 flex items-center gap-1.5 px-1">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                        Completed Outward Deliveries Today ({completedDeliveries.length})
                       </div>
+                      {completedDeliveries.map((dn: any) => (
+                        <Card key={dn.id} className="p-3.5 border-slate-200 bg-white shadow-sm flex items-center justify-between rounded-xl">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-bold text-xs text-slate-900">{dn.dnNumber}</span>
+                              <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded">
+                                {t.statusDelivered}
+                              </span>
+                            </div>
+                            <div className="font-bold text-xs text-slate-800 mt-0.5">{dn.customer?.name}</div>
+                            <div className="text-[11px] text-slate-500">{dn.customerSite?.siteName}</div>
+                          </div>
+                          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
-                      <CardContent className="p-4 space-y-3">
-                        <div>
-                          <div className="text-[11px] font-bold uppercase text-slate-400">{t.customer}</div>
-                          <h3 className="font-black text-base text-slate-900">{dn.customer?.name}</h3>
-                          <div className="flex items-start gap-1.5 text-xs text-slate-600 mt-1">
-                            <MapPin className="h-4 w-4 text-[#F26522] shrink-0 mt-0.5" />
-                            <span>
-                              <strong>{dn.customerSite?.siteName}</strong> &bull; {dn.customerSite?.fullAddress || "Site location"}
+              {/* === TAB 3: PICKUPS (MATERIAL RETURNS - RESTRUCTURED WORKFLOW) === */}
+              {currentNavTab === "PICKUPS" && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between bg-white p-3 rounded-2xl border border-slate-200">
+                    <div>
+                      <h2 className="text-sm font-black text-amber-950 flex items-center gap-1.5">
+                        <RotateCcw className="h-4 w-4 text-amber-600" />
+                        {t.assignedReturnPickups}
+                      </h2>
+                      <p className="text-[11px] text-slate-500">Collect centering materials from sites & deliver to yard</p>
+                    </div>
+                    <Badge className="bg-amber-100 text-amber-800 border-amber-200 font-mono text-xs font-bold">
+                      {pendingPickups.length} {t.items}
+                    </Badge>
+                  </div>
+
+                  {pendingPickups.length === 0 ? (
+                    <Card className="p-8 text-center text-slate-500 border-slate-200 bg-white rounded-2xl">
+                      <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto mb-2" />
+                      <p className="font-bold text-sm text-slate-900">{t.noPendingPickups}</p>
+                      <p className="text-xs text-slate-400 mt-1">{t.noPendingPickupsDesc}</p>
+                    </Card>
+                  ) : (
+                    pendingPickups.map((mrn: any) => {
+                      const status = mrn.status;
+                      const isArrived = status === "ARRIVED_AT_SITE" || status === "PICKUP_IN_PROGRESS";
+                      const isLoaded = status === "PICKUP_COMPLETED" || status === "IN_TRANSIT";
+                      const navQuery = encodeURIComponent(
+                        `${mrn.customerSite?.siteName || ""} ${mrn.customerSite?.fullAddress || ""}`.trim()
+                      );
+                      const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${navQuery}`;
+
+                      return (
+                        <Card key={mrn.id} className="border-amber-300 shadow-sm overflow-hidden bg-white rounded-2xl">
+                          <div className="bg-amber-50 px-4 py-2.5 border-b border-amber-200 flex justify-between items-center">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono text-xs font-black text-amber-950">{mrn.mrnNumber}</span>
+                              <span className="text-[10px] font-bold text-amber-800 bg-amber-200/80 px-2 py-0.5 rounded">
+                                {t.badgeReturnPickup}
+                              </span>
+                            </div>
+                            <span className="font-mono text-[11px] font-bold text-slate-700">
+                              {mrn.vehicleTrip?.vehicle?.vehicleNumber || mrn.vehicleNumber || activeVehicleNumber}
                             </span>
                           </div>
-                        </div>
 
-                        {/* Contact site directly */}
-                        {dn.customerSite?.siteContactDetails && (
-                          <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex items-center justify-between">
-                            <div>
-                              <div className="text-[10px] text-slate-400 font-bold uppercase">{t.designationOnSite}</div>
-                              <div className="text-xs font-bold text-slate-800">
-                                {dn.customerSite?.siteInCharge || "Site In-Charge"} ({dn.customerSite?.siteContactDetails})
+                          <CardContent className="p-4 space-y-3">
+                            {/* Status indicator */}
+                            <div className="flex items-center justify-between">
+                              <div className="text-[11px] font-bold uppercase text-slate-400">{t.status}</div>
+                              <div>
+                                {status === "ASSIGNED" && (
+                                  <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-[10px] font-bold">
+                                    {t.statusDriverAssigned}
+                                  </Badge>
+                                )}
+                                {isArrived && (
+                                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px] font-bold">
+                                    {t.statusArrivedAtSite}
+                                  </Badge>
+                                )}
+                                {isLoaded && (
+                                  <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-[10px] font-bold">
+                                    {t.statusInTransitToYard}
+                                  </Badge>
+                                )}
                               </div>
                             </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              asChild
-                              className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200 text-xs h-8 px-3"
-                            >
-                              <a href={`tel:${dn.customerSite.siteContactDetails}`}>
-                                <Phone className="h-3.5 w-3.5 mr-1" />
-                                {t.call}
-                              </a>
-                            </Button>
-                          </div>
-                        )}
 
-                        {/* Items to unload */}
-                        <div className="border-t border-slate-100 pt-2">
-                          <div className="text-[11px] uppercase font-bold text-slate-500 mb-1">
-                            {t.deliveryItemsChecklist} ({dn.items?.length || 0} {t.items})
-                          </div>
-                          <div className="grid grid-cols-2 gap-1 text-xs">
-                            {dn.items?.map((it: any) => (
-                              <div key={it.id} className="bg-slate-50 px-2 py-1 rounded text-slate-700">
-                                &bull; <strong className="font-mono text-slate-900">{Number(it.quantity)}</strong> &times; {it.materialVariant?.name}
+                            {/* Customer & Site */}
+                            <div>
+                              <div className="text-[11px] font-bold uppercase text-slate-400">{t.customer}</div>
+                              <h3 className="font-black text-base text-slate-900">{mrn.customer?.name}</h3>
+                              <div className="flex items-start gap-1.5 text-xs text-slate-600 mt-1">
+                                <MapPin className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                                <span>
+                                  <strong>{mrn.customerSite?.siteName}</strong> &bull; {mrn.customerSite?.fullAddress || "Site location"}
+                                </span>
                               </div>
-                            ))}
-                          </div>
-                        </div>
+                            </div>
 
-                        {/* Action button */}
-                        <Button
-                          onClick={() => openDeliveryModal(dn)}
-                          className="w-full bg-[#F26522] hover:bg-[#EA580C] text-white font-bold h-11 flex items-center justify-center gap-2 shadow"
-                        >
-                          <Camera className="h-4 w-4" />
-                          {t.btnConfirmDeliveryAndSignature}
-                        </Button>
-                      </CardContent>
+                            <div className="grid grid-cols-2 gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                asChild
+                                className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200 text-xs h-8 px-3"
+                              >
+                                <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer">
+                                  <Navigation className="h-3.5 w-3.5 mr-1 text-blue-600" />
+                                  {t.navigate}
+                                </a>
+                              </Button>
+
+                              {mrn.customerSite?.siteContactDetails ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  asChild
+                                  className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200 text-xs h-8 px-3"
+                                >
+                                  <a href={`tel:${mrn.customerSite.siteContactDetails}`}>
+                                    <Phone className="h-3.5 w-3.5 mr-1" />
+                                    {t.call}
+                                  </a>
+                                </Button>
+                              ) : (
+                                <Button size="sm" variant="outline" disabled className="text-xs h-8 opacity-50">
+                                  {t.call}
+                                </Button>
+                              )}
+                            </div>
+
+                            {/* Destination Yard Info */}
+                            <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs text-slate-700 space-y-1">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[10px] font-bold uppercase text-slate-400">{t.destinationYard}</span>
+                                {mrn.vehicleTrip?.tripNumber && (
+                                  <span className="font-mono text-[10px] bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">
+                                    {t.trip}: {mrn.vehicleTrip.tripNumber}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                                <Warehouse className="w-4 h-4 text-slate-600 shrink-0" />
+                                {mrn.receivingWarehouse?.name || "Main Peenya Centering Yard"}
+                              </div>
+                              {mrn.pickupInstructions && (
+                                <p className="text-[11px] text-slate-500 italic mt-1">
+                                  &ldquo;{mrn.pickupInstructions}&rdquo;
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Expected Items */}
+                            <div className="border-t border-slate-100 pt-2">
+                              <div className="text-[11px] uppercase font-bold text-slate-500 mb-1">
+                                {t.items} ({mrn.items?.length || 0})
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
+                                {mrn.items?.map((it: any) => (
+                                  <div key={it.id} className="bg-amber-50/60 border border-amber-100 px-2 py-1 rounded text-slate-800">
+                                    &bull; <strong className="font-mono text-amber-900">{Number(it.expectedQty || it.returnedQty)}</strong> &times; {it.materialVariant?.name}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* STEPPED DRIVER ACTIONS */}
+                            {!isArrived && !isLoaded && (
+                              <Button
+                                onClick={() => handleMarkArrivalAtSite(mrn)}
+                                loading={loadingArrivalId === mrn.id}
+                                loadingText={t.btnMarkingArrival}
+                                disabled={loadingArrivalId === mrn.id}
+                                className="w-full bg-[#0B1E36] hover:bg-[#071424] text-white font-bold h-11 flex items-center justify-center gap-2 shadow"
+                              >
+                                <MapPin className="h-4 w-4 text-[#F26522]" />
+                                {t.btnMarkArrivalAtSite}
+                              </Button>
+                            )}
+
+                            {isArrived && (
+                              <Button
+                                onClick={() => openPickupModal(mrn)}
+                                className="w-full bg-[#F26522] hover:bg-[#EA580C] text-white font-bold h-11 flex items-center justify-center gap-2 shadow"
+                              >
+                                <FileCheck className="h-4 w-4 text-white" />
+                                {t.btnCountMaterialsAndHandover}
+                              </Button>
+                            )}
+
+                            {isLoaded && (
+                              <Button
+                                onClick={() => openYardArrivalModal(mrn)}
+                                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11 flex items-center justify-center gap-2 shadow"
+                              >
+                                <Warehouse className="h-4 w-4 text-white" />
+                                {t.btnMarkArrivalAtYard}
+                              </Button>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })
+                  )}
+
+                  {/* Completed Returns Today */}
+                  {completedPickups.length > 0 && (
+                    <div className="space-y-2 pt-4 border-t border-slate-200">
+                      <div className="text-xs font-bold uppercase tracking-wider text-emerald-900 flex items-center gap-1.5 px-1">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                        Completed Return Pickups Today ({completedPickups.length})
+                      </div>
+                      {completedPickups.map((mrn: any) => (
+                        <Card key={mrn.id} className="p-3.5 border-slate-200 bg-white shadow-sm flex items-center justify-between rounded-xl">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-bold text-xs text-slate-900">{mrn.mrnNumber}</span>
+                              <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.2 rounded">
+                                {t.statusFinalized}
+                              </span>
+                            </div>
+                            <div className="font-bold text-xs text-slate-800 mt-0.5">{mrn.customer?.name}</div>
+                            <div className="text-[11px] text-slate-500">
+                              {mrn.customerSite?.siteName} &rarr; {mrn.receivingWarehouse?.name || t.destinationYard}
+                            </div>
+                          </div>
+                          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* === TAB 4: VEHICLE TRIPS === */}
+              {currentNavTab === "TRIPS" && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between bg-white p-3 rounded-2xl border border-slate-200">
+                    <div>
+                      <h2 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                        <Compass className="h-4 w-4 text-[#F26522]" />
+                        {t.navTrips}
+                      </h2>
+                      <p className="text-[11px] text-slate-500">Fleet vehicle dispatch and return trip logs</p>
+                    </div>
+                    <Badge className="bg-slate-100 text-slate-800 border-slate-200 font-mono text-xs font-bold">
+                      {assignedTrips.length} Trips
+                    </Badge>
+                  </div>
+
+                  {assignedTrips.length === 0 ? (
+                    <Card className="p-8 text-center text-slate-500 border-slate-200 bg-white rounded-2xl">
+                      <Truck className="h-10 w-10 text-slate-400 mx-auto mb-2" />
+                      <p className="font-bold text-sm text-slate-800">No Vehicle Trips Logged</p>
+                      <p className="text-xs text-slate-400 mt-1">Vehicle trip logs and odometer records will appear here.</p>
                     </Card>
-                  ))
-                )}
-              </div>
-            )}
+                  ) : (
+                    assignedTrips.map((trip: any) => (
+                      <Card key={trip.id} className="border-slate-200 bg-white rounded-2xl shadow-sm overflow-hidden">
+                        <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex justify-between items-center">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-black text-slate-900">{trip.tripNumber}</span>
+                            <Badge
+                              className={cn(
+                                "text-[10px] font-bold",
+                                trip.status === "COMPLETED"
+                                  ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                                  : trip.status === "IN_TRANSIT"
+                                  ? "bg-amber-100 text-amber-800 border-amber-200"
+                                  : "bg-blue-100 text-blue-800 border-blue-200"
+                              )}
+                            >
+                              {trip.status}
+                            </Badge>
+                          </div>
+                          <span className="text-[11px] font-mono font-bold text-slate-600">
+                            {trip.vehicle?.vehicleNumber || activeVehicleNumber}
+                          </span>
+                        </div>
 
-            {/* 3. COMPLETED TODAY SECTION */}
-            {activeTab === "COMPLETED" && (
-              <div className="space-y-3">
-                <h2 className="text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                  {t.completedTasksToday} ({completedDeliveries.length + completedPickups.length})
-                </h2>
+                        <CardContent className="p-4 space-y-2.5 text-xs text-slate-700">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase">Start Odometer</span>
+                              <div className="font-mono font-black text-sm text-slate-900 mt-0.5">
+                                {trip.startOdometer ? `${Number(trip.startOdometer)} KM` : "—"}
+                              </div>
+                            </div>
+                            <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase">End Odometer</span>
+                              <div className="font-mono font-black text-sm text-slate-900 mt-0.5">
+                                {trip.endOdometer ? `${Number(trip.endOdometer)} KM` : "In Transit"}
+                              </div>
+                            </div>
+                          </div>
 
-                {completedDeliveries.length === 0 && completedPickups.length === 0 ? (
-                  <Card className="p-6 text-center text-slate-500 border-slate-200">
-                    <p className="font-semibold text-sm">{t.noCompletedToday}</p>
-                    <p className="text-xs text-slate-400 mt-1">{t.noCompletedTodayDesc}</p>
+                          <div className="flex justify-between items-center text-[11px] pt-1 border-t border-slate-100">
+                            <span className="text-slate-500">
+                              {trip.originWarehouse?.name || "Main Yard"} &rarr; {trip.destinationSite?.siteName || "Customer Site"}
+                            </span>
+                            {trip.distanceKm && (
+                              <span className="font-bold text-slate-900 font-mono">
+                                {Number(trip.distanceKm)} KM Total
+                              </span>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {/* === TAB 5: PROFILE & SETTINGS === */}
+              {currentNavTab === "PROFILE" && (
+                <div className="space-y-4">
+                  {/* Driver Card */}
+                  <Card className="p-4 rounded-2xl bg-white border-slate-200 shadow-sm flex items-center gap-3.5">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#0B1E36] to-[#1E293B] text-white flex items-center justify-center font-black text-xl shadow">
+                      {driverProfile.name ? driverProfile.name.charAt(0).toUpperCase() : "D"}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-black text-base text-slate-900">{driverProfile.name}</h3>
+                        <Badge className="bg-blue-100 text-blue-800 text-[10px] font-bold">
+                          {driverProfile.role}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {driverProfile.mobile || "Mobile not set"} &bull; {driverProfile.email || "No email"}
+                      </p>
+                      <p className="text-xs font-semibold text-slate-700 mt-1">
+                        {t.assignedVehicle}: <span className="font-mono font-bold text-[#F26522]">{activeVehicleNumber}</span>
+                      </p>
+                    </div>
                   </Card>
-                ) : (
-                  <>
-                    {completedDeliveries.map((dn: any) => (
-                      <Card key={dn.id} className="p-4 border-slate-200 bg-white shadow-sm flex items-center justify-between">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono font-bold text-xs text-slate-900">{dn.dnNumber}</span>
-                            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded">
-                              {t.statusDelivered}
-                            </span>
-                          </div>
-                          <div className="font-bold text-xs text-slate-800 mt-0.5">{dn.customer?.name}</div>
-                          <div className="text-[11px] text-slate-500">{dn.customerSite?.siteName}</div>
-                        </div>
-                        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                      </Card>
-                    ))}
 
-                    {completedPickups.map((mrn: any) => (
-                      <Card key={mrn.id} className="p-4 border-slate-200 bg-white shadow-sm flex items-center justify-between">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono font-bold text-xs text-slate-900">{mrn.mrnNumber}</span>
-                            <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.2 rounded">
-                              {t.statusFinalized}
+                  {/* Multilingual Selector */}
+                  <Card className="p-4 rounded-2xl bg-white border-slate-200 shadow-sm space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">
+                          {t.language} / மொழி / भाषा
+                        </h4>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Persistent preference saved across all devices
+                        </p>
+                      </div>
+                      <Badge className="bg-slate-100 text-slate-800 text-[10px] font-bold font-mono">
+                        {language.toUpperCase()}
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { code: "en" as DriverLanguage, label: "English", native: "English" },
+                        { code: "ta" as DriverLanguage, label: "Tamil", native: "தமிழ்" },
+                        { code: "hi" as DriverLanguage, label: "Hindi", native: "हिन्दी" },
+                      ].map((lang) => {
+                        const isActive = language === lang.code;
+                        return (
+                          <button
+                            key={lang.code}
+                            type="button"
+                            onClick={() => setLanguage(lang.code)}
+                            className={cn(
+                              "p-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1",
+                              isActive
+                                ? "bg-[#0B1E36] text-white border-[#0B1E36] shadow-sm ring-2 ring-[#F26522]/30"
+                                : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                            )}
+                          >
+                            <span className="font-black text-sm">{lang.native}</span>
+                            <span className={cn("text-[10px]", isActive ? "text-slate-300" : "text-slate-500")}>
+                              {lang.label}
                             </span>
-                          </div>
-                          <div className="font-bold text-xs text-slate-800 mt-0.5">{mrn.customer?.name}</div>
-                          <div className="text-[11px] text-slate-500">
-                            {mrn.customerSite?.siteName} &rarr; {mrn.receivingWarehouse?.name || t.destinationYard}
-                          </div>
-                        </div>
-                        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                      </Card>
-                    ))}
-                  </>
-                )}
+                            {isActive && <Check className="h-3.5 w-3.5 text-[#F26522] mt-0.5" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </Card>
+
+                  {/* Progressive Web App (PWA) Status Card */}
+                  <Card className="p-4 rounded-2xl bg-white border-slate-200 shadow-sm space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                          <Smartphone className="h-4 w-4 text-[#F26522]" />
+                          {t.installAppTitle}
+                        </h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Fast full-screen mobile app with offline local storage
+                        </p>
+                      </div>
+
+                      {isStandalone || isInstalled ? (
+                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px] font-bold">
+                          {t.appInstalledNotice}
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-[10px] font-bold">
+                          Browser
+                        </Badge>
+                      )}
+                    </div>
+
+                    {!isStandalone && (
+                      <Button
+                        onClick={() => {
+                          if (isIos) setShowIosInstructions(true);
+                          else promptInstall();
+                        }}
+                        className="w-full bg-[#F26522] hover:bg-[#EA580C] text-white font-bold text-xs h-10 shadow"
+                      >
+                        <Download className="h-4 w-4 mr-1.5" />
+                        {t.btnInstallApp}
+                      </Button>
+                    )}
+
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex items-center justify-between text-[11px] text-slate-600">
+                      <span>PWA Service Worker:</span>
+                      <span className="font-bold text-emerald-700 flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3" /> Active & Cached
+                      </span>
+                    </div>
+                  </Card>
+
+                  {/* Offline Queue & Drafts Card */}
+                  <Card className="p-4 rounded-2xl bg-white border-slate-200 shadow-sm space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">
+                          {t.offlineDraftsTitle}
+                        </h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          {offlineCount} {t.offlineDraftsCount}
+                        </p>
+                      </div>
+                      <Badge
+                        className={cn(
+                          "text-[10px] font-bold font-mono",
+                          offlineCount > 0
+                            ? "bg-amber-100 text-amber-800 border-amber-200"
+                            : "bg-emerald-100 text-emerald-800 border-emerald-200"
+                        )}
+                      >
+                        {offlineCount > 0 ? `${offlineCount} PENDING` : "IN SYNC"}
+                      </Badge>
+                    </div>
+
+                    {offlineCount > 0 && (
+                      <Button
+                        onClick={handleManualSync}
+                        disabled={syncing || !isOnline}
+                        className="w-full bg-[#0B1E36] hover:bg-[#071424] text-white font-bold text-xs h-10 shadow"
+                      >
+                        <RefreshCw className={cn("h-4 w-4 mr-1.5", syncing && "animate-spin")} />
+                        {t.sync} ({offlineCount} Pending)
+                      </Button>
+                    )}
+                  </Card>
+
+                  {/* Company Info & System Actions */}
+                  <div className="space-y-2 pt-2">
+                    <div className="text-center text-[11px] text-slate-400 py-2">
+                      <p className="font-bold text-slate-600">AJAY ENTERPRISES &bull; INVENTRA ERP</p>
+                      <p>Construction Centering Material Logistics & Fleet</p>
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      onClick={() => router.push("/dashboard")}
+                      className="w-full text-xs font-bold text-slate-700 h-10 border-slate-300"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                      {t.returnToErp}
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      onClick={handleSignOut}
+                      disabled={signingOut}
+                      className="w-full text-xs font-bold text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 h-10"
+                    >
+                      <LogOut className={cn("h-3.5 w-3.5 mr-1.5", signingOut && "animate-spin")} />
+                      {t.btnLogout}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* RIGHT PERSISTENT SIDEBAR: Visible on Tablet & Desktop (md:block) */}
+        <div className="hidden md:block md:col-span-5 lg:col-span-4 space-y-4">
+          {/* Driver & Vehicle Quick Overview */}
+          <Card className="p-4 rounded-2xl bg-white border-slate-200 shadow-sm space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#0B1E36] to-[#1E293B] text-white flex items-center justify-center font-black text-lg shadow">
+                {driverProfile.name ? driverProfile.name.charAt(0).toUpperCase() : "D"}
+              </div>
+              <div>
+                <h3 className="font-black text-sm text-slate-900">{driverProfile.name}</h3>
+                <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                  {driverProfile.role}
+                </span>
+                <p className="text-[11px] text-slate-500 font-mono mt-0.5">{driverProfile.mobile || "Driver"}</p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex items-center justify-between text-xs">
+              <span className="text-slate-500 font-semibold">{t.assignedVehicle}:</span>
+              <span className="font-mono font-bold text-[#F26522]">{activeVehicleNumber}</span>
+            </div>
+
+            {/* Quick KPI stats */}
+            <div className="grid grid-cols-2 gap-2 text-center">
+              <div className="bg-sky-50 p-2 rounded-xl border border-sky-100">
+                <div className="text-base font-black text-sky-950 font-mono">{pendingDeliveries.length}</div>
+                <div className="text-[10px] font-bold text-sky-800 uppercase">{t.tabDeliveries}</div>
+              </div>
+              <div className="bg-amber-50 p-2 rounded-xl border border-amber-100">
+                <div className="text-base font-black text-amber-950 font-mono">{pendingPickups.length}</div>
+                <div className="text-[10px] font-bold text-amber-800 uppercase">{t.tabPickups}</div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Active Vehicle Trip Odometer Info */}
+          {activeTrip && (
+            <Card className="p-4 rounded-2xl bg-white border-slate-200 shadow-sm space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Active Vehicle Run
+                </span>
+                <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-[10px] font-bold">
+                  {activeTrip.status}
+                </Badge>
+              </div>
+              <div className="font-mono font-black text-xs text-slate-900">
+                {activeTrip.tripNumber}
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase">Start Odo</span>
+                  <div className="font-mono font-bold text-slate-800 mt-0.5">
+                    {activeTrip.startOdometer ? `${Number(activeTrip.startOdometer)} KM` : "0 KM"}
+                  </div>
+                </div>
+                <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase">Status</span>
+                  <div className="font-bold text-emerald-700 mt-0.5">Ready</div>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Offline Sync Widget */}
+          <Card className="p-4 rounded-2xl bg-white border-slate-200 shadow-sm space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Offline Queue
+              </span>
+              <span className="text-xs font-mono font-bold text-slate-700">
+                {offlineCount} Drafts
+              </span>
+            </div>
+            {offlineCount > 0 ? (
+              <Button
+                size="sm"
+                onClick={handleManualSync}
+                disabled={syncing || !isOnline}
+                className="w-full bg-[#F26522] hover:bg-[#EA580C] text-white font-bold text-xs h-8"
+              >
+                <RefreshCw className={cn("h-3.5 w-3.5 mr-1.5", syncing && "animate-spin")} />
+                {t.sync} ({offlineCount})
+              </Button>
+            ) : (
+              <div className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1.5 bg-emerald-50 p-2 rounded-xl border border-emerald-100">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                All delivery & pickup records synced
               </div>
             )}
-          </>
-        )}
+          </Card>
+        </div>
       </div>
 
       {/* DELIVERY PROOF & ACKNOWLEDGEMENT MODAL (DN) */}
@@ -1920,6 +2850,25 @@ function DeliveryPortalContent({
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* iOS Install Instructions Modal */}
+      <IosInstallDialog />
+
+      {/* Quick Actions Floating Action Button (Long-Press / Tap) */}
+      <DriverQuickActions
+        canCreateDN={canCreateDeliveryNote}
+        canCreateMRN={canCreateReturnNote}
+        canCreateInvoice={canCreateInvoice}
+      />
+
+      {/* Fixed Bottom Navigation (Mobile Phones Only, < md) */}
+      <DriverBottomNav
+        activeTab={currentNavTab}
+        onChangeTab={setCurrentNavTab}
+        pendingDeliveriesCount={pendingDeliveries.length}
+        pendingPickupsCount={pendingPickups.length}
+        className="md:hidden"
+      />
     </div>
   );
 }
@@ -1928,8 +2877,10 @@ export default function DeliveryPortalPage() {
   const [serverLanguage, setServerLanguage] = React.useState<DriverLanguage>("en");
 
   return (
-    <DriverLanguageProvider initialLanguage={serverLanguage}>
-      <DeliveryPortalContent onServerLanguageLoaded={setServerLanguage} />
-    </DriverLanguageProvider>
+    <PwaProvider>
+      <DriverLanguageProvider initialLanguage={serverLanguage}>
+        <DeliveryPortalContent onServerLanguageLoaded={setServerLanguage} />
+      </DriverLanguageProvider>
+    </PwaProvider>
   );
 }

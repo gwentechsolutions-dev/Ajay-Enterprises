@@ -19,6 +19,42 @@ export const hi: DriverTranslationDictionary = {
   tabPickups: "पिकअप",
   tabDone: "पूर्ण",
 
+  // Bottom Navigation (Mobile & Tablet)
+  navHome: "होम",
+  navDeliveries: "डिलीवरी",
+  navPickups: "पिकअप",
+  navTrips: "यात्राएं",
+  navProfile: "प्रोफ़ाइल",
+
+  // Driver Profile & Settings Screen
+  driverProfile: "ड्राइवर खाता एवं प्रोफ़ाइल",
+  assignedVehicle: "आवंटित वाहन",
+  driverPhone: "पंजीकृत मोबाइल",
+  driverLicense: "ड्राइविंग लाइसेंस",
+  offlineDraftsTitle: "ऑफ़लाइन स्थानीय ड्राफ्ट",
+  offlineDraftsCount: "सिंक होना बाकी",
+  installAppTitle: "INVENTRA ऐप इंस्टॉल करें",
+  installAppDesc: "फ़ुल-स्क्रीन मोबाइल एक्सेस के लिए होम स्क्रीन पर जोड़ें",
+  btnInstallApp: "ऐप इंस्टॉल करें",
+  appInstalledNotice: "इंस्टॉल किया गया है और स्टैंडअलोन मोड में चल रहा है",
+  iosInstallStep1: "1. Safari टूलबार में शेयर (Share) बटन दबाएं",
+  iosInstallStep2: "2. नीचे स्क्रॉल करें और 'Add to Home Screen' चुनें",
+  returnToErp: "ERP डेस्कटॉप पर जाएं",
+  btnLogout: "लॉग आउट",
+
+  // Long-press Quick Actions
+  quickActionsTitle: "त्वरित कार्य (Quick Actions)",
+  quickActionsSubtitle: "दस्तावेज़ बनाने के लिए दबाकर रखें या टैप करें",
+  quickActionHoldHint: "शॉर्टकट के लिए 500ms दबाकर रखें",
+  quickActionDN: "डिलीवरी नोट (DN) बनाएं",
+  quickActionDNDesc: "साइट पर सामग्री भेजने का दस्तावेज़",
+  quickActionMRN: "सामग्री वापसी (MRN) बनाएं",
+  quickActionMRNDesc: "साइट से सामग्री संग्रह एवं वापसी",
+  quickActionInvoice: "टैक्स चालान (Invoice) बनाएं",
+  quickActionInvoiceDesc: "स्टेटमेंट से मासिक किराया चालान उत्पन्न करें",
+  quickActionUnauthorized: "कार्रवाई प्रतिबंधित: यार्ड और कार्यालय कर्मचारी ही बना सकते हैं",
+  quickActionInvoiceRestricted: "प्रतिबंधित: एकाउंटेंट या मालिक की अनुमति आवश्यक",
+
   // Sections
   assignedReturnPickups: "आवंटित सामग्री वापसी पिकअप",
   assignedOutwardDeliveries: "आवंटित बाहरी डिलीवरी",

@@ -283,6 +283,37 @@ export async function GET(req: NextRequest) {
 
     const yardReceivers = Array.from(receiversMap.values());
 
+    // 6. Fetch Driver's Assigned Trips
+    const tripConditions: any[] = [];
+    if (sessionName) {
+      tripConditions.push({ driver: { name: { contains: sessionName, mode: "insensitive" } } });
+    }
+    if (sessionMobile) {
+      tripConditions.push({ driver: { mobileNumber: sessionMobile } });
+    }
+    if (session?.id) {
+      tripConditions.push({ createdById: session.id });
+    }
+    const tripDriverFilter = isDriverOnly && tripConditions.length > 0 ? { OR: tripConditions } : {};
+
+    const assignedTrips = await db.vehicleTrip.findMany({
+      where: tripDriverFilter,
+      include: {
+        vehicle: { select: { id: true, vehicleNumber: true, make: true, model: true } },
+        driver: { select: { id: true, name: true, driverCode: true, mobileNumber: true } },
+        originWarehouse: { select: { id: true, name: true } },
+        destinationSite: { select: { id: true, siteName: true } },
+        returnNotes: { select: { id: true, mrnNumber: true, status: true } },
+        deliveryNotes: {
+          include: {
+            deliveryNote: { select: { id: true, dnNumber: true, status: true } },
+          },
+        },
+      },
+      orderBy: { tripDate: "desc" },
+      take: 15,
+    });
+
     return NextResponse.json({
       success: true,
       data: {
@@ -290,8 +321,16 @@ export async function GET(req: NextRequest) {
         completedToday,
         activePickups,
         completedPickupsToday,
+        assignedTrips,
         yardReceivers,
         preferredLanguage: session?.preferredLanguage || "en",
+        driverProfile: {
+          id: session?.id || "",
+          name: session?.name || "Driver",
+          email: session?.email || "",
+          mobile: session?.mobile || "",
+          role: session?.role || "DELIVERY_PERSONNEL",
+        },
         summary: {
           pendingCount: activeDeliveries.length + activePickups.length,
           pendingDeliveriesCount: activeDeliveries.length,
@@ -299,6 +338,7 @@ export async function GET(req: NextRequest) {
           completedTodayCount: completedToday.length + completedPickupsToday.length,
           completedDeliveriesCount: completedToday.length,
           completedPickupsCount: completedPickupsToday.length,
+          assignedTripsCount: assignedTrips.length,
         },
       },
     });

@@ -19,6 +19,42 @@ export const en: DriverTranslationDictionary = {
   tabPickups: "Pickups",
   tabDone: "Done",
 
+  // Bottom Navigation (Mobile & Tablet)
+  navHome: "Home",
+  navDeliveries: "Deliveries",
+  navPickups: "Pickups",
+  navTrips: "Trips",
+  navProfile: "Profile",
+
+  // Driver Profile & Settings Screen
+  driverProfile: "Driver Account & Profile",
+  assignedVehicle: "Assigned Vehicle",
+  driverPhone: "Registered Mobile",
+  driverLicense: "Driving License",
+  offlineDraftsTitle: "Offline Local Drafts",
+  offlineDraftsCount: "pending sync",
+  installAppTitle: "Install INVENTRA App",
+  installAppDesc: "Add to home screen for faster full-screen mobile access",
+  btnInstallApp: "Install App",
+  appInstalledNotice: "Installed & Running in Standalone Mode",
+  iosInstallStep1: "1. Tap the Share button in Safari toolbar",
+  iosInstallStep2: "2. Scroll down and tap 'Add to Home Screen'",
+  returnToErp: "Return to ERP Desktop",
+  btnLogout: "Sign Out",
+
+  // Long-press Quick Actions
+  quickActionsTitle: "Quick Actions",
+  quickActionsSubtitle: "Press & hold or tap shortcuts for instant document workflows",
+  quickActionHoldHint: "Hold for 500ms or tap to open shortcuts",
+  quickActionDN: "Create Delivery Note (DN)",
+  quickActionDNDesc: "Outward dispatch custody note for centering materials",
+  quickActionMRN: "Create Material Return (MRN)",
+  quickActionMRNDesc: "Site collection, inspection & return transport",
+  quickActionInvoice: "Create Tax Invoice",
+  quickActionInvoiceDesc: "Generate monthly rental invoice from statement",
+  quickActionUnauthorized: "Action restricted: Yard & Office staff manage dispatches/returns",
+  quickActionInvoiceRestricted: "Restricted: Requires Accountant or Owner permission",
+
   // Sections
   assignedReturnPickups: "Assigned Return Pickups",
   assignedOutwardDeliveries: "Assigned Outward Deliveries",

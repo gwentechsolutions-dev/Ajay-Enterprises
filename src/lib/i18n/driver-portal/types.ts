@@ -31,6 +31,42 @@ export interface DriverTranslationDictionary {
   tabPickups: string;
   tabDone: string;
 
+  // Bottom Navigation (Mobile & Tablet)
+  navHome: string;
+  navDeliveries: string;
+  navPickups: string;
+  navTrips: string;
+  navProfile: string;
+
+  // Driver Profile & Settings Screen
+  driverProfile: string;
+  assignedVehicle: string;
+  driverPhone: string;
+  driverLicense: string;
+  offlineDraftsTitle: string;
+  offlineDraftsCount: string;
+  installAppTitle: string;
+  installAppDesc: string;
+  btnInstallApp: string;
+  appInstalledNotice: string;
+  iosInstallStep1: string;
+  iosInstallStep2: string;
+  returnToErp: string;
+  btnLogout: string;
+
+  // Long-press Quick Actions
+  quickActionsTitle: string;
+  quickActionsSubtitle: string;
+  quickActionHoldHint: string;
+  quickActionDN: string;
+  quickActionDNDesc: string;
+  quickActionMRN: string;
+  quickActionMRNDesc: string;
+  quickActionInvoice: string;
+  quickActionInvoiceDesc: string;
+  quickActionUnauthorized: string;
+  quickActionInvoiceRestricted: string;
+
   // Sections
   assignedReturnPickups: string;
   assignedOutwardDeliveries: string;

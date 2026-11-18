@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { usePathname } from "next/navigation";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { TopProgressBar } from "./top-progress-bar";
@@ -18,6 +19,8 @@ interface AppShellProps {
 export function AppShell({ user, children }: AppShellProps) {
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const pathname = usePathname();
+  const isDeliveryPortal = pathname === "/delivery-portal";
 
   return (
     <AuthProvider user={user}>
@@ -43,17 +46,25 @@ export function AppShell({ user, children }: AppShellProps) {
         <div
           className={cn(
             "flex-1 flex flex-col min-h-screen transition-all duration-300 ease-in-out",
-            isCollapsed ? "lg:ml-20" : "lg:ml-64"
+            isCollapsed ? "lg:ml-20" : "lg:ml-64",
+            isDeliveryPortal && "max-md:ml-0"
           )}
         >
           {/* Global Demo Mode Banner */}
           <DemoModeBanner />
 
-          {/* Topbar */}
-          <Topbar user={user} onMenuToggle={() => setMobileOpen(true)} />
+          {/* Topbar - on mobile in delivery portal, portal has dedicated mobile app header */}
+          <div className={cn(isDeliveryPortal && "max-md:hidden")}>
+            <Topbar user={user} onMenuToggle={() => setMobileOpen(true)} />
+          </div>
 
           {/* Page Main Content */}
-          <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+          <main
+            className={cn(
+              "flex-1 p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto",
+              isDeliveryPortal && "max-md:p-2 max-md:pb-24 max-md:max-w-none"
+            )}
+          >
             {children}
           </main>
         </div>

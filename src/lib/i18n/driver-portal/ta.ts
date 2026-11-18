@@ -19,6 +19,42 @@ export const ta: DriverTranslationDictionary = {
   tabPickups: "பிக்அப்",
   tabDone: "முடிந்தவை",
 
+  // Bottom Navigation (Mobile & Tablet)
+  navHome: "முகப்பு",
+  navDeliveries: "விநியோகங்கள்",
+  navPickups: "பிக்அப்",
+  navTrips: "பயணங்கள்",
+  navProfile: "சுயவிவரம்",
+
+  // Driver Profile & Settings Screen
+  driverProfile: "ஓட்டுநர் கணக்கு விவரங்கள்",
+  assignedVehicle: "ஒதுக்கப்பட்ட வாகனம்",
+  driverPhone: "பதிவுசெய்த கைபேசி",
+  driverLicense: "ஓட்டுநர் உரிமம்",
+  offlineDraftsTitle: "ஆஃப்லைன் உள்ளூர் வரைவுகள்",
+  offlineDraftsCount: "ஒத்திசைக்க நிலுவையில் உள்ளது",
+  installAppTitle: "INVENTRA செயலியை நிறுவுங்கள்",
+  installAppDesc: "விரைவான அணுகலுக்கு முகப்புத் திரையில் சேர்க்கவும்",
+  btnInstallApp: "செயலியை நிறுவு",
+  appInstalledNotice: "நிறுவப்பட்டு தனி பயன்பாடாக இயங்குகிறது",
+  iosInstallStep1: "1. Safari கீழ் உள்ள பகிர் (Share) பொத்தானைத் தொடவும்",
+  iosInstallStep2: "2. கீழே நகர்த்தி 'Add to Home Screen' என்பதைத் தொடவும்",
+  returnToErp: "ERP பக்கத்திற்குச் செல்க",
+  btnLogout: "வெளியேறு",
+
+  // Long-press Quick Actions
+  quickActionsTitle: "விரைவு குறுக்குவழிகள்",
+  quickActionsSubtitle: "உடனடி ஆவணப் பணிகளுக்கு அழுத்திப் பிடிக்கவும் அல்லது தட்டவும்",
+  quickActionHoldHint: "குறுக்குவழிகளுக்கு 500ms அழுத்திப் பிடிக்கவும்",
+  quickActionDN: "டெலிவரி குறிப்பு (DN) உருவாக்கு",
+  quickActionDNDesc: "தளவாடங்களை தளத்திற்கு அனுப்பும் ஆவணம்",
+  quickActionMRN: "பொருள் திரும்பப் பெறுதல் (MRN)",
+  quickActionMRNDesc: "தளத்திலிருந்து பொருட்களை சேகரித்தல்",
+  quickActionInvoice: "வரி விலைப்பட்டியல் (Invoice)",
+  quickActionInvoiceDesc: "மாத வாடகை கணக்கீட்டு பட்டியல் உருவாக்கு",
+  quickActionUnauthorized: "அனுமதி கட்டுப்படுத்தப்பட்டுள்ளது: அலுவலகப் பணியாளர்கள் மட்டுமே செய்ய முடியும்",
+  quickActionInvoiceRestricted: "கட்டுப்பாடு: கணக்காளர் அல்லது உரிமையாளர் அனுமதி தேவை",
+
   // Sections
   assignedReturnPickups: "ஒதுக்கப்பட்ட பொருள் திரும்பப் பெறுதல்கள்",
   assignedOutwardDeliveries: "ஒதுக்கப்பட்ட தள விநியோகங்கள்",

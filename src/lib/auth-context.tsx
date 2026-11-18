@@ -12,6 +12,7 @@ export interface AuthContextValue {
   canCreateDeliveryNote: boolean;
   canCreateReturnNote: boolean;
   canCreateTrip: boolean;
+  canCreateInvoice: boolean;
 }
 
 const defaultAuthContextValue: AuthContextValue = {
@@ -23,6 +24,7 @@ const defaultAuthContextValue: AuthContextValue = {
   canCreateDeliveryNote: true,
   canCreateReturnNote: true,
   canCreateTrip: false,
+  canCreateInvoice: false,
 };
 
 const AuthContext = React.createContext<AuthContextValue>(defaultAuthContextValue);
@@ -44,6 +46,7 @@ export function AuthProvider({
   const canCreateDeliveryNote = !isDeliveryPerson;
   const canCreateReturnNote = !isDeliveryPerson;
   const canCreateTrip = !isDeliveryPerson;
+  const canCreateInvoice = isOwnerOrAdmin || role === "ACCOUNTANT";
 
   const value = React.useMemo<AuthContextValue>(
     () => ({
@@ -55,8 +58,9 @@ export function AuthProvider({
       canCreateDeliveryNote,
       canCreateReturnNote,
       canCreateTrip,
+      canCreateInvoice,
     }),
-    [user, role, isDeliveryPerson, isWarehouseStaff, isOwnerOrAdmin, canCreateDeliveryNote, canCreateReturnNote, canCreateTrip]
+    [user, role, isDeliveryPerson, isWarehouseStaff, isOwnerOrAdmin, canCreateDeliveryNote, canCreateReturnNote, canCreateTrip, canCreateInvoice]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -94,5 +98,6 @@ export function useCurrentUser(): AuthContextValue {
     canCreateDeliveryNote: !isDeliveryPerson,
     canCreateReturnNote: !isDeliveryPerson,
     canCreateTrip: !isDeliveryPerson,
+    canCreateInvoice: isOwnerOrAdmin || role === "ACCOUNTANT",
   };
 }
