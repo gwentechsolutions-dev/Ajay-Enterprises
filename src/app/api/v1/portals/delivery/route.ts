@@ -291,6 +291,7 @@ export async function GET(req: NextRequest) {
         activePickups,
         completedPickupsToday,
         yardReceivers,
+        preferredLanguage: session?.preferredLanguage || "en",
         summary: {
           pendingCount: activeDeliveries.length + activePickups.length,
           pendingDeliveriesCount: activeDeliveries.length,

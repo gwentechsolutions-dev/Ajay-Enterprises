@@ -11,6 +11,7 @@ export interface SessionUser {
   mobile?: string | null;
   role: string;
   scope: string;
+  preferredLanguage?: string;
   branchId?: string | null;
   warehouseId?: string | null;
 }
@@ -39,6 +40,7 @@ export async function getSession(): Promise<SessionUser | null> {
           mobile: true,
           role: true,
           scope: true,
+          preferredLanguage: true,
           branchId: true,
           warehouseId: true,
           isActive: true,
@@ -56,6 +58,7 @@ export async function getSession(): Promise<SessionUser | null> {
         mobile: user.mobile,
         role: user.role,
         scope: user.scope,
+        preferredLanguage: user.preferredLanguage || "en",
         branchId: user.branchId,
         warehouseId: user.warehouseId,
       };
@@ -92,6 +95,7 @@ export async function getSession(): Promise<SessionUser | null> {
         mobile: true,
         role: true,
         scope: true,
+        preferredLanguage: true,
         branchId: true,
         warehouseId: true,
         isActive: true,
@@ -119,6 +123,7 @@ export async function getSession(): Promise<SessionUser | null> {
       mobile: user.mobile,
       role: user.role,
       scope: user.scope,
+      preferredLanguage: user.preferredLanguage || "en",
       branchId: user.branchId,
       warehouseId: user.warehouseId,
     };

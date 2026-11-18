@@ -44,6 +44,8 @@ import { FormFieldError } from "@/components/ui/form-field-error";
 import { parseApiValidationErrors, formatValidationToast } from "@/lib/forms/validation-mapper";
 import { SearchableCombobox, ComboboxOption } from "@/components/ui/searchable-combobox";
 import { cn } from "@/lib/utils";
+import { DriverLanguageProvider, useDriverTranslation, DriverLanguage } from "@/lib/i18n/driver-portal";
+import { DriverLanguageSelector } from "@/components/driver-portal/DriverLanguageSelector";
 
 // Responsive HTML5 Touch Signature Pad for Mobile Handover Acknowledgement
 function TouchSignaturePad({
@@ -55,6 +57,7 @@ function TouchSignaturePad({
   onChange: (val: string | null) => void;
   disabled?: boolean;
 }) {
+  const { t } = useDriverTranslation();
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
   const [isDrawing, setIsDrawing] = React.useState(false);
   const [hasDrawn, setHasDrawn] = React.useState(!!value);
@@ -109,14 +112,14 @@ function TouchSignaturePad({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold text-slate-700">Customer Representative Signature *</span>
+        <span className="text-[11px] font-semibold text-slate-700">{t.customerTouchSignature} *</span>
         {hasDrawn && !disabled && (
           <button
             type="button"
             onClick={clear}
             className="text-[10px] text-red-600 font-bold hover:underline"
           >
-            Clear / Re-sign
+            {t.btnClearSignature}
           </button>
         )}
       </div>
@@ -132,12 +135,17 @@ function TouchSignaturePad({
           onPointerLeave={stopDrawing}
         />
       </div>
-      <p className="text-[10px] text-slate-400 italic">Customer representative must sign on screen using finger or stylus.</p>
+      <p className="text-[10px] text-slate-400 italic">{t.touchSignatureDesc}</p>
     </div>
   );
 }
 
-export default function DeliveryPortalPage() {
+function DeliveryPortalContent({
+  onServerLanguageLoaded,
+}: {
+  onServerLanguageLoaded?: (lang: DriverLanguage) => void;
+}) {
+  const { t } = useDriverTranslation();
   const [data, setData] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
   const [isOnline, setIsOnline] = React.useState(true);
@@ -228,15 +236,18 @@ export default function DeliveryPortalPage() {
       const json = await res.json();
       if (json.success) {
         setData(json.data);
+        if (json.data.preferredLanguage) {
+          onServerLanguageLoaded?.(json.data.preferredLanguage as DriverLanguage);
+        }
       } else {
         toast.error(json.error?.message || "Failed to load portal feed");
       }
     } catch {
-      toast.error("Operating in offline or low-connectivity mode.");
+      toast.error(t.offlineWarning);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [onServerLanguageLoaded, t.offlineWarning]);
 
   const updateNetworkStatus = React.useCallback(() => {
     const online = typeof navigator !== "undefined" ? navigator.onLine : true;
@@ -264,7 +275,7 @@ export default function DeliveryPortalPage() {
   // Handle GPS Capture for Delivery
   const handleCaptureDeliveryGPS = () => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
-      toast.error("GPS Geolocation not supported on this device.");
+      toast.error(t.toastGpsNotSupported);
       return;
     }
 
@@ -278,11 +289,11 @@ export default function DeliveryPortalPage() {
           gpsAccuracy: Number(position.coords.accuracy.toFixed(1)),
           gpsFetching: false,
         }));
-        toast.success(`GPS coordinates captured! Accuracy: ±${position.coords.accuracy.toFixed(1)}m`);
+        toast.success(`${t.toastGpsCaptured} (±${position.coords.accuracy.toFixed(1)}m)`);
       },
       () => {
         setDeliveryProofForm((prev) => ({ ...prev, gpsFetching: false }));
-        toast.warning("Could not read live GPS. Using current estimated location.");
+        toast.warning(t.toastGpsSlowWarning);
       },
       { enableHighAccuracy: true, timeout: 8000 }
     );
@@ -291,7 +302,7 @@ export default function DeliveryPortalPage() {
   // Handle GPS Capture for Pickup
   const handleCapturePickupGPS = () => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
-      toast.error("GPS Geolocation not supported on this device.");
+      toast.error(t.toastGpsNotSupported);
       return;
     }
 
@@ -305,11 +316,11 @@ export default function DeliveryPortalPage() {
           gpsAccuracy: Number(position.coords.accuracy.toFixed(1)),
           gpsFetching: false,
         }));
-        toast.success(`GPS coordinates captured! Accuracy: ±${position.coords.accuracy.toFixed(1)}m`);
+        toast.success(`${t.toastGpsCaptured} (±${position.coords.accuracy.toFixed(1)}m)`);
       },
       () => {
         setPickupProofForm((prev) => ({ ...prev, gpsFetching: false }));
-        toast.warning("Could not read live GPS. Using recorded site location.");
+        toast.warning(t.toastGpsSlowWarning);
       },
       { enableHighAccuracy: true, timeout: 8000 }
     );
@@ -336,7 +347,7 @@ export default function DeliveryPortalPage() {
           longitude = Number(pos.coords.longitude.toFixed(6));
           accuracy = Number(pos.coords.accuracy.toFixed(1));
         } catch {
-          toast.warning("GPS access slow or denied. Recording site arrival with current timestamp.");
+          toast.warning(t.toastGpsSlowWarning);
         }
       }
 
@@ -354,7 +365,7 @@ export default function DeliveryPortalPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error?.message || "Failed to record site arrival");
 
-      toast.success(`Site arrival confirmed at ${mrn.customerSite?.siteName}! You can now count materials and take handover.`);
+      toast.success(t.toastSiteArrivalConfirmed);
       await loadDeliveryFeed();
     } catch (err: any) {
       toast.error(err.message);
@@ -397,7 +408,7 @@ export default function DeliveryPortalPage() {
 
       const uploadedPath = json.data?.url || (json.data?.storagePath ? `/api/v1/storage/download?path=${encodeURIComponent(json.data.storagePath)}` : "");
       setDeliveryProofForm((prev) => ({ ...prev, photoUrl: uploadedPath }));
-      toast.success("Site proof photo captured with GPS watermark!");
+      toast.success(t.toastPhotoCaptured);
     } catch (err: any) {
       toast.error(`Photo upload error: ${err.message}`);
     } finally {
@@ -438,7 +449,7 @@ export default function DeliveryPortalPage() {
       const uploadedPath = json.data?.url || (json.data?.storagePath ? `/api/v1/storage/download?path=${encodeURIComponent(json.data.storagePath)}` : "");
       setPickupPhotoPreviews((prev) => [...prev, dataUrl]);
       setPickupUploadedUrls((prev) => [...prev, uploadedPath]);
-      toast.success("Return material photo uploaded with GPS watermark!");
+      toast.success(t.toastPhotoCaptured);
     } catch (err: any) {
       toast.error(`Photo upload error: ${err.message}`);
     } finally {
@@ -574,19 +585,15 @@ export default function DeliveryPortalPage() {
 
     const newErrors: Record<string, string> = {};
     if (!deliveryProofForm.receiverName || deliveryProofForm.receiverName.trim().length < 2) {
-      newErrors.receiverName = "Receiver full name is required (minimum 2 characters)";
+      newErrors.receiverName = t.validationReceiverNameRequired;
     }
     const cleanPhone = (deliveryProofForm.receiverPhone || "").replace(/\D/g, "");
-    if (!cleanPhone) {
-      newErrors.receiverPhone = "Receiver mobile phone is required";
-    } else if (cleanPhone.length !== 10) {
-      newErrors.receiverPhone = `Must be exactly 10 digits (currently ${cleanPhone.length} digits)`;
-    } else if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
-      newErrors.receiverPhone = "Must start with 6, 7, 8, or 9 (valid Indian mobile)";
+    if (!cleanPhone || cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      newErrors.receiverPhone = t.validationReceiverPhoneInvalid;
     }
 
     if (!deliveryProofForm.photoUrl) {
-      newErrors.photo = "Site delivery proof photo is required before confirming handover";
+      newErrors.photo = t.validationPhotoMandatory;
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -609,7 +616,7 @@ export default function DeliveryPortalPage() {
             receiverPhone: cleanPhone,
           },
         });
-        toast.warning("Network offline! Saved to local queue. Will sync automatically when connected.");
+        toast.warning(t.toastOfflineSaved);
         updateNetworkStatus();
         setIsDeliverModalOpen(false);
         return;
@@ -642,7 +649,7 @@ export default function DeliveryPortalPage() {
         throw new Error(json.error?.message || "Delivery submission failed");
       }
 
-      toast.success(`Delivery Note ${selectedDN.dnNumber} completed! Custody confirmed.`);
+      toast.success(t.toastDeliveryCompleted);
       setIsDeliverModalOpen(false);
       loadDeliveryFeed();
     } catch (err: any) {
@@ -659,27 +666,23 @@ export default function DeliveryPortalPage() {
 
     const newErrors: Record<string, string> = {};
     if (!pickupProofForm.receiverName || pickupProofForm.receiverName.trim().length < 2) {
-      newErrors.receiverName = "Customer representative name is required (min 2 characters)";
+      newErrors.receiverName = t.validationReceiverNameRequired;
     }
     const cleanPhone = (pickupProofForm.receiverPhone || "").replace(/\D/g, "");
-    if (!cleanPhone) {
-      newErrors.receiverPhone = "Mobile phone is required";
-    } else if (cleanPhone.length !== 10) {
-      newErrors.receiverPhone = `Must be exactly 10 digits (currently ${cleanPhone.length} digits)`;
-    } else if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
-      newErrors.receiverPhone = "Must start with 6, 7, 8, or 9 (valid Indian mobile)";
+    if (!cleanPhone || cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      newErrors.receiverPhone = t.validationReceiverPhoneInvalid;
     }
 
     if (pickupUploadedUrls.length === 0) {
-      newErrors.photo = "At least one site pickup photograph is mandatory before handover";
+      newErrors.photo = t.validationPhotoMandatory;
     }
 
     if (!pickupProofForm.customerSignatureRefused && !pickupProofForm.customerSignatureUrl) {
-      newErrors.signature = "Customer representative digital signature is required";
+      newErrors.signature = t.validationSignatureMandatory;
     }
 
     if (pickupProofForm.customerSignatureRefused && !pickupProofForm.customerSignatureExceptionReason?.trim()) {
-      newErrors.signature = "Reason is mandatory when signature cannot be obtained";
+      newErrors.signature = t.validationSignatureMandatory;
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -728,7 +731,7 @@ export default function DeliveryPortalPage() {
         throw new Error(json.error?.message || "Pickup submission failed");
       }
 
-      toast.success(json.message || `Material Return ${selectedMRN.mrnNumber} pickup confirmed! Materials in transit to yard.`);
+      toast.success(json.message || t.toastPickupConfirmed);
       setIsPickupModalOpen(false);
       loadDeliveryFeed();
     } catch (err: any) {
@@ -744,10 +747,10 @@ export default function DeliveryPortalPage() {
     if (!selectedYardMRN) return;
 
     if (!yardArrivalForm.receiverName?.trim()) {
-      return toast.error("Warehouse receiving person name is required.");
+      return toast.error(t.toastWarehousePersonRequired);
     }
     if (!yardArrivalForm.yardOdometer || Number(yardArrivalForm.yardOdometer) <= 0) {
-      return toast.error("Please enter a valid ending odometer reading.");
+      return toast.error(t.toastInvalidOdometer);
     }
 
     try {
@@ -769,7 +772,7 @@ export default function DeliveryPortalPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error?.message || "Yard arrival confirmation failed");
 
-      toast.success(`MRN ${selectedYardMRN.mrnNumber} handed over at ${selectedYardMRN.receivingWarehouse?.name || "Yard"}! Awaiting physical inspection.`);
+      toast.success(t.toastYardHandoverCompleted);
       setIsYardModalOpen(false);
       loadDeliveryFeed();
     } catch (err: any) {
@@ -799,11 +802,11 @@ export default function DeliveryPortalPage() {
           return deliverRes.ok;
         }
       });
-      toast.success(`Sync complete: ${res.synced} items synchronized, ${res.failed} failed.`);
+      toast.success(`${res.synced} ${t.syncComplete}, ${res.failed} ${t.syncFailed}`);
       updateNetworkStatus();
       loadDeliveryFeed();
     } catch {
-      toast.error("Failed to synchronize offline queue.");
+      toast.error(t.syncFailed);
     } finally {
       setSyncing(false);
     }
@@ -823,10 +826,10 @@ export default function DeliveryPortalPage() {
         value: r.name,
         label: r.name,
         sublabel: `${r.designation}${r.phone ? ` • 📞 ${r.phone}` : ""}${r.warehouseName ? ` • ${r.warehouseName}` : ""}`,
-        badge: isThisYard ? "THIS YARD" : undefined,
+        badge: isThisYard ? t.thisYard : undefined,
       };
     });
-  }, [yardReceivers, selectedYardMRN]);
+  }, [yardReceivers, selectedYardMRN, t.thisYard]);
 
   return (
     <div className="space-y-4 max-w-lg mx-auto pb-16">
@@ -835,19 +838,21 @@ export default function DeliveryPortalPage() {
         <div>
           <div className="flex items-center gap-2">
             <Compass className="h-5 w-5 text-[#F26522]" />
-            <h1 className="font-black text-lg tracking-tight">Driver Delivery Portal</h1>
+            <h1 className="font-black text-lg tracking-tight">{t.portalTitle}</h1>
           </div>
-          <p className="text-xs text-slate-300">AJAY ENTERPRISES Logistics & Material Pickups</p>
+          <p className="text-xs text-slate-300">{t.portalSubtitle}</p>
         </div>
 
         <div className="flex items-center gap-2">
+          <DriverLanguageSelector />
+
           {isOnline ? (
             <Badge className="bg-emerald-600/30 text-emerald-300 border-emerald-500/40 text-[10px] flex items-center gap-1">
-              <Wifi className="h-3 w-3" /> Online
+              <Wifi className="h-3 w-3" /> {t.online}
             </Badge>
           ) : (
             <Badge className="bg-red-600/30 text-red-300 border-red-500/40 text-[10px] flex items-center gap-1">
-              <WifiOff className="h-3 w-3" /> Offline
+              <WifiOff className="h-3 w-3" /> {t.offline}
             </Badge>
           )}
 
@@ -860,7 +865,7 @@ export default function DeliveryPortalPage() {
               className="bg-[#F26522] hover:bg-[#EA580C] text-white border-none text-xs h-7 px-2"
             >
               <RefreshCw className={`h-3 w-3 mr-1 ${syncing ? "animate-spin" : ""}`} />
-              Sync ({offlineCount})
+              {t.sync} ({offlineCount})
             </Button>
           )}
         </div>
@@ -872,25 +877,25 @@ export default function DeliveryPortalPage() {
           onClick={() => setActiveTab("ALL")}
           className={`py-2 rounded-lg transition ${activeTab === "ALL" ? "bg-white text-slate-900 shadow-sm" : "hover:text-slate-900"}`}
         >
-          All ({pendingDeliveries.length + pendingPickups.length})
+          {t.tabAll} ({pendingDeliveries.length + pendingPickups.length})
         </button>
         <button
           onClick={() => setActiveTab("DELIVERIES")}
           className={`py-2 rounded-lg transition ${activeTab === "DELIVERIES" ? "bg-sky-50 text-sky-900 shadow-sm" : "hover:text-slate-900"}`}
         >
-          Deliveries ({pendingDeliveries.length})
+          {t.tabDeliveries} ({pendingDeliveries.length})
         </button>
         <button
           onClick={() => setActiveTab("PICKUPS")}
           className={`py-2 rounded-lg transition ${activeTab === "PICKUPS" ? "bg-amber-50 text-amber-900 shadow-sm" : "hover:text-slate-900"}`}
         >
-          Pickups ({pendingPickups.length})
+          {t.tabPickups} ({pendingPickups.length})
         </button>
         <button
           onClick={() => setActiveTab("COMPLETED")}
           className={`py-2 rounded-lg transition ${activeTab === "COMPLETED" ? "bg-emerald-50 text-emerald-900 shadow-sm" : "hover:text-slate-900"}`}
         >
-          Done ({completedDeliveries.length + completedPickups.length})
+          {t.tabDone} ({completedDeliveries.length + completedPickups.length})
         </button>
       </div>
 
@@ -899,7 +904,7 @@ export default function DeliveryPortalPage() {
         {loading ? (
           <div className="py-12 text-center text-slate-400">
             <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-[#0B1E36]" />
-            Loading assigned routes and material return pickups...
+            {t.loadingTasks}
           </div>
         ) : (
           <>
@@ -909,7 +914,7 @@ export default function DeliveryPortalPage() {
                 <div className="flex items-center justify-between">
                   <h2 className="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
                     <RotateCcw className="h-3.5 w-3.5 text-amber-600" />
-                    Assigned Return Pickups ({pendingPickups.length})
+                    {t.assignedReturnPickups} ({pendingPickups.length})
                   </h2>
                 </div>
 
@@ -917,8 +922,8 @@ export default function DeliveryPortalPage() {
                   activeTab === "PICKUPS" && (
                     <Card className="p-6 text-center text-slate-500 border-slate-200">
                       <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto mb-2" />
-                      <p className="font-semibold text-sm">No Pending Return Pickups!</p>
-                      <p className="text-xs text-slate-400 mt-1">All material return collections are complete.</p>
+                      <p className="font-semibold text-sm">{t.noPendingPickups}</p>
+                      <p className="text-xs text-slate-400 mt-1">{t.noPendingPickupsDesc}</p>
                     </Card>
                   )
                 ) : (
@@ -937,33 +942,33 @@ export default function DeliveryPortalPage() {
                           <div className="flex items-center gap-1.5">
                             <span className="font-mono text-xs font-black text-amber-950">{mrn.mrnNumber}</span>
                             <span className="text-[10px] font-bold text-amber-800 bg-amber-200/80 px-2 py-0.5 rounded">
-                              RETURN PICKUP
+                              {t.badgeReturnPickup}
                             </span>
                           </div>
 
                           <span className="font-mono text-[11px] font-bold text-slate-700">
-                            {mrn.vehicleTrip?.vehicle?.vehicleNumber || mrn.vehicleNumber || "Fleet Vehicle"}
+                            {mrn.vehicleTrip?.vehicle?.vehicleNumber || mrn.vehicleNumber || t.vehicle}
                           </span>
                         </div>
 
                         <CardContent className="p-4 space-y-3">
                           {/* Status Pill Indicator */}
                           <div className="flex items-center justify-between">
-                            <div className="text-[11px] font-bold uppercase text-slate-400">Current Task Status</div>
+                            <div className="text-[11px] font-bold uppercase text-slate-400">{t.status}</div>
                             <div>
                               {status === "ASSIGNED" && (
                                 <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-[10px] font-bold">
-                                  EN ROUTE TO SITE
+                                  {t.statusDriverAssigned}
                                 </Badge>
                               )}
                               {isArrived && (
                                 <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px] font-bold">
-                                  ARRIVED AT SITE
+                                  {t.statusArrivedAtSite}
                                 </Badge>
                               )}
                               {isLoaded && (
                                 <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-[10px] font-bold">
-                                  LOADED · IN TRANSIT TO YARD
+                                  {t.statusInTransitToYard}
                                 </Badge>
                               )}
                             </div>
@@ -971,7 +976,7 @@ export default function DeliveryPortalPage() {
 
                           {/* Customer & Construction Site */}
                           <div>
-                            <div className="text-[11px] font-bold uppercase text-slate-400">Returning Customer</div>
+                            <div className="text-[11px] font-bold uppercase text-slate-400">{t.customer}</div>
                             <h3 className="font-black text-base text-slate-900">{mrn.customer?.name}</h3>
                             <div className="flex items-start gap-1.5 text-xs text-slate-600 mt-1">
                               <MapPin className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
@@ -991,7 +996,7 @@ export default function DeliveryPortalPage() {
                             >
                               <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer">
                                 <Navigation className="h-3.5 w-3.5 mr-1 text-blue-600" />
-                                Google Maps
+                                {t.navigate}
                               </a>
                             </Button>
 
@@ -1004,12 +1009,12 @@ export default function DeliveryPortalPage() {
                               >
                                 <a href={`tel:${mrn.customerSite.siteContactDetails}`}>
                                   <Phone className="h-3.5 w-3.5 mr-1" />
-                                  Call Site
+                                  {t.call}
                                 </a>
                               </Button>
                             ) : (
                               <Button size="sm" variant="outline" disabled className="text-xs h-8 opacity-50">
-                                No Site Phone
+                                {t.call}
                               </Button>
                             )}
                           </div>
@@ -1017,10 +1022,10 @@ export default function DeliveryPortalPage() {
                           {/* Destination Yard & Trip Info */}
                           <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs text-slate-700 space-y-1">
                             <div className="flex justify-between items-center">
-                              <span className="text-[10px] font-bold uppercase text-slate-400">Destination Yard</span>
+                              <span className="text-[10px] font-bold uppercase text-slate-400">{t.destinationYard}</span>
                               {mrn.vehicleTrip?.tripNumber && (
                                 <span className="font-mono text-[10px] bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">
-                                  Trip: {mrn.vehicleTrip.tripNumber}
+                                  {t.trip}: {mrn.vehicleTrip.tripNumber}
                                 </span>
                               )}
                             </div>
@@ -1038,7 +1043,7 @@ export default function DeliveryPortalPage() {
                           {/* Items to Collect */}
                           <div className="border-t border-slate-100 pt-2">
                             <div className="text-[11px] uppercase font-bold text-slate-500 mb-1">
-                              Expected Return Items ({mrn.items?.length || 0} materials)
+                              {t.items} ({mrn.items?.length || 0})
                             </div>
                             <div className="grid grid-cols-2 gap-1 text-xs">
                               {mrn.items?.map((it: any) => (
@@ -1055,12 +1060,12 @@ export default function DeliveryPortalPage() {
                             <Button
                               onClick={() => handleMarkArrivalAtSite(mrn)}
                               loading={loadingArrivalId === mrn.id}
-                              loadingText="Marking Arrival at Customer Site (GPS)..."
+                              loadingText={t.btnMarkingArrival}
                               disabled={loadingArrivalId === mrn.id}
                               className="w-full bg-[#0B1E36] hover:bg-[#071424] text-white font-bold h-11 flex items-center justify-center gap-2 shadow"
                             >
                               <MapPin className="h-4 w-4 text-[#F26522]" />
-                              Mark Arrival at Customer Site (GPS)
+                              {t.btnMarkArrivalAtSite}
                             </Button>
                           )}
 
@@ -1071,7 +1076,7 @@ export default function DeliveryPortalPage() {
                               className="w-full bg-[#F26522] hover:bg-[#EA580C] text-white font-bold h-11 flex items-center justify-center gap-2 shadow"
                             >
                               <FileCheck className="h-4 w-4 text-white" />
-                              Count Materials, Photos & Handover Sign
+                              {t.btnCountMaterialsAndHandover}
                             </Button>
                           )}
 
@@ -1082,7 +1087,7 @@ export default function DeliveryPortalPage() {
                               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11 flex items-center justify-center gap-2 shadow"
                             >
                               <Warehouse className="h-4 w-4 text-white" />
-                              Mark Arrival at Yard & Hand Over
+                              {t.btnMarkArrivalAtYard}
                             </Button>
                           )}
                         </CardContent>
@@ -1099,7 +1104,7 @@ export default function DeliveryPortalPage() {
                 <div className="flex items-center justify-between">
                   <h2 className="text-xs font-bold text-sky-900 uppercase tracking-wider flex items-center gap-1.5">
                     <Truck className="h-3.5 w-3.5 text-sky-600" />
-                    Assigned Outward Deliveries ({pendingDeliveries.length})
+                    {t.assignedOutwardDeliveries} ({pendingDeliveries.length})
                   </h2>
                 </div>
 
@@ -1107,8 +1112,8 @@ export default function DeliveryPortalPage() {
                   activeTab === "DELIVERIES" && (
                     <Card className="p-6 text-center text-slate-500 border-slate-200">
                       <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto mb-2" />
-                      <p className="font-semibold text-sm">All Deliveries Completed!</p>
-                      <p className="text-xs text-slate-400 mt-1">No pending dispatches assigned to your vehicle.</p>
+                      <p className="font-semibold text-sm">{t.noPendingDeliveries}</p>
+                      <p className="text-xs text-slate-400 mt-1">{t.noPendingDeliveriesDesc}</p>
                     </Card>
                   )
                 ) : (
@@ -1118,7 +1123,7 @@ export default function DeliveryPortalPage() {
                         <div className="flex items-center gap-1.5">
                           <span className="font-mono text-xs font-black text-sky-950">{dn.dnNumber}</span>
                           <span className="text-[10px] font-bold text-sky-700 bg-sky-100 px-1.5 py-0.2 rounded">
-                            DELIVERY
+                            {t.badgeOutwardDelivery}
                           </span>
                         </div>
                         {dn.vehicleNumber && (
@@ -1130,7 +1135,7 @@ export default function DeliveryPortalPage() {
 
                       <CardContent className="p-4 space-y-3">
                         <div>
-                          <div className="text-[11px] font-bold uppercase text-slate-400">Recipient Customer</div>
+                          <div className="text-[11px] font-bold uppercase text-slate-400">{t.customer}</div>
                           <h3 className="font-black text-base text-slate-900">{dn.customer?.name}</h3>
                           <div className="flex items-start gap-1.5 text-xs text-slate-600 mt-1">
                             <MapPin className="h-4 w-4 text-[#F26522] shrink-0 mt-0.5" />
@@ -1144,7 +1149,7 @@ export default function DeliveryPortalPage() {
                         {dn.customerSite?.siteContactDetails && (
                           <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex items-center justify-between">
                             <div>
-                              <div className="text-[10px] text-slate-400 font-bold uppercase">Site Supervisor Contact</div>
+                              <div className="text-[10px] text-slate-400 font-bold uppercase">{t.designationOnSite}</div>
                               <div className="text-xs font-bold text-slate-800">
                                 {dn.customerSite?.siteInCharge || "Site In-Charge"} ({dn.customerSite?.siteContactDetails})
                               </div>
@@ -1157,7 +1162,7 @@ export default function DeliveryPortalPage() {
                             >
                               <a href={`tel:${dn.customerSite.siteContactDetails}`}>
                                 <Phone className="h-3.5 w-3.5 mr-1" />
-                                Call Site
+                                {t.call}
                               </a>
                             </Button>
                           </div>
@@ -1166,7 +1171,7 @@ export default function DeliveryPortalPage() {
                         {/* Items to unload */}
                         <div className="border-t border-slate-100 pt-2">
                           <div className="text-[11px] uppercase font-bold text-slate-500 mb-1">
-                            Equipment to Unload ({dn.items?.length || 0} items)
+                            {t.deliveryItemsChecklist} ({dn.items?.length || 0} {t.items})
                           </div>
                           <div className="grid grid-cols-2 gap-1 text-xs">
                             {dn.items?.map((it: any) => (
@@ -1183,7 +1188,7 @@ export default function DeliveryPortalPage() {
                           className="w-full bg-[#F26522] hover:bg-[#EA580C] text-white font-bold h-11 flex items-center justify-center gap-2 shadow"
                         >
                           <Camera className="h-4 w-4" />
-                          Capture Proof & Complete Delivery
+                          {t.btnConfirmDeliveryAndSignature}
                         </Button>
                       </CardContent>
                     </Card>
@@ -1197,12 +1202,13 @@ export default function DeliveryPortalPage() {
               <div className="space-y-3">
                 <h2 className="text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                  Runs Completed Today ({completedDeliveries.length + completedPickups.length})
+                  {t.completedTasksToday} ({completedDeliveries.length + completedPickups.length})
                 </h2>
 
                 {completedDeliveries.length === 0 && completedPickups.length === 0 ? (
                   <Card className="p-6 text-center text-slate-500 border-slate-200">
-                    <p className="font-semibold text-sm">No tasks completed yet today.</p>
+                    <p className="font-semibold text-sm">{t.noCompletedToday}</p>
+                    <p className="text-xs text-slate-400 mt-1">{t.noCompletedTodayDesc}</p>
                   </Card>
                 ) : (
                   <>
@@ -1212,7 +1218,7 @@ export default function DeliveryPortalPage() {
                           <div className="flex items-center gap-2">
                             <span className="font-mono font-bold text-xs text-slate-900">{dn.dnNumber}</span>
                             <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded">
-                              DELIVERED
+                              {t.statusDelivered}
                             </span>
                           </div>
                           <div className="font-bold text-xs text-slate-800 mt-0.5">{dn.customer?.name}</div>
@@ -1228,12 +1234,12 @@ export default function DeliveryPortalPage() {
                           <div className="flex items-center gap-2">
                             <span className="font-mono font-bold text-xs text-slate-900">{mrn.mrnNumber}</span>
                             <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.2 rounded">
-                              HANDED OVER AT YARD
+                              {t.statusFinalized}
                             </span>
                           </div>
                           <div className="font-bold text-xs text-slate-800 mt-0.5">{mrn.customer?.name}</div>
                           <div className="text-[11px] text-slate-500">
-                            From {mrn.customerSite?.siteName} &rarr; {mrn.receivingWarehouse?.name || "Yard"}
+                            {mrn.customerSite?.siteName} &rarr; {mrn.receivingWarehouse?.name || t.destinationYard}
                           </div>
                         </div>
                         <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
@@ -1253,16 +1259,16 @@ export default function DeliveryPortalPage() {
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <Camera className="h-5 w-5 text-[#F26522]" />
-              Site Delivery Proof – {selectedDN?.dnNumber}
+              {t.deliveryModalTitle} – {selectedDN?.dnNumber}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Confirm material handover at {selectedDN?.customerSite?.siteName}. GPS location and receiver signature required.
+              {t.deliveryModalDesc}
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleCompleteDelivery} className="space-y-3 pt-1">
             <div>
-              <Label className="text-xs font-semibold" required>Receiver Full Name *</Label>
+              <Label className="text-xs font-semibold" required>{t.receiverFullName} *</Label>
               <Input
                 value={deliveryProofForm.receiverName}
                 maxLength={100}
@@ -1277,7 +1283,7 @@ export default function DeliveryPortalPage() {
                     });
                   }
                 }}
-                placeholder="Receiver name (max 100 characters)"
+                placeholder={t.receiverFullName}
                 required
               />
               <FormFieldError error={deliverErrors.receiverName} />
@@ -1285,7 +1291,7 @@ export default function DeliveryPortalPage() {
 
             <div>
               <div className="flex justify-between items-center mb-1">
-                <Label className="text-xs font-semibold" required>Receiver Mobile Phone *</Label>
+                <Label className="text-xs font-semibold" required>{t.receiverPhone} *</Label>
                 <span className="text-[10px] text-slate-400 font-mono">
                   {deliveryProofForm.receiverPhone.length}/10 digits
                 </span>
@@ -1306,7 +1312,7 @@ export default function DeliveryPortalPage() {
                     });
                   }
                 }}
-                placeholder="10-digit Indian mobile (e.g. 9876543210)"
+                placeholder="9876543210"
                 required
               />
               <FormFieldError error={deliverErrors.receiverPhone} />
@@ -1332,7 +1338,7 @@ export default function DeliveryPortalPage() {
             </div>
 
             <div>
-              <Label className="text-xs font-semibold block mb-1">Site Delivery Proof Photo *</Label>
+              <Label className="text-xs font-semibold block mb-1">{t.uploadDeliveryPhoto} *</Label>
               <input
                 ref={deliveryCameraInputRef}
                 type="file"
@@ -1359,7 +1365,7 @@ export default function DeliveryPortalPage() {
                       onClick={() => deliveryCameraInputRef.current?.click()}
                       className="bg-black/70 hover:bg-black/90 text-white text-[10px] px-2.5 py-0.5 rounded-full font-medium shadow-sm cursor-pointer"
                     >
-                      Retake
+                      {t.btnRetake}
                     </button>
                   </div>
                 </div>
@@ -1375,10 +1381,10 @@ export default function DeliveryPortalPage() {
                   </div>
                   <div>
                     <span className="text-xs font-bold text-slate-800 block">
-                      {uploadingDeliveryPhoto ? "Uploading Photo..." : "Tap to Open Camera & Take Site Photo"}
+                      {uploadingDeliveryPhoto ? "Uploading..." : t.btnTakeEvidencePhoto}
                     </span>
                     <span className="text-[11px] text-slate-500">
-                      Snap photo of unloaded centering materials at site
+                      {t.captureSitePhotoDesc}
                     </span>
                   </div>
                 </button>
@@ -1388,7 +1394,7 @@ export default function DeliveryPortalPage() {
 
             <div>
               <div className="flex justify-between items-center mb-1">
-                <Label className="text-xs font-semibold">Notes / Handover Remarks</Label>
+                <Label className="text-xs font-semibold">{t.deliveryRemarks}</Label>
                 <span className="text-[10px] text-slate-400 font-mono">
                   {(deliveryProofForm.remarks || "").length}/500
                 </span>
@@ -1396,21 +1402,21 @@ export default function DeliveryPortalPage() {
               <Input
                 value={deliveryProofForm.remarks}
                 maxLength={500}
-                placeholder="e.g. Materials verified against checklist and delivered."
+                placeholder={t.deliveryRemarks}
                 onChange={(e) => setDeliveryProofForm({ ...deliveryProofForm, remarks: e.target.value.slice(0, 500) })}
               />
             </div>
 
             <DialogFooter className="pt-2">
               <Button type="button" variant="outline" onClick={() => setIsDeliverModalOpen(false)}>
-                Cancel
+                {t.btnCancel}
               </Button>
               <Button
                 type="submit"
                 disabled={submittingDelivery || uploadingDeliveryPhoto}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
               >
-                {submittingDelivery ? "Confirming Handover..." : "Confirm Handover"}
+                {submittingDelivery ? t.btnConfirmingDelivery : t.btnConfirmDelivery}
               </Button>
             </DialogFooter>
           </form>
@@ -1423,10 +1429,10 @@ export default function DeliveryPortalPage() {
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <RotateCcw className="h-5 w-5 text-amber-600" />
-              Material Return Pickup – {selectedMRN?.mrnNumber}
+              {t.pickupModalTitle} – {selectedMRN?.mrnNumber}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Preliminary material count, site photo evidence and customer representative acknowledgement at {selectedMRN?.customerSite?.siteName}.
+              {t.pickupModalDesc}
             </DialogDescription>
           </DialogHeader>
 
@@ -1435,11 +1441,8 @@ export default function DeliveryPortalPage() {
             <div className="bg-amber-50/50 p-3 rounded-xl border border-amber-200/80 space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-bold text-amber-950 uppercase tracking-wide">
-                  1. Material Count & Condition Check
+                  {t.pickupMaterialsChecklist}
                 </Label>
-                <span className="text-[10px] text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded font-semibold">
-                  Driver Visual Check Only
-                </span>
               </div>
 
               {pickupItems.map((item, idx) => (
@@ -1450,13 +1453,13 @@ export default function DeliveryPortalPage() {
                       <span className="text-slate-500 text-[11px] ml-1">({item.size || "Standard"})</span>
                     </div>
                     <Badge variant="outline" className="text-[10px] font-mono bg-slate-50">
-                      Expected: {item.expectedQty} Nos.
+                      {t.expectedQty}: {item.expectedQty} {t.uomNos}
                     </Badge>
                   </div>
 
                   <div className="grid grid-cols-4 gap-1.5">
                     <div>
-                      <Label className="text-[10px] text-slate-600 font-semibold block mb-0.5">Collected *</Label>
+                      <Label className="text-[10px] text-slate-600 font-semibold block mb-0.5">{t.actualCollectedQty} *</Label>
                       <Input
                         type="number"
                         min={0}
@@ -1467,11 +1470,11 @@ export default function DeliveryPortalPage() {
                             prev.map((it, i) =>
                               i === idx
                                 ? {
-                                    ...it,
-                                    driverCollectedQty: val,
-                                    driverGoodQty: Math.min(val, it.driverGoodQty),
-                                    driverMissingQty: Math.max(0, it.expectedQty - val),
-                                  }
+                                  ...it,
+                                  driverCollectedQty: val,
+                                  driverGoodQty: Math.min(val, it.driverGoodQty),
+                                  driverMissingQty: Math.max(0, it.expectedQty - val),
+                                }
                                 : it
                             )
                           );
@@ -1482,7 +1485,7 @@ export default function DeliveryPortalPage() {
                     </div>
 
                     <div>
-                      <Label className="text-[10px] text-emerald-700 font-semibold block mb-0.5">Good</Label>
+                      <Label className="text-[10px] text-emerald-700 font-semibold block mb-0.5">{t.goodQty}</Label>
                       <Input
                         type="number"
                         min={0}
@@ -1493,10 +1496,10 @@ export default function DeliveryPortalPage() {
                             prev.map((it, i) =>
                               i === idx
                                 ? {
-                                    ...it,
-                                    driverGoodQty: val,
-                                    driverDamagedQty: Math.max(0, it.driverCollectedQty - val),
-                                  }
+                                  ...it,
+                                  driverGoodQty: val,
+                                  driverDamagedQty: Math.max(0, it.driverCollectedQty - val),
+                                }
                                 : it
                             )
                           );
@@ -1506,7 +1509,7 @@ export default function DeliveryPortalPage() {
                     </div>
 
                     <div>
-                      <Label className="text-[10px] text-amber-700 font-semibold block mb-0.5">Damaged</Label>
+                      <Label className="text-[10px] text-amber-700 font-semibold block mb-0.5">{t.damagedQty}</Label>
                       <Input
                         type="number"
                         min={0}
@@ -1517,9 +1520,9 @@ export default function DeliveryPortalPage() {
                             prev.map((it, i) =>
                               i === idx
                                 ? {
-                                    ...it,
-                                    driverDamagedQty: val,
-                                  }
+                                  ...it,
+                                  driverDamagedQty: val,
+                                }
                                 : it
                             )
                           );
@@ -1529,7 +1532,7 @@ export default function DeliveryPortalPage() {
                     </div>
 
                     <div>
-                      <Label className="text-[10px] text-red-700 font-semibold block mb-0.5">Missing</Label>
+                      <Label className="text-[10px] text-red-700 font-semibold block mb-0.5">{t.missingQty}</Label>
                       <Input
                         type="number"
                         min={0}
@@ -1540,9 +1543,9 @@ export default function DeliveryPortalPage() {
                             prev.map((it, i) =>
                               i === idx
                                 ? {
-                                    ...it,
-                                    driverMissingQty: val,
-                                  }
+                                  ...it,
+                                  driverMissingQty: val,
+                                }
                                 : it
                             )
                           );
@@ -1553,7 +1556,7 @@ export default function DeliveryPortalPage() {
                   </div>
 
                   <Input
-                    placeholder="Notes on physical condition, bent sheets, etc. (optional)"
+                    placeholder={t.conditionNotesPlaceholder}
                     value={item.driverRemarks}
                     onChange={(e) => {
                       const val = e.target.value;
@@ -1571,10 +1574,10 @@ export default function DeliveryPortalPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                  2. Photo Evidence (Mandatory) *
+                  {t.uploadReturnEvidencePhoto}
                 </Label>
                 <span className="text-[10px] text-slate-500">
-                  {pickupUploadedUrls.length} photo(s) captured
+                  {pickupUploadedUrls.length}
                 </span>
               </div>
 
@@ -1616,7 +1619,7 @@ export default function DeliveryPortalPage() {
               >
                 <Camera className="w-5 h-5 text-amber-700" />
                 <span className="text-xs font-bold text-slate-800">
-                  {uploadingPickupPhoto ? "Watermarking & Uploading..." : "Tap to Open Camera & Snap Photo"}
+                  {uploadingPickupPhoto ? "Watermarking & Uploading..." : t.btnTakeEvidencePhoto}
                 </span>
               </button>
               <FormFieldError error={pickupErrors.photo} />
@@ -1625,11 +1628,11 @@ export default function DeliveryPortalPage() {
             {/* SECTION 3: CUSTOMER REPRESENTATIVE HANDOVER ACKNOWLEDGEMENT (STAGE 7) */}
             <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-3">
               <Label className="text-xs font-bold text-slate-900 uppercase tracking-wide block">
-                3. Customer Representative Handover Acknowledgement
+                {t.customerHandoverAcknowledgement}
               </Label>
 
               <div>
-                <Label className="text-xs font-semibold" required>Customer Representative Name *</Label>
+                <Label className="text-xs font-semibold" required>{t.customerHandoverRepName} *</Label>
                 <Input
                   value={pickupProofForm.receiverName}
                   maxLength={100}
@@ -1652,7 +1655,7 @@ export default function DeliveryPortalPage() {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <Label className="text-xs font-semibold">Designation</Label>
+                  <Label className="text-xs font-semibold">{t.customerRepDesignation}</Label>
                   <Input
                     value={pickupProofForm.receiverDesignation}
                     onChange={(e) => setPickupProofForm({ ...pickupProofForm, receiverDesignation: e.target.value })}
@@ -1661,7 +1664,7 @@ export default function DeliveryPortalPage() {
                 </div>
 
                 <div>
-                  <Label className="text-xs font-semibold" required>Mobile (10 Digits) *</Label>
+                  <Label className="text-xs font-semibold" required>{t.customerRepPhone} *</Label>
                   <Input
                     type="tel"
                     value={pickupProofForm.receiverPhone}
@@ -1709,7 +1712,7 @@ export default function DeliveryPortalPage() {
                       onClick={() => setPickupProofForm((prev) => ({ ...prev, customerSignatureRefused: true }))}
                       className="text-[11px] text-red-600 font-semibold hover:underline"
                     >
-                      Customer representative refused to sign?
+                      {t.customerAgreedDamageLabel}
                     </button>
                   </div>
                 </div>
@@ -1749,27 +1752,27 @@ export default function DeliveryPortalPage() {
 
             {/* Remarks */}
             <div>
-              <Label className="text-xs font-semibold">Handover / Vehicle Loading Remarks</Label>
+              <Label className="text-xs font-semibold">{t.conditionNotes}</Label>
               <Input
                 value={pickupProofForm.remarks}
                 maxLength={500}
-                placeholder="e.g. 50 props loaded, 2 bent, loaded into KA-04-MH-3321."
+                placeholder={t.conditionNotesPlaceholder}
                 onChange={(e) => setPickupProofForm({ ...pickupProofForm, remarks: e.target.value.slice(0, 500) })}
               />
             </div>
 
             <DialogFooter className="pt-2">
               <Button type="button" variant="outline" onClick={() => setIsPickupModalOpen(false)}>
-                Cancel
+                {t.btnCancel}
               </Button>
               <Button
                 type="submit"
                 loading={submittingPickup}
-                loadingText="Confirming Pickup & Starting Transit..."
+                loadingText={t.btnConfirmingMaterialPickup}
                 disabled={submittingPickup || uploadingPickupPhoto}
                 className="bg-[#F26522] hover:bg-[#EA580C] text-white font-bold"
               >
-                Confirm Material Pickup & Start Transit
+                {t.btnConfirmMaterialPickup}
               </Button>
             </DialogFooter>
           </form>
@@ -1782,10 +1785,10 @@ export default function DeliveryPortalPage() {
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <Warehouse className="h-5 w-5 text-emerald-600" />
-              Mark Arrival at Yard – {selectedYardMRN?.mrnNumber}
+              {t.yardArrivalModalTitle} – {selectedYardMRN?.mrnNumber}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Record arrival of vehicle at {selectedYardMRN?.receivingWarehouse?.name || "Yard"} and hand over centering equipment to warehouse receiving personnel.
+              {t.yardArrivalModalDesc}
             </DialogDescription>
           </DialogHeader>
 
@@ -1793,15 +1796,15 @@ export default function DeliveryPortalPage() {
             <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200 text-xs text-emerald-900 space-y-1">
               <div className="font-bold flex items-center gap-1">
                 <Check className="h-4 w-4 text-emerald-600" />
-                Materials Successfully Transported from Site
+                {t.materialsTransportedNotice}
               </div>
               <p className="text-[11px] text-emerald-800">
-                Vehicle: <strong>{selectedYardMRN?.vehicleTrip?.vehicle?.vehicleNumber || selectedYardMRN?.vehicleNumber}</strong>
+                {t.vehicle}: <strong>{selectedYardMRN?.vehicleTrip?.vehicle?.vehicleNumber || selectedYardMRN?.vehicleNumber}</strong>
               </p>
             </div>
 
             <div>
-              <Label className="text-xs font-semibold" required>Final Vehicle Odometer Reading (KM)</Label>
+              <Label className="text-xs font-semibold" required>{t.finalOdometerReading} *</Label>
               <Input
                 type="number"
                 min={0}
@@ -1811,17 +1814,17 @@ export default function DeliveryPortalPage() {
                 required
               />
               <p className="text-[10px] text-slate-400 mt-0.5">
-                Trip Start Odometer: {selectedYardMRN?.vehicleTrip?.startOdometer ? Number(selectedYardMRN.vehicleTrip.startOdometer) : "0"} KM
+                {t.tripStartOdometer}: {selectedYardMRN?.vehicleTrip?.startOdometer ? Number(selectedYardMRN.vehicleTrip.startOdometer) : "0"} KM
               </p>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1">
                 <Label className="text-xs font-semibold" required>
-                  Yard Receiving Employee Name
+                  {t.yardReceivingEmployee} *
                 </Label>
                 <span className="text-[10px] text-slate-400 font-medium">
-                  Auto-populates designation & phone
+                  {t.autoPopulateNotice}
                 </span>
               </div>
               <SearchableCombobox
@@ -1830,15 +1833,15 @@ export default function DeliveryPortalPage() {
                 onChange={handleSelectYardReceiver}
                 allowCustomValue={true}
                 customBadge="CUSTOM"
-                placeholder="Select yard receiver from database..."
-                searchPlaceholder="Search staff by name, designation, yard or phone..."
+                placeholder={t.selectYardReceiverPlaceholder}
+                searchPlaceholder={t.searchYardStaffPlaceholder}
                 className="w-full text-xs"
               />
 
               {/* Quick Select Suggestion Pills */}
               {yardReceivers.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                  <span className="text-[10px] text-slate-400 font-semibold">Quick Select:</span>
+                  <span className="text-[10px] text-slate-400 font-semibold">{t.quickSelect}</span>
                   {yardReceivers.slice(0, 4).map((r) => {
                     const isSelected =
                       yardArrivalForm.receiverName?.toLowerCase().trim() === r.name?.toLowerCase().trim();
@@ -1860,7 +1863,7 @@ export default function DeliveryPortalPage() {
                         {r.name}
                         {isThisYard && (
                           <span className={cn("text-[9px] font-semibold", isSelected ? "text-emerald-200" : "text-emerald-700")}>
-                            (Yard)
+                            ({t.thisYard})
                           </span>
                         )}
                       </button>
@@ -1872,7 +1875,7 @@ export default function DeliveryPortalPage() {
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label className="text-xs font-semibold">Designation</Label>
+                <Label className="text-xs font-semibold">{t.designation}</Label>
                 <Input
                   value={yardArrivalForm.receiverDesignation}
                   onChange={(e) => setYardArrivalForm({ ...yardArrivalForm, receiverDesignation: e.target.value })}
@@ -1881,7 +1884,7 @@ export default function DeliveryPortalPage() {
               </div>
 
               <div>
-                <Label className="text-xs font-semibold">Receiver Phone</Label>
+                <Label className="text-xs font-semibold">{t.receiverPhone}</Label>
                 <Input
                   type="tel"
                   value={yardArrivalForm.receiverPhone}
@@ -1892,31 +1895,41 @@ export default function DeliveryPortalPage() {
             </div>
 
             <div>
-              <Label className="text-xs font-semibold">Yard Arrival Remarks</Label>
+              <Label className="text-xs font-semibold">{t.yardArrivalRemarks}</Label>
               <Input
                 value={yardArrivalForm.remarks}
                 onChange={(e) => setYardArrivalForm({ ...yardArrivalForm, remarks: e.target.value })}
-                placeholder="Notes on yard gate arrival, unloading bay, etc."
+                placeholder={t.yardArrivalRemarksPlaceholder}
               />
             </div>
 
             <DialogFooter className="pt-2">
               <Button type="button" variant="outline" onClick={() => setIsYardModalOpen(false)}>
-                Cancel
+                {t.btnCancel}
               </Button>
               <Button
                 type="submit"
                 loading={submittingYardArrival}
-                loadingText="Confirming Yard Handover..."
+                loadingText={t.btnConfirmingYardArrival}
                 disabled={submittingYardArrival}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
               >
-                Confirm Yard Arrival & Hand Over
+                {t.btnConfirmYardArrival}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function DeliveryPortalPage() {
+  const [serverLanguage, setServerLanguage] = React.useState<DriverLanguage>("en");
+
+  return (
+    <DriverLanguageProvider initialLanguage={serverLanguage}>
+      <DeliveryPortalContent onServerLanguageLoaded={setServerLanguage} />
+    </DriverLanguageProvider>
   );
 }

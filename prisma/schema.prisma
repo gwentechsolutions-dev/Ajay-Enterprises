@@ -30,8 +30,9 @@ model User {
   username    String?   @unique
   mobile      String
   role        String    @default("READ_ONLY") // OWNER, ADMINISTRATOR, ACCOUNTANT, WAREHOUSE_MANAGER, WAREHOUSE_STAFF, DELIVERY_MANAGER, DELIVERY_PERSONNEL, LABOUR_SUPERVISOR, AUDITOR
-  scope       String    @default("ALL_BUSINESS") // ALL_BUSINESS, ASSIGNED_WAREHOUSE, ASSIGNED_SITE, ASSIGNED_DELIVERY
-  branchId    String?   @db.Uuid
+  scope             String    @default("ALL_BUSINESS") // ALL_BUSINESS, ASSIGNED_WAREHOUSE, ASSIGNED_SITE, ASSIGNED_DELIVERY
+  preferredLanguage String    @default("en") // en, ta, hi
+  branchId          String?   @db.Uuid
   warehouseId String?   @db.Uuid
   isActive    Boolean   @default(true)
   lastLogin   DateTime?
