@@ -86,6 +86,7 @@ export default function DeliveryNotesPage() {
   const driverSuggestionsRef = React.useRef<HTMLDivElement>(null);
   const [isCustomEwbVehicle, setIsCustomEwbVehicle] = React.useState(false);
   const [isCustomUpdateVehicle, setIsCustomUpdateVehicle] = React.useState(false);
+  const [isCustomDnVehicle, setIsCustomDnVehicle] = React.useState(false);
   const [uploadingDeliveryPhoto, setUploadingDeliveryPhoto] = React.useState(false);
   const [deliverPhotoPreview, setDeliverPhotoPreview] = React.useState<string | null>(null);
   const deliverCameraInputRef = React.useRef<HTMLInputElement>(null);
@@ -1268,8 +1269,19 @@ export default function DeliveryNotesPage() {
               </div>
 
               <div>
-                <Label className="text-xs font-semibold">Company Vehicle No. *</Label>
-                {fleetVehicles.length > 0 ? (
+                <div className="flex items-center justify-between mb-1">
+                  <Label className="text-xs font-semibold">Company Vehicle No. *</Label>
+                  {fleetVehicles.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomDnVehicle(!isCustomDnVehicle)}
+                      className="text-[11px] text-[#F26522] hover:underline font-semibold"
+                    >
+                      {isCustomDnVehicle ? "← Select from Company Fleet" : "+ Enter Other Vehicle"}
+                    </button>
+                  )}
+                </div>
+                {!isCustomDnVehicle && fleetVehicles.length > 0 ? (
                   <SearchableCombobox
                     options={fleetVehicles.map((v) => ({
                       value: v.vehicleNumber,
@@ -1290,14 +1302,24 @@ export default function DeliveryNotesPage() {
                     placeholder="Select Company Vehicle"
                     searchPlaceholder="Search vehicle..."
                     allowClear={false}
+                    allowCustomValue={true}
+                    customBadge="CUSTOM"
                   />
                 ) : (
                   <Input
                     placeholder="KA-01-AB-1234"
                     value={dnForm.vehicleNumber}
-                    onChange={(e) => setDnForm({ ...dnForm, vehicleNumber: e.target.value })}
+                    onChange={(e) => setDnForm({ ...dnForm, vehicleNumber: e.target.value.toUpperCase() })}
+                    className="font-mono uppercase text-sm"
                     required
                   />
+                )}
+                {fleetVehicles.length > 0 && (
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    {!isCustomDnVehicle
+                      ? `AJAY ENTERPRISES Fleet (${fleetVehicles.length} vehicles)`
+                      : "Type any other vehicle number"}
+                  </p>
                 )}
               </div>
 

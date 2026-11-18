@@ -14,6 +14,10 @@ export async function GET() {
     const warehouses = await db.warehouse.findMany({
       include: {
         branch: { select: { id: true, name: true, branchCode: true } },
+        users: {
+          where: { isActive: true },
+          select: { id: true, name: true, role: true, mobile: true },
+        },
         _count: { select: { users: true } },
       },
       orderBy: { createdAt: "desc" },

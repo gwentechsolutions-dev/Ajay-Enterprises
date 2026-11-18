@@ -54,7 +54,7 @@ interface MRNLineItem {
 }
 
 export default function MaterialReturnsPage() {
-  const { isDeliveryPerson, canCreateReturnNote } = useCurrentUser();
+  const { user, isDeliveryPerson, canCreateReturnNote } = useCurrentUser();
   const [returnNotes, setReturnNotes] = React.useState<any[]>([]);
   const [customers, setCustomers] = React.useState<any[]>([]);
   const [sites, setSites] = React.useState<any[]>([]);
@@ -62,6 +62,11 @@ export default function MaterialReturnsPage() {
   const [variants, setVariants] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState("");
+
+  // Fleet vehicles state for registered company vehicles
+  const [fleetVehicles, setFleetVehicles] = React.useState<any[]>([]);
+  const [isCustomVehicle, setIsCustomVehicle] = React.useState(false);
+  const [isCustomReceiver, setIsCustomReceiver] = React.useState(false);
 
   // Modals & Submissions
   const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false);
@@ -108,7 +113,7 @@ export default function MaterialReturnsPage() {
     // 2. Auxiliary master data: Only needed if user can create return notes
     if (canCreateReturnNote) {
       try {
-        const [custData, whData, varData] = await Promise.all([
+        const [custData, whData, varData, vehData] = await Promise.all([
           fetchWithClientCache("/api/v1/customers", {
             forceRefresh,
             ttlMs: 60_000,
@@ -124,6 +129,13 @@ export default function MaterialReturnsPage() {
             ttlMs: 60_000,
             onBackgroundUpdate: (fresh) => setVariants(Array.isArray(fresh) ? fresh : []),
           }).catch(() => null),
+          fetchWithClientCache("/api/v1/fleet/vehicles", {
+            forceRefresh,
+            ttlMs: 60_000,
+            onBackgroundUpdate: (fresh) => {
+              if (Array.isArray(fresh)) setFleetVehicles(fresh);
+            },
+          }).catch(() => null),
         ]);
 
         if (custData && Array.isArray(custData)) {
@@ -131,19 +143,40 @@ export default function MaterialReturnsPage() {
         }
         if (whData && Array.isArray(whData)) {
           setWarehouses(whData);
-          setMrnForm((prev) => ({
-            ...prev,
-            receivingWarehouseId: prev.receivingWarehouseId || whData[0]?.id || "",
-          }));
+          setMrnForm((prev) => {
+            const chosenWh = whData.find((w: any) => w.id === prev.receivingWarehouseId) || whData[0];
+            return {
+              ...prev,
+              receivingWarehouseId: prev.receivingWarehouseId || whData[0]?.id || "",
+              receiverName:
+                prev.receiverName && prev.receiverName !== "Yard Manager"
+                  ? prev.receiverName
+                  : chosenWh?.contactPerson || user?.name || "Yard Manager",
+              receiverPhone:
+                prev.receiverPhone && prev.receiverPhone !== "9876543210"
+                  ? prev.receiverPhone
+                  : chosenWh?.mobile || "9876543210",
+            };
+          });
         }
         if (varData && Array.isArray(varData)) {
           setVariants(varData);
+        }
+        if (vehData && Array.isArray(vehData)) {
+          setFleetVehicles(vehData);
+          setMrnForm((prev) => ({
+            ...prev,
+            vehicleNumber:
+              prev.vehicleNumber && prev.vehicleNumber !== "KA-01-AB-1234"
+                ? prev.vehicleNumber
+                : vehData[0]?.vehicleNumber || prev.vehicleNumber,
+          }));
         }
       } catch (err) {
         console.warn("Could not pre-load auxiliary return note master data:", err);
       }
     }
-  }, [canCreateReturnNote]);
+  }, [canCreateReturnNote, user]);
 
   React.useEffect(() => {
     loadData();
@@ -154,6 +187,81 @@ export default function MaterialReturnsPage() {
       }
     }
   }, [loadData, canCreateReturnNote]);
+
+  // Memoized receiver options from active user, selected yard contact, all warehouses, and past MRNs
+  const receiverOptions = React.useMemo(() => {
+    const list: Array<{ value: string; label: string; sublabel?: string; badge?: string; phone?: string }> = [];
+    const seenNames = new Set<string>();
+
+    // 1. Current logged-in user
+    if (user?.name && !seenNames.has(user.name.toLowerCase())) {
+      seenNames.add(user.name.toLowerCase());
+      list.push({
+        value: user.name,
+        label: user.name,
+        sublabel: `${user.role || "Staff"} · Logged-in User`,
+        badge: "CURRENT USER",
+        phone: user.mobile || undefined,
+      });
+    }
+
+    // 2. Selected warehouse contact person
+    const selectedYard = warehouses.find((w) => w.id === mrnForm.receivingWarehouseId);
+    if (selectedYard?.contactPerson && !seenNames.has(selectedYard.contactPerson.toLowerCase())) {
+      seenNames.add(selectedYard.contactPerson.toLowerCase());
+      list.push({
+        value: selectedYard.contactPerson,
+        label: selectedYard.contactPerson,
+        sublabel: `${selectedYard.name} (${selectedYard.warehouseCode || "Yard In-Charge"})`,
+        badge: "YARD IN-CHARGE",
+        phone: selectedYard.mobile || undefined,
+      });
+    }
+
+    // 3. Other warehouse contacts and assigned warehouse staff
+    warehouses.forEach((w: any) => {
+      if (w.contactPerson && !seenNames.has(w.contactPerson.toLowerCase())) {
+        seenNames.add(w.contactPerson.toLowerCase());
+        list.push({
+          value: w.contactPerson,
+          label: w.contactPerson,
+          sublabel: `${w.name} · Contact`,
+          badge: "YARD",
+          phone: w.mobile || undefined,
+        });
+      }
+      if (Array.isArray(w.users)) {
+        w.users.forEach((u: any) => {
+          if (u.name && !seenNames.has(u.name.toLowerCase())) {
+            seenNames.add(u.name.toLowerCase());
+            list.push({
+              value: u.name,
+              label: u.name,
+              sublabel: `${w.name} · ${u.role || "Staff"}`,
+              badge: "STAFF",
+              phone: u.mobile || undefined,
+            });
+          }
+        });
+      }
+    });
+
+    // 4. Past receivers from return notes
+    returnNotes.forEach((rn: any) => {
+      if (rn.receiverName && !seenNames.has(rn.receiverName.toLowerCase())) {
+        seenNames.add(rn.receiverName.toLowerCase());
+        list.push({
+          value: rn.receiverName,
+          label: rn.receiverName,
+          sublabel: "Past Yard Receiver",
+          badge: "PAST",
+          phone: rn.receiverPhone || undefined,
+        });
+      }
+    });
+
+    return list;
+  }, [user, mrnForm.receivingWarehouseId, warehouses, returnNotes]);
 
   // Load delivered materials held at a specific customer site
   const loadSiteDeliveredMaterials = React.useCallback(
@@ -636,9 +744,18 @@ export default function MaterialReturnsPage() {
                   options={warehouses.map((w) => ({
                     value: w.id,
                     label: `${w.name} (${w.warehouseCode})`,
+                    sublabel: w.contactPerson ? `In-Charge: ${w.contactPerson}` : undefined,
                   }))}
                   value={mrnForm.receivingWarehouseId}
-                  onChange={(val) => setMrnForm({ ...mrnForm, receivingWarehouseId: val })}
+                  onChange={(val) => {
+                    const wh = warehouses.find((w) => w.id === val);
+                    setMrnForm((prev) => ({
+                      ...prev,
+                      receivingWarehouseId: val,
+                      ...(wh?.contactPerson && !isCustomReceiver ? { receiverName: wh.contactPerson } : {}),
+                      ...(wh?.mobile && !isCustomReceiver ? { receiverPhone: wh.mobile } : {}),
+                    }));
+                  }}
                   placeholder="Select Receiving Yard"
                   isLoading={loading && warehouses.length === 0}
                   emptyText="No warehouses or yards found."
@@ -690,27 +807,117 @@ export default function MaterialReturnsPage() {
                 />
               </div>
 
+              {/* Company Vehicle No. with Fleet Dropdown + Custom Text Entry */}
               <div>
-                <Label className="text-xs font-semibold">Company Vehicle No. *</Label>
-                <Input
-                  maxLength={20}
-                  placeholder="KA-01-AB-1234"
-                  value={mrnForm.vehicleNumber}
-                  onChange={(e) => setMrnForm({ ...mrnForm, vehicleNumber: e.target.value.toUpperCase().slice(0, 20) })}
-                  className="uppercase font-mono"
-                  required
-                />
+                <div className="flex items-center justify-between mb-1">
+                  <Label className="text-xs font-semibold">Company Vehicle No. *</Label>
+                  {fleetVehicles.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomVehicle(!isCustomVehicle)}
+                      className="text-[11px] text-[#F26522] hover:underline font-semibold"
+                    >
+                      {isCustomVehicle ? "← Select from Company Fleet" : "+ Enter Other Vehicle"}
+                    </button>
+                  )}
+                </div>
+                {!isCustomVehicle && fleetVehicles.length > 0 ? (
+                  <SearchableCombobox
+                    options={fleetVehicles.map((v) => ({
+                      value: v.vehicleNumber,
+                      label: v.vehicleNumber,
+                      sublabel: `${v.make || ""} ${v.model || ""}`.trim() || undefined,
+                      badge: v.status || "ACTIVE",
+                    }))}
+                    value={mrnForm.vehicleNumber}
+                    onChange={(val) => {
+                      const veh = fleetVehicles.find((v) => v.vehicleNumber === val);
+                      setMrnForm((prev) => ({
+                        ...prev,
+                        vehicleNumber: val,
+                        ...(veh?.defaultDriver?.name ? { driverName: veh.defaultDriver.name } : {}),
+                        ...(veh?.defaultDriver?.mobileNumber ? { driverPhone: veh.defaultDriver.mobileNumber } : {}),
+                      }));
+                    }}
+                    placeholder="Select Company Vehicle"
+                    searchPlaceholder="Search vehicle number or model..."
+                    allowClear={false}
+                    allowCustomValue={true}
+                    customBadge="CUSTOM"
+                  />
+                ) : (
+                  <Input
+                    maxLength={20}
+                    placeholder="KA-01-AB-1234"
+                    value={mrnForm.vehicleNumber}
+                    onChange={(e) => setMrnForm({ ...mrnForm, vehicleNumber: e.target.value.toUpperCase().slice(0, 20) })}
+                    className="uppercase font-mono text-sm"
+                    required
+                  />
+                )}
+                {fleetVehicles.length > 0 && (
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    {!isCustomVehicle
+                      ? `AJAY ENTERPRISES Fleet (${fleetVehicles.length} vehicles)`
+                      : "Type any other vehicle number"}
+                  </p>
+                )}
               </div>
 
+              {/* Yard Receiver Name with Registered Staff Dropdown + Custom Text Entry */}
               <div>
-                <Label className="text-xs font-semibold">Yard Receiver Name *</Label>
-                <Input
-                  maxLength={100}
-                  placeholder="e.g. Ramesh Kumar"
-                  value={mrnForm.receiverName}
-                  onChange={(e) => setMrnForm({ ...mrnForm, receiverName: e.target.value.slice(0, 100) })}
-                  required
-                />
+                <div className="flex items-center justify-between mb-1">
+                  <Label className="text-xs font-semibold">Yard Receiver Name *</Label>
+                  {receiverOptions.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomReceiver(!isCustomReceiver)}
+                      className="text-[11px] text-[#F26522] hover:underline font-semibold"
+                    >
+                      {isCustomReceiver ? "← Select from Staff" : "+ Enter Other Name"}
+                    </button>
+                  )}
+                </div>
+                {!isCustomReceiver && receiverOptions.length > 0 ? (
+                  <SearchableCombobox
+                    options={receiverOptions.map((r) => ({
+                      value: r.value,
+                      label: r.label,
+                      sublabel: r.sublabel,
+                      badge: r.badge,
+                    }))}
+                    value={mrnForm.receiverName}
+                    onChange={(val) => {
+                      const matched = receiverOptions.find((r) => r.value === val);
+                      setMrnForm((prev) => ({
+                        ...prev,
+                        receiverName: val,
+                        ...(matched?.phone ? { receiverPhone: matched.phone } : {}),
+                      }));
+                    }}
+                    placeholder="Select Yard Receiver / Staff"
+                    searchPlaceholder="Search receiver name or yard..."
+                    allowClear={false}
+                    allowCustomValue={true}
+                    customBadge="MANUAL"
+                  />
+                ) : (
+                  <Input
+                    maxLength={100}
+                    placeholder="e.g. Ramesh Kumar"
+                    value={mrnForm.receiverName}
+                    onChange={(e) => setMrnForm({ ...mrnForm, receiverName: e.target.value.slice(0, 100) })}
+                    className="text-sm"
+                    required
+                  />
+                )}
+                {receiverOptions.length > 0 && (
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    {!isCustomReceiver
+                      ? `Staff & yard in-charges (${receiverOptions.length} available)`
+                      : "Type any other receiver full name"}
+                  </p>
+                )}
               </div>
             </div>
 
