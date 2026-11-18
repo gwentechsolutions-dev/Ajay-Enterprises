@@ -1223,7 +1223,9 @@ export default function DeliveryNotesPage() {
           <form onSubmit={handleCreateDN} className="space-y-4 pt-2">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <Label className="text-xs font-semibold">Customer *</Label>
+                <div className="flex items-center justify-between h-5 mb-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">Customer *</Label>
+                </div>
                 <SearchableCombobox
                   options={customers.map((c) => ({ value: c.id, label: `${c.name} (${c.customerCode})` }))}
                   value={dnForm.customerId}
@@ -1234,7 +1236,9 @@ export default function DeliveryNotesPage() {
               </div>
 
               <div>
-                <Label className="text-xs font-semibold">Construction Site *</Label>
+                <div className="flex items-center justify-between h-5 mb-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">Construction Site *</Label>
+                </div>
                 <SearchableCombobox
                   options={sites.map((s) => ({ value: s.id, label: `${s.siteName} (${s.siteCode})` }))}
                   value={dnForm.customerSiteId}
@@ -1246,7 +1250,9 @@ export default function DeliveryNotesPage() {
               </div>
 
               <div>
-                <Label className="text-xs font-semibold">Source Yard / Warehouse *</Label>
+                <div className="flex items-center justify-between h-5 mb-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">Source Yard / Warehouse *</Label>
+                </div>
                 <SearchableCombobox
                   options={warehouses.map((w) => ({ value: w.id, label: `${w.name} (${w.warehouseCode})` }))}
                   value={dnForm.sourceWarehouseId}
@@ -1259,7 +1265,9 @@ export default function DeliveryNotesPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
-                <Label className="text-xs font-semibold">Delivery / Dispatch Date *</Label>
+                <div className="flex items-center justify-between h-5 mb-1.5">
+                  <Label className="text-xs font-semibold text-slate-700 whitespace-nowrap">Delivery Date *</Label>
+                </div>
                 <Input
                   type="date"
                   value={dnForm.deliveryDate}
@@ -1269,15 +1277,15 @@ export default function DeliveryNotesPage() {
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <Label className="text-xs font-semibold">Company Vehicle No. *</Label>
+                <div className="flex items-center justify-between h-5 mb-1.5">
+                  <Label className="text-xs font-semibold text-slate-700 whitespace-nowrap">Company Vehicle *</Label>
                   {fleetVehicles.length > 0 && (
                     <button
                       type="button"
                       onClick={() => setIsCustomDnVehicle(!isCustomDnVehicle)}
-                      className="text-[11px] text-[#F26522] hover:underline font-semibold"
+                      className="text-[11px] text-[#F26522] hover:underline font-semibold whitespace-nowrap shrink-0"
                     >
-                      {isCustomDnVehicle ? "← Select from Company Fleet" : "+ Enter Other Vehicle"}
+                      {isCustomDnVehicle ? "← Fleet List" : "+ Other Vehicle"}
                     </button>
                   )}
                 </div>
@@ -1299,7 +1307,7 @@ export default function DeliveryNotesPage() {
                         ...(veh?.defaultDriver?.mobileNumber ? { driverPhone: veh.defaultDriver.mobileNumber } : {}),
                       });
                     }}
-                    placeholder="Select Company Vehicle"
+                    placeholder="Select Vehicle"
                     searchPlaceholder="Search vehicle..."
                     allowClear={false}
                     allowCustomValue={true}
@@ -1314,27 +1322,20 @@ export default function DeliveryNotesPage() {
                     required
                   />
                 )}
-                {fleetVehicles.length > 0 && (
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    {!isCustomDnVehicle
-                      ? `AJAY ENTERPRISES Fleet (${fleetVehicles.length} vehicles)`
-                      : "Type any other vehicle number"}
-                  </p>
-                )}
               </div>
 
               {/* Driver Name with Registered Auto-Suggestions + Manual Override */}
               <div className="relative" ref={driverSuggestionsRef}>
-                <div className="flex items-center justify-between mb-1">
-                  <Label className="text-xs font-semibold">Driver Name</Label>
+                <div className="flex items-center justify-between h-5 mb-1.5">
+                  <Label className="text-xs font-semibold text-slate-700 whitespace-nowrap">Driver Name</Label>
                   {fleetDrivers.length > 0 && (
-                    <span className="text-[10px] text-slate-400 font-normal">
+                    <span className="text-[10px] text-slate-400 font-normal whitespace-nowrap">
                       Auto-suggest ({fleetDrivers.length})
                     </span>
                   )}
                 </div>
                 <Input
-                  placeholder="e.g. Ramesh Kumar (type or select)"
+                  placeholder="e.g. Ramesh Kumar"
                   value={dnForm.driverName}
                   onChange={(e) => {
                     setDnForm({ ...dnForm, driverName: e.target.value });
@@ -1384,10 +1385,12 @@ export default function DeliveryNotesPage() {
 
               {/* Driver Phone */}
               <div>
-                <Label className="text-xs font-semibold mb-1 block">Driver Phone</Label>
+                <div className="flex items-center justify-between h-5 mb-1.5">
+                  <Label className="text-xs font-semibold text-slate-700 whitespace-nowrap">Driver Phone</Label>
+                </div>
                 <Input
                   type="tel"
-                  placeholder="10-digit mobile (e.g. 9876543210)"
+                  placeholder="10-digit mobile"
                   maxLength={10}
                   value={dnForm.driverPhone}
                   onChange={(e) => setDnForm({ ...dnForm, driverPhone: e.target.value.replace(/\D/g, "").slice(0, 10) })}
@@ -1398,7 +1401,11 @@ export default function DeliveryNotesPage() {
             {/* Optional Logistics Freight & Notes */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label className="text-xs font-semibold">Transportation / Freight Charges (₹) (Optional)</Label>
+                <div className="flex items-center justify-between h-5 mb-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">
+                    Transportation / Freight Charges (₹) <span className="font-normal text-slate-400">(Optional)</span>
+                  </Label>
+                </div>
                 <Input
                   type="number"
                   min="0"
@@ -1406,20 +1413,27 @@ export default function DeliveryNotesPage() {
                   placeholder="0.00"
                   value={dnForm.transportCharges}
                   onChange={(e) => setDnForm({ ...dnForm, transportCharges: e.target.value })}
-                  className="mt-1 font-mono text-xs"
+                  className="font-mono text-xs"
                 />
-                <span className="text-[10px] text-slate-500 mt-0.5 block">
+                <span className="text-[10px] text-slate-500 mt-1 block">
                   Trip freight / transport charge for this dispatch. Auto-suggested when converting rental statements to tax invoices.
                 </span>
               </div>
               <div>
-                <Label className="text-xs font-semibold">Dispatch Notes / References (Optional)</Label>
+                <div className="flex items-center justify-between h-5 mb-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">
+                    Dispatch Notes / References <span className="font-normal text-slate-400">(Optional)</span>
+                  </Label>
+                </div>
                 <Input
                   placeholder="Optional site delivery instructions or references..."
                   value={dnForm.notes}
                   onChange={(e) => setDnForm({ ...dnForm, notes: e.target.value })}
-                  className="mt-1 text-xs"
+                  className="text-xs"
                 />
+                <span className="text-[10px] text-slate-500 mt-1 block">
+                  Optional gate pass or site delivery instructions.
+                </span>
               </div>
             </div>
 
@@ -2025,15 +2039,15 @@ export default function DeliveryNotesPage() {
           ) : (
             <form onSubmit={handleGenerateEWB} className="space-y-4 pt-1">
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-semibold text-slate-700">Vehicle Registration Number *</Label>
+                <div className="flex items-center justify-between h-5 mb-1.5">
+                  <Label className="text-xs font-semibold text-slate-700 whitespace-nowrap">Vehicle Registration Number *</Label>
                   {fleetVehicles.length > 0 && (
                     <button
                       type="button"
                       onClick={() => setIsCustomEwbVehicle(!isCustomEwbVehicle)}
-                      className="text-[11px] text-[#F26522] hover:underline font-semibold"
+                      className="text-[11px] text-[#F26522] hover:underline font-semibold whitespace-nowrap shrink-0"
                     >
-                      {isCustomEwbVehicle ? "← Select from Company Fleet" : "+ Enter Other Vehicle"}
+                      {isCustomEwbVehicle ? "← Fleet List" : "+ Other Vehicle"}
                     </button>
                   )}
                 </div>
@@ -2167,15 +2181,15 @@ export default function DeliveryNotesPage() {
 
           <form onSubmit={handleUpdateVehicle} className="space-y-4 pt-2">
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-semibold text-slate-700">New Vehicle Number *</Label>
+              <div className="flex items-center justify-between h-5 mb-1.5">
+                <Label className="text-xs font-semibold text-slate-700 whitespace-nowrap">New Vehicle Number *</Label>
                 {fleetVehicles.length > 0 && (
                   <button
                     type="button"
                     onClick={() => setIsCustomUpdateVehicle(!isCustomUpdateVehicle)}
-                    className="text-[11px] text-[#F26522] hover:underline font-semibold"
+                    className="text-[11px] text-[#F26522] hover:underline font-semibold whitespace-nowrap shrink-0"
                   >
-                    {isCustomUpdateVehicle ? "← Select from Company Fleet" : "+ Enter Other Vehicle"}
+                    {isCustomUpdateVehicle ? "← Fleet List" : "+ Other Vehicle"}
                   </button>
                 )}
               </div>

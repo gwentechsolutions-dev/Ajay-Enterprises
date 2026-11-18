@@ -942,7 +942,9 @@ export default function MaterialReturnsPage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <div className="md:col-span-1">
-                  <Label className="text-xs font-semibold">Representative Name *</Label>
+                  <div className="flex items-center h-5 mb-1.5">
+                    <Label className="text-xs font-semibold text-slate-700 whitespace-nowrap">Representative Name *</Label>
+                  </div>
                   <Input
                     placeholder="e.g. Anand Sharma"
                     value={mrnForm.customerRepresentativeName}
@@ -952,7 +954,9 @@ export default function MaterialReturnsPage() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold">Designation</Label>
+                  <div className="flex items-center h-5 mb-1.5">
+                    <Label className="text-xs font-semibold text-slate-700 whitespace-nowrap">Designation</Label>
+                  </div>
                   <Input
                     placeholder="e.g. Site Supervisor / Engineer"
                     value={mrnForm.customerRepresentativeDesignation}
@@ -961,7 +965,9 @@ export default function MaterialReturnsPage() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold">Mobile Number</Label>
+                  <div className="flex items-center h-5 mb-1.5">
+                    <Label className="text-xs font-semibold text-slate-700 whitespace-nowrap">Mobile Number</Label>
+                  </div>
                   <Input
                     placeholder="10-digit mobile"
                     value={mrnForm.customerRepresentativePhone}
@@ -970,7 +976,9 @@ export default function MaterialReturnsPage() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold">Handover Date</Label>
+                  <div className="flex items-center h-5 mb-1.5">
+                    <Label className="text-xs font-semibold text-slate-700 whitespace-nowrap">Handover Date</Label>
+                  </div>
                   <Input
                     type="date"
                     value={mrnForm.handoverAt}
@@ -991,7 +999,9 @@ export default function MaterialReturnsPage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
-                  <Label className="text-xs font-semibold">Received Date *</Label>
+                  <div className="flex items-center justify-between h-5 mb-1.5">
+                    <Label className="text-xs font-semibold text-slate-700 whitespace-nowrap">Received Date *</Label>
+                  </div>
                   <Input
                     type="date"
                     value={mrnForm.returnDate}
@@ -1003,13 +1013,13 @@ export default function MaterialReturnsPage() {
 
                 {/* Company Vehicle No. with Fleet Dropdown + Custom Text Entry */}
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <Label className="text-xs font-semibold">Company Vehicle No. *</Label>
+                  <div className="flex items-center justify-between h-5 mb-1.5">
+                    <Label className="text-xs font-semibold text-slate-700 whitespace-nowrap">Company Vehicle *</Label>
                     {fleetVehicles.length > 0 && (
                       <button
                         type="button"
                         onClick={() => setIsCustomVehicle(!isCustomVehicle)}
-                        className="text-[11px] text-[#F26522] hover:underline font-semibold"
+                        className="text-[11px] text-[#F26522] hover:underline font-semibold whitespace-nowrap shrink-0"
                       >
                         {isCustomVehicle ? "← Fleet List" : "+ Other Vehicle"}
                       </button>
@@ -1053,13 +1063,13 @@ export default function MaterialReturnsPage() {
 
                 {/* Yard Receiver Name with Registered Staff Dropdown + Custom Text Entry */}
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <Label className="text-xs font-semibold">Yard Receiver Name *</Label>
+                  <div className="flex items-center justify-between h-5 mb-1.5">
+                    <Label className="text-xs font-semibold text-slate-700 whitespace-nowrap">Yard Receiver Name *</Label>
                     {receiverOptions.length > 0 && (
                       <button
                         type="button"
                         onClick={() => setIsCustomReceiver(!isCustomReceiver)}
-                        className="text-[11px] text-[#F26522] hover:underline font-semibold"
+                        className="text-[11px] text-[#F26522] hover:underline font-semibold whitespace-nowrap shrink-0"
                       >
                         {isCustomReceiver ? "← Staff List" : "+ Other Name"}
                       </button>
