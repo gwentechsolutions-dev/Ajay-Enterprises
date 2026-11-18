@@ -270,7 +270,7 @@ export default function InventoryDashboardPage() {
 
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs min-w-[1000px]">
               {/* Dynamic Headers based on selected report */}
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 uppercase font-semibold">
                 {reportType === "variant_summary" ? (

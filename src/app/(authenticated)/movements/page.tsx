@@ -359,17 +359,17 @@ export default function MovementsPage() {
       {/* Movements Ledger Table */}
       <Card className="border-slate-200 shadow-sm overflow-hidden bg-white">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 uppercase font-semibold tracking-wider">
+          <table className="w-full text-left text-xs min-w-[1100px]">
+            <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 uppercase font-semibold tracking-wider text-[11px]">
               <tr>
-                <th className="py-3 px-4">Ref #</th>
-                <th className="py-3 px-4">Date & Time</th>
-                <th className="py-3 px-4">Material Variant & Size</th>
-                <th className="py-3 px-4">Movement Type</th>
-                <th className="py-3 px-4 text-right">Quantity</th>
-                <th className="py-3 px-4">Source → Destination</th>
-                <th className="py-3 px-4 text-center">Status</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+                <th className="py-3 px-4 w-[160px] whitespace-nowrap">Ref #</th>
+                <th className="py-3 px-4 w-[140px] whitespace-nowrap">Date & Time</th>
+                <th className="py-3 px-4 min-w-[240px]">Material Variant & Size</th>
+                <th className="py-3 px-4 w-[170px] whitespace-nowrap">Movement Type</th>
+                <th className="py-3 px-4 w-[100px] text-right whitespace-nowrap">Quantity</th>
+                <th className="py-3 px-4 min-w-[240px]">Source → Destination</th>
+                <th className="py-3 px-4 w-[95px] text-center whitespace-nowrap">Status</th>
+                <th className="py-3 px-4 w-[100px] text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-600">
@@ -402,22 +402,35 @@ export default function MovementsPage() {
                         isReversed ? "bg-slate-50/50 opacity-70" : ""
                       }`}
                     >
-                      <td className="py-3 px-4 font-mono font-medium text-slate-900 whitespace-nowrap">
-                        {m.movementNumber}
+                      <td className="py-2.5 px-4 font-mono font-medium text-slate-900 whitespace-nowrap w-[160px]">
+                        <div className="font-semibold text-slate-900">{m.movementNumber}</div>
                       </td>
-                      <td className="py-3 px-4 font-mono text-[11px] whitespace-nowrap">
-                        {new Date(m.movementDate).toLocaleDateString("en-IN")}{" "}
-                        <span className="text-slate-400">
+                      <td className="py-2.5 px-4 whitespace-nowrap w-[140px]">
+                        <div className="font-mono text-slate-800 text-[11px] font-medium">
+                          {new Date(m.movementDate).toLocaleDateString("en-IN")}
+                        </div>
+                        <div className="font-mono text-[10px] text-slate-400">
                           {new Date(m.movementDate).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="font-semibold text-slate-900">{m.materialVariant?.name}</div>
-                        <div className="font-mono text-[11px] text-slate-500">
-                          {m.materialVariant?.materialCode} • {m.materialVariant?.size}
                         </div>
                       </td>
-                      <td className="py-3 px-4 whitespace-nowrap">
+                      <td className="py-2.5 px-4 min-w-[240px]">
+                        <div className="font-semibold text-slate-900 leading-snug line-clamp-1" title={m.materialVariant?.name}>
+                          {m.materialVariant?.name}
+                        </div>
+                        <div
+                          className="font-mono text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5 truncate"
+                          title={`${m.materialVariant?.materialCode || ""} • ${m.materialVariant?.size || ""}`}
+                        >
+                          <span className="font-medium text-slate-600 shrink-0">{m.materialVariant?.materialCode}</span>
+                          {m.materialVariant?.size && (
+                            <>
+                              <span className="text-slate-300 shrink-0">•</span>
+                              <span className="truncate">{m.materialVariant?.size}</span>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-4 whitespace-nowrap w-[170px]">
                         <Badge
                           variant="outline"
                           className={
@@ -436,33 +449,42 @@ export default function MovementsPage() {
                         >
                           {m.movementType}
                         </Badge>
-                        <div className="text-[10px] text-slate-400 mt-0.5">
+                        <div className="text-[10px] text-slate-400 font-medium mt-0.5">
                           {m.ownershipType} • {m.condition}
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-right whitespace-nowrap">
+                      <td className="py-2.5 px-4 text-right whitespace-nowrap w-[100px]">
                         <span className="font-mono font-bold text-slate-900 text-sm">
-                          {Number(m.quantity).toFixed(0)}
+                          {Number(m.quantity).toLocaleString("en-IN")}
                         </span>{" "}
-                        <span className="text-slate-500 text-[11px]">{m.uom}</span>
+                        <span className="text-slate-500 text-[11px] font-medium">{m.uom || "Nos."}</span>
                       </td>
-                      <td className="py-3 px-4 text-[11px]">
+                      <td className="py-2.5 px-4 text-[11px] min-w-[240px]">
                         <div className="flex items-center gap-1.5 font-medium text-slate-800">
-                          <span className="truncate max-w-[140px]">
+                          <span
+                            className="truncate max-w-[130px]"
+                            title={m.sourceWarehouse?.name || m.sourceSite?.siteName || m.sourceLocationType}
+                          >
                             {m.sourceWarehouse?.name || m.sourceSite?.siteName || m.sourceLocationType}
                           </span>
                           <ArrowRight className="h-3 w-3 text-slate-400 shrink-0" />
-                          <span className="truncate max-w-[140px]">
+                          <span
+                            className="truncate max-w-[130px]"
+                            title={m.destinationWarehouse?.name || m.destinationSite?.siteName || m.destinationLocationType}
+                          >
                             {m.destinationWarehouse?.name || m.destinationSite?.siteName || m.destinationLocationType}
                           </span>
                         </div>
                         {m.notes ? (
-                          <div className="text-slate-400 italic text-[10px] truncate max-w-xs mt-0.5">
+                          <div
+                            className="text-slate-400 italic text-[10px] truncate max-w-[280px] mt-0.5"
+                            title={m.notes}
+                          >
                             {m.notes}
                           </div>
                         ) : null}
                       </td>
-                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                      <td className="py-2.5 px-4 text-center whitespace-nowrap w-[95px]">
                         <Badge
                           variant="outline"
                           className={
@@ -474,7 +496,7 @@ export default function MovementsPage() {
                           {m.status}
                         </Badge>
                       </td>
-                      <td className="py-3 px-4 text-right whitespace-nowrap">
+                      <td className="py-2.5 px-4 text-right whitespace-nowrap w-[100px]">
                         {!isReversed && !isReversalEntry ? (
                           <Button
                             size="sm"
@@ -483,7 +505,7 @@ export default function MovementsPage() {
                               setSelectedMovementForReversal(m);
                               setIsReverseModalOpen(true);
                             }}
-                            className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                            className="h-7 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
                             title="Reverse posted movement"
                           >
                             <RotateCcw className="h-3 w-3 mr-1" /> Reverse

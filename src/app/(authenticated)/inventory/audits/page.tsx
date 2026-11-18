@@ -112,7 +112,7 @@ export default function StockAuditsPage() {
       {/* Audits Table */}
       <Card className="border-slate-200 shadow-sm overflow-hidden bg-white">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs min-w-[950px]">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 uppercase font-semibold tracking-wider">
               <tr>
                 <th className="py-3 px-4">Audit Ref #</th>
