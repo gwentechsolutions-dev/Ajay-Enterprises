@@ -15,6 +15,7 @@ import {
   ReceiptIndianRupee,
   ArrowRight,
   Filter,
+  Truck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,11 +50,87 @@ export default function InvoicesPage() {
     return d.toISOString().split("T")[0];
   });
   const [invNotes, setInvNotes] = React.useState("");
+  const [transportCharges, setTransportCharges] = React.useState("");
+  const [transportDescription, setTransportDescription] = React.useState("");
+  const [unbilledDns, setUnbilledDns] = React.useState<any[]>([]);
+  const [loadingUnbilledDns, setLoadingUnbilledDns] = React.useState(false);
+  const [userEditedTransport, setUserEditedTransport] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
 
   // View Invoice Detail Modal
   const [activeInvoice, setActiveInvoice] = React.useState<any | null>(null);
+
+  // Auto-detect unbilled delivery notes with transport charges for selected statement
+  React.useEffect(() => {
+    if (!selectedStatementId) {
+      setTransportCharges("");
+      setTransportDescription("");
+      setUnbilledDns([]);
+      setUserEditedTransport(false);
+      return;
+    }
+
+    const st = statements.find((s) => s.id === selectedStatementId);
+    if (!st || !st.customerId) {
+      setUnbilledDns([]);
+      return;
+    }
+
+    let isMounted = true;
+    setLoadingUnbilledDns(true);
+
+    const queryUrl = `/api/v1/delivery-notes?customerId=${st.customerId}${
+      st.customerSiteId ? `&customerSiteId=${st.customerSiteId}` : ""
+    }`;
+
+    fetch(queryUrl)
+      .then((res) => res.json())
+      .then((json) => {
+        if (!isMounted || !json.success || !Array.isArray(json.data)) return;
+
+        // Filter unbilled delivery notes with transport charges > 0 delivered on or before statement period end
+        const periodEnd = st.periodEndDate ? new Date(st.periodEndDate) : null;
+        const matchingDns = json.data.filter((dn: any) => {
+          if (dn.isTransportBilled) return false;
+          const charges = Number(dn.transportCharges || 0);
+          if (charges <= 0) return false;
+          if (periodEnd && dn.deliveryDate) {
+            return new Date(dn.deliveryDate) <= periodEnd;
+          }
+          return true;
+        });
+
+        setUnbilledDns(matchingDns);
+
+        const totalUnbilledTransport = matchingDns.reduce(
+          (sum: number, dn: any) => sum + Number(dn.transportCharges || 0),
+          0
+        );
+
+        if (!userEditedTransport) {
+          if (totalUnbilledTransport > 0) {
+            setTransportCharges(totalUnbilledTransport.toString());
+            setTransportDescription(
+              `Transportation & Delivery Freight Charges to Site (${matchingDns.map((d: any) => d.dnNumber).join(", ")})`
+            );
+          } else {
+            setTransportCharges("");
+            setTransportDescription("");
+          }
+        }
+      })
+      .catch((err) => {
+        console.error("Error fetching unbilled delivery notes for statement:", err);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingUnbilledDns(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedStatementId, statements, userEditedTransport]);
 
   const loadData = async (forceRefresh = false) => {
     setIsLoading(true);
@@ -137,6 +214,8 @@ export default function InvoicesPage() {
           invoiceDate: invDate,
           dueDate,
           notes: invNotes || undefined,
+          transportCharges: transportCharges ? parseFloat(transportCharges) : undefined,
+          transportDescription: transportDescription || undefined,
         }),
       });
       const data = await res.json();
@@ -145,8 +224,13 @@ export default function InvoicesPage() {
       }
       setIsStatementModalOpen(false);
       setSelectedStatementId("");
+      setTransportCharges("");
+      setTransportDescription("");
+      setUnbilledDns([]);
+      setUserEditedTransport(false);
       invalidateClientCache("/api/v1/invoices");
       invalidateClientCache("/api/v1/rentals/statements");
+      invalidateClientCache("/api/v1/delivery-notes");
       await loadData(true);
     } catch (err: any) {
       setErrorMsg(err.message);
@@ -484,6 +568,72 @@ export default function InvoicesPage() {
               </div>
             </div>
 
+            {/* Optional Transportation / Freight Charges Section */}
+            <div className="p-3 bg-orange-50/40 border border-orange-200/70 rounded-lg space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                  <Truck className="h-4 w-4 text-[#F26522]" />
+                  Transportation / Freight Charges (₹) (Optional)
+                </Label>
+                {unbilledDns.length > 0 && (
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white text-orange-700 border border-orange-200 font-semibold shadow-2xs">
+                    {unbilledDns.length} unbilled delivery trip{unbilledDns.length > 1 ? "s" : ""}
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="any"
+                    placeholder="0.00"
+                    value={transportCharges}
+                    onChange={(e) => {
+                      setTransportCharges(e.target.value);
+                      setUserEditedTransport(true);
+                    }}
+                    className="bg-white font-mono text-xs"
+                  />
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">
+                    One-time freight charge on this tax invoice (does not carry forward to monthly statements).
+                  </span>
+                </div>
+
+                <div>
+                  <Input
+                    placeholder="Freight description (optional)"
+                    value={transportDescription}
+                    onChange={(e) => setTransportDescription(e.target.value)}
+                    className="bg-white text-xs"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">
+                    Tariff SAC: 9965 (Goods Transport Agency)
+                  </span>
+                </div>
+              </div>
+
+              {unbilledDns.length > 0 && (
+                <div className="text-[11px] text-slate-600 bg-white/90 p-2 rounded border border-orange-100 flex items-center justify-between mt-1">
+                  <span>
+                    Auto-detected{" "}
+                    <strong>
+                      ₹
+                      {unbilledDns
+                        .reduce((sum, d) => sum + Number(d.transportCharges || 0), 0)
+                        .toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </strong>{" "}
+                    from {unbilledDns.length} unbilled delivery note(s):{" "}
+                    <span className="font-mono text-slate-500">{unbilledDns.map((d) => d.dnNumber).join(", ")}</span>
+                  </span>
+                  {!userEditedTransport && (
+                    <span className="text-[10px] text-emerald-600 font-semibold shrink-0 ml-2">Pre-filled</span>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div>
               <Label className="text-xs font-medium text-slate-700">Invoice Notes / Remarks</Label>
               <Input
@@ -499,7 +649,7 @@ export default function InvoicesPage() {
               <ul className="list-disc list-inside space-y-0.5 text-slate-500">
                 <li>Generates sequential tax invoice number (INV-YYYY-NNNN).</li>
                 <li>Calculates CGST/SGST (intra-state) or IGST (inter-state) with paise round-off.</li>
-                <li>Posts General Ledger journal: Debits Accounts Receivable (1050), Credits Rental Income (4010), Credits GST Output Liability (2030/2031/2032).</li>
+                <li>Posts General Ledger journal: Debits Accounts Receivable (1030), Credits Rental Income (4010), Credits Transportation Income (4050/4030 if freight charged), Credits GST Output Liability (2041/2042/2043).</li>
                 <li>Freezes finalized snapshot payload ensuring immutable financial records.</li>
               </ul>
             </div>

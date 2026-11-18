@@ -103,6 +103,7 @@ export async function POST(req: NextRequest) {
         eWayBillNumber: input.eWayBillNumber,
         contactPersonId: input.contactPersonId || null,
         notes: input.notes,
+        transportCharges: input.transportCharges ? new Prisma.Decimal(input.transportCharges) : new Prisma.Decimal(0),
         items: {
           create: input.items.map((it) => ({
             materialVariantId: it.materialVariantId,

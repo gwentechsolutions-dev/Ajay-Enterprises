@@ -107,6 +107,7 @@ export default function DeliveryNotesPage() {
     driverName: "",
     driverPhone: "",
     notes: "",
+    transportCharges: "",
     items: [
       {
         materialVariantId: "",
@@ -366,6 +367,7 @@ export default function DeliveryNotesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...dnForm,
+          transportCharges: dnForm.transportCharges ? parseFloat(dnForm.transportCharges) : 0,
           items: dnForm.items.map((it) => ({
             materialVariantId: it.materialVariantId,
             quantity: Number(it.dispatchedQty),
@@ -392,6 +394,33 @@ export default function DeliveryNotesPage() {
     }
   };
 
+  const handleOpenCreate = () => {
+    setEditingDnId(null);
+    setDnForm({
+      customerId: "",
+      customerSiteId: "",
+      sourceWarehouseId: "",
+      deliveryDate: new Date().toISOString().split("T")[0],
+      includeDeliveryDate: true,
+      vehicleNumber: fleetVehicles[0]?.vehicleNumber || "KA-01-AB-1234",
+      driverName: fleetVehicles[0]?.defaultDriver?.name || "",
+      driverPhone: fleetVehicles[0]?.defaultDriver?.mobileNumber || "",
+      notes: "",
+      transportCharges: "",
+      items: [
+        {
+          materialVariantId: "",
+          selectedMaterialName: "",
+          ownershipType: "OWNED" as "OWNED" | "HIRED_IN",
+          dispatchedQty: 50,
+          dailyRentalRate: 2.5,
+          remarks: "",
+        },
+      ],
+    });
+    setIsCreateModalOpen(true);
+  };
+
   const handleOpenEdit = async (dn: any) => {
     setEditingDnId(dn.id);
     setDnForm({
@@ -404,6 +433,7 @@ export default function DeliveryNotesPage() {
       driverName: dn.driverName || "",
       driverPhone: dn.driverPhone || "",
       notes: dn.notes || "",
+      transportCharges: dn.transportCharges ? Number(dn.transportCharges).toString() : "",
       items: dn.items.map((it: any) => {
         const v = variants.find((x) => x.id === it.materialVariantId);
         return {
@@ -874,7 +904,7 @@ export default function DeliveryNotesPage() {
         </div>
         {canCreateDeliveryNote && (
           <Button
-            onClick={() => setIsCreateModalOpen(true)}
+            onClick={handleOpenCreate}
             className="bg-[#0B1E36] hover:bg-[#0B1E36]/90 text-white shadow-sm flex items-center gap-2"
           >
             <Plus className="h-4 w-4" />
@@ -1027,6 +1057,28 @@ export default function DeliveryNotesPage() {
                             <span>Slip</span>
                             <ExternalLink className="h-2.5 w-2.5 shrink-0" />
                           </a>
+                        </div>
+                      ) : null}
+                      {dn.transportCharges && Number(dn.transportCharges) > 0 ? (
+                        <div className="mt-1 flex items-center gap-1.5 whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full border ${
+                              dn.isTransportBilled
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : "bg-amber-50 text-amber-700 border-amber-200"
+                            }`}
+                            title={
+                              dn.isTransportBilled
+                                ? "Freight has been billed on Tax Invoice"
+                                : "Unbilled freight charges - will be auto-suggested on Tax Invoice"
+                            }
+                          >
+                            <Truck className="h-3 w-3 shrink-0" />
+                            <span>Freight: ₹{Number(dn.transportCharges).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                            <span className="text-[9px] font-semibold">
+                              {dn.isTransportBilled ? "(Billed)" : "(Unbilled)"}
+                            </span>
+                          </span>
                         </div>
                       ) : null}
                     </td>
@@ -1317,6 +1369,34 @@ export default function DeliveryNotesPage() {
                   maxLength={10}
                   value={dnForm.driverPhone}
                   onChange={(e) => setDnForm({ ...dnForm, driverPhone: e.target.value.replace(/\D/g, "").slice(0, 10) })}
+                />
+              </div>
+            </div>
+
+            {/* Optional Logistics Freight & Notes */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs font-semibold">Transportation / Freight Charges (₹) (Optional)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="0.00"
+                  value={dnForm.transportCharges}
+                  onChange={(e) => setDnForm({ ...dnForm, transportCharges: e.target.value })}
+                  className="mt-1 font-mono text-xs"
+                />
+                <span className="text-[10px] text-slate-500 mt-0.5 block">
+                  Trip freight / transport charge for this dispatch. Auto-suggested when converting rental statements to tax invoices.
+                </span>
+              </div>
+              <div>
+                <Label className="text-xs font-semibold">Dispatch Notes / References (Optional)</Label>
+                <Input
+                  placeholder="Optional site delivery instructions or references..."
+                  value={dnForm.notes}
+                  onChange={(e) => setDnForm({ ...dnForm, notes: e.target.value })}
+                  className="mt-1 text-xs"
                 />
               </div>
             </div>

@@ -50,6 +50,7 @@ export interface PDFDocumentData {
     driverName?: string;
     driverPhone?: string;
     eWayBillNumber?: string;
+    transportCharges?: number;
   };
   items: Array<{
     sn: number;
@@ -232,7 +233,7 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
   </table>
 
   ${
-    data.transportDetails && (data.transportDetails.vehicleNumber || data.transportDetails.driverName || data.transportDetails.eWayBillNumber)
+    data.transportDetails && (data.transportDetails.vehicleNumber || data.transportDetails.driverName || data.transportDetails.eWayBillNumber || data.transportDetails.transportCharges)
       ? `
     <div class="transport-box">
       <strong>Transport & Fleet Details:</strong>
@@ -240,6 +241,7 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
       ${data.transportDetails.driverName ? ` &bull; Driver: <strong>${data.transportDetails.driverName}</strong>` : ""}
       ${data.transportDetails.driverPhone ? ` (+91 ${data.transportDetails.driverPhone})` : ""}
       ${data.transportDetails.eWayBillNumber ? ` &bull; E-Way Bill: <a href="/api/v1/ewaybills/${data.transportDetails.eWayBillNumber}/print" target="_blank" style="color: #2563eb; font-weight: 700; text-decoration: underline;" title="View official Form GST EWB-01">${data.transportDetails.eWayBillNumber}</a> <span style="color: #64748b; font-size: 8pt;">(View Form GST EWB-01 &nearr;)</span>` : ""}
+      ${data.transportDetails.transportCharges && data.transportDetails.transportCharges > 0 ? ` &bull; Freight / Transport: <strong>₹${Number(data.transportDetails.transportCharges).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong>` : ""}
     </div>
   `
       : ""

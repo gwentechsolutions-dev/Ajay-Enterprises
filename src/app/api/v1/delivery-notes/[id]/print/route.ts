@@ -44,6 +44,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         driverName: dn.driverName || undefined,
         driverPhone: dn.driverPhone || undefined,
         eWayBillNumber: dn.eWayBillNumber || undefined,
+        transportCharges: dn.transportCharges ? Number(dn.transportCharges) : undefined,
       },
       items: dn.items.map((it, idx) => ({
         sn: idx + 1,

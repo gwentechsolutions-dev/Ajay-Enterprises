@@ -77,6 +77,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       driverPhone,
       notes,
       includeDeliveryDate,
+      transportCharges,
       items,
     } = body;
 
@@ -112,6 +113,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           ...(driverPhone !== undefined ? { driverPhone } : {}),
           ...(notes !== undefined ? { notes } : {}),
           ...(includeDeliveryDate !== undefined ? { includeDeliveryDate } : {}),
+          ...(transportCharges !== undefined
+            ? { transportCharges: transportCharges ? new Prisma.Decimal(transportCharges) : new Prisma.Decimal(0) }
+            : {}),
         },
         include: {
           customer: { select: { id: true, name: true, customerCode: true } },

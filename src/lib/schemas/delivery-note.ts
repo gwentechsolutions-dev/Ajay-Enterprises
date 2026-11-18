@@ -31,6 +31,7 @@ export const createDeliveryNoteSchema = z.object({
   eWayBillNumber: z.string().optional().nullable(),
   contactPersonId: z.string().uuid().optional().nullable().or(z.literal("")),
   notes: z.string().optional().nullable(),
+  transportCharges: z.coerce.number().min(0, "Transport charges cannot be negative").optional().nullable(),
   items: z.array(deliveryNoteItemSchema).min(1, "At least one material item is required"),
 });
 

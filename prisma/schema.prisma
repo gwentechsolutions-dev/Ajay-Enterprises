@@ -1023,13 +1023,17 @@ model DeliveryNote {
   deliveredById         String?   @db.Uuid
   deliveredAt           DateTime?
   notes                 String?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  transportCharges      Decimal?                  @default(0) @db.Decimal(15, 2)
+  isTransportBilled     Boolean                   @default(false)
+  billedInvoiceId       String?                   @db.Uuid
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
 
   customer          Customer                  @relation(fields: [customerId], references: [id], onDelete: Restrict)
   customerSite      CustomerSite              @relation(fields: [customerSiteId], references: [id], onDelete: Restrict)
   sourceWarehouse   Warehouse                 @relation("SourceWarehouseDN", fields: [sourceWarehouseId], references: [id], onDelete: Restrict)
   contactPerson     ContactPerson?            @relation(fields: [contactPersonId], references: [id], onDelete: SetNull)
+  billedInvoice     Invoice?                  @relation("BilledDeliveryNotes", fields: [billedInvoiceId], references: [id], onDelete: SetNull)
   items             DeliveryNoteItem[]
   evidences         MovementEvidence[]
   eWayBills         EWayBill[]
@@ -1046,6 +1050,8 @@ model DeliveryNote {
   @@index([sourceWarehouseId])
   @@index([status])
   @@index([deliveryDate])
+  @@index([isTransportBilled])
+  @@index([billedInvoiceId])
 }
 
 model DeliveryNoteItem {
@@ -2092,6 +2098,7 @@ model Invoice {
   items              InvoiceItem[]
   creditDebitNotes   CreditDebitNote[]
   paymentAllocations PaymentAllocation[]
+  billedDeliveryNotes DeliveryNote[]     @relation("BilledDeliveryNotes")
 
   isDemo    Boolean @default(false)
   demoRunId String? @db.Uuid

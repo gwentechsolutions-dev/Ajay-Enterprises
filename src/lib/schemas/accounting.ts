@@ -138,6 +138,8 @@ export const generateRentalInvoiceFromStatementSchema = z.object({
   invoiceDate: z.string().optional(),
   dueDate: z.string().optional(),
   notes: z.string().optional().nullable(),
+  transportCharges: z.coerce.number().min(0, "Transport charges cannot be negative").optional().nullable(),
+  transportDescription: z.string().optional().nullable(),
 });
 
 // ------------------------------------------------------------------------------

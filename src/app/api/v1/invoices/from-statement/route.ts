@@ -14,6 +14,7 @@ import {
 } from "@/lib/accounting/gst-engine";
 import { postJournalEntry } from "@/lib/accounting/ledger";
 import { getSystemAccount } from "@/lib/accounting/chart-of-accounts";
+import { resolveAccountByRole } from "@/lib/accounting/account-mapping";
 import { validationErrorResponse } from "@/lib/api-validation";
 
 export async function POST(req: NextRequest) {
@@ -27,7 +28,14 @@ export async function POST(req: NextRequest) {
       return validationErrorResponse(parsed.error);
     }
 
-    const { statementId, invoiceDate: reqInvDate, dueDate: reqDueDate, notes } = parsed.data;
+    const {
+      statementId,
+      invoiceDate: reqInvDate,
+      dueDate: reqDueDate,
+      notes,
+      transportCharges: reqTransport,
+      transportDescription,
+    } = parsed.data;
 
     const statement = await db.rentalStatement.findUnique({
       where: { id: statementId },
@@ -219,6 +227,52 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // 4. Optional Transportation / Freight Charges (Option A & B, SAC 9965)
+    // Non-negotiable constraint: Transportation is a one-time charge on the Tax Invoice, NEVER carried forward to monthly statements.
+    const transportDecimal = reqTransport && Number(reqTransport) > 0
+      ? new Prisma.Decimal(reqTransport)
+      : new Prisma.Decimal(0);
+
+    if (transportDecimal.gt(0)) {
+      const transportHsn = validateAndResolveHsnSac("9965");
+      const transportGstRate = await resolveApplicableGstRate({
+        category: "TRANSPORT",
+        transactionDate: invoiceDate,
+        overrideRate: 5,
+      });
+      const gstTransport = calculateGst({
+        taxableValue: transportDecimal,
+        gstRatePercent: transportGstRate,
+        placeOfSupply,
+      });
+
+      subtotal = subtotal.plus(transportDecimal);
+      totalCgst = totalCgst.plus(gstTransport.cgstAmount);
+      totalSgst = totalSgst.plus(gstTransport.sgstAmount);
+      totalIgst = totalIgst.plus(gstTransport.igstAmount);
+      totalTax = totalTax.plus(gstTransport.totalTaxAmount);
+
+      invoiceItemsData.push({
+        materialVariantId: null,
+        itemType: "TRANSPORT",
+        itemDescription: transportDescription || "Transportation & Delivery Freight Charges to Site",
+        hsnSacCode: transportHsn.code,
+        quantity: new Prisma.Decimal(1),
+        uom: "Trip",
+        unitRate: transportDecimal,
+        discountAmount: new Prisma.Decimal(0),
+        taxableValue: transportDecimal,
+        gstRatePercent: gstTransport.gstRatePercent,
+        cgstRatePercent: gstTransport.cgstRatePercent,
+        cgstAmount: gstTransport.cgstAmount,
+        sgstRatePercent: gstTransport.sgstRatePercent,
+        sgstAmount: gstTransport.sgstAmount,
+        igstRatePercent: gstTransport.igstRatePercent,
+        igstAmount: gstTransport.igstAmount,
+        totalAmount: gstTransport.totalAmount,
+      });
+    }
+
     const grandTotalRaw = subtotal.plus(totalTax);
     const { roundedTotal, roundOffAmount } = calculateRoundOff(grandTotalRaw);
 
@@ -269,6 +323,19 @@ export async function POST(req: NextRequest) {
       const sgstAccount = await getSystemAccount("2042", tx);
       const igstAccount = await getSystemAccount("2043", tx);
 
+      let transportIncomeAcc: any = null;
+      if (transportDecimal.gt(0)) {
+        try {
+          transportIncomeAcc = await resolveAccountByRole("TRANSPORT_INCOME", tx);
+        } catch {
+          transportIncomeAcc = (await getSystemAccount("4050", tx)) || (await getSystemAccount("4030", tx));
+        }
+      }
+
+      const rentalIncomeCredit = transportDecimal.gt(0) && transportIncomeAcc
+        ? subtotal.minus(transportDecimal)
+        : subtotal;
+
       const journalLines = [
         {
           accountId: arAccount!.id,
@@ -282,11 +349,22 @@ export async function POST(req: NextRequest) {
           accountId: rentalIncomeAcc!.id,
           description: `Rental Income for ${invoiceNumber}`,
           debitAmount: new Prisma.Decimal(0),
-          creditAmount: subtotal,
+          creditAmount: rentalIncomeCredit,
           customerId: statement.customerId,
           customerSiteId: statement.customerSiteId || null,
         },
       ];
+
+      if (transportDecimal.gt(0) && transportIncomeAcc) {
+        journalLines.push({
+          accountId: transportIncomeAcc.id,
+          description: `Transportation & Freight Charges on ${invoiceNumber}`,
+          debitAmount: new Prisma.Decimal(0),
+          creditAmount: transportDecimal,
+          customerId: statement.customerId,
+          customerSiteId: statement.customerSiteId || null,
+        });
+      }
 
       if (totalCgst.gt(0)) {
         journalLines.push({
@@ -407,6 +485,13 @@ export async function POST(req: NextRequest) {
           totalAmount: item.totalAmount.toString(),
         })),
         journalNumber: journal.journalNumber,
+        transportCharges: transportDecimal.gt(0)
+          ? {
+              taxableValue: transportDecimal.toString(),
+              hsnSacCode: "9965",
+              description: transportDescription || "Transportation & Delivery Freight Charges to Site",
+            }
+          : null,
       };
 
       await tx.invoice.update({
@@ -416,6 +501,29 @@ export async function POST(req: NextRequest) {
           snapshotPayload,
         },
       });
+
+      // If transport was charged, mark matching unbilled delivery notes as billed on this Tax Invoice
+      if (transportDecimal.gt(0)) {
+        const dnFilter: Prisma.DeliveryNoteWhereInput = {
+          customerId: statement.customerId,
+          status: { in: ["APPROVED", "DISPATCHED", "DELIVERED"] },
+          isTransportBilled: false,
+          transportCharges: { gt: 0 },
+        };
+        if (statement.customerSiteId) {
+          dnFilter.customerSiteId = statement.customerSiteId;
+        }
+        if (statement.periodEndDate) {
+          dnFilter.deliveryDate = { lte: statement.periodEndDate };
+        }
+        await tx.deliveryNote.updateMany({
+          where: dnFilter,
+          data: {
+            isTransportBilled: true,
+            billedInvoiceId: inv.id,
+          },
+        });
+      }
 
       return inv;
     });
