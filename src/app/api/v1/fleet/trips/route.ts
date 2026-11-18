@@ -19,10 +19,56 @@ export async function GET(req: NextRequest) {
     const driverId = searchParams.get("driverId") || undefined;
     const status = searchParams.get("status") || undefined;
 
+    // Granular Record Scope: DELIVERY_PERSONNEL can only view their own assigned trips
+    const isDriverOnly = session?.role === "DELIVERY_PERSONNEL" || session?.role === "DELIVERY_DRIVER";
+    const sessionName = session?.name || "";
+    const sessionMobile = session?.mobile || undefined;
+
+    let driverScopeFilter: Prisma.VehicleTripWhereInput = {};
+
+    if (isDriverOnly) {
+      const matchingDrivers = await db.driver.findMany({
+        where: {
+          OR: [
+            ...(sessionName ? [{ name: { equals: sessionName, mode: "insensitive" as const } }] : []),
+            ...(sessionMobile ? [{ mobileNumber: sessionMobile }] : []),
+          ],
+        },
+        select: { id: true },
+      });
+      const driverIds = matchingDrivers.map((d) => d.id);
+
+      const driverConditions: Prisma.VehicleTripWhereInput[] = [];
+      if (driverIds.length > 0) {
+        driverConditions.push({ driverId: { in: driverIds } });
+      }
+      if (sessionName) {
+        driverConditions.push({
+          driver: { name: { contains: sessionName, mode: "insensitive" } },
+        });
+      }
+      if (sessionMobile) {
+        driverConditions.push({
+          driver: { mobileNumber: sessionMobile },
+        });
+      }
+      if (session?.id) {
+        driverConditions.push({ createdById: session.id });
+      }
+
+      driverScopeFilter = driverConditions.length > 0
+        ? { OR: driverConditions }
+        : { driverId: "00000000-0000-0000-0000-000000000000" };
+    }
+
     const trips = await db.vehicleTrip.findMany({
       where: {
-        ...(vehicleId ? { vehicleId } : {}),
-        ...(driverId ? { driverId } : {}),
+        ...(isDriverOnly
+          ? driverScopeFilter
+          : {
+              ...(vehicleId ? { vehicleId } : {}),
+              ...(driverId ? { driverId } : {}),
+            }),
         ...(status ? { status } : {}),
       },
       include: {

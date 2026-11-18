@@ -23,6 +23,13 @@ describe("Driver Pickup Workflow & Fleet Trip Permission Guard Suite", () => {
       return hasPermission && !isDeliveryPerson;
     }
 
+    function checkCanCompleteTrip(role) {
+      const perms = ROLE_PERMISSIONS[role]?.fleet || [];
+      const isDeliveryPerson = role === "DELIVERY_PERSONNEL" || role === "DELIVERY_DRIVER";
+      const hasPermission = perms.includes("edit");
+      return hasPermission && !isDeliveryPerson;
+    }
+
     test("DELIVERY_PERSONNEL must NOT be authorized to create vehicle trips", () => {
       const canCreate = checkCanCreateTrip("DELIVERY_PERSONNEL");
       assert.strictEqual(
@@ -30,6 +37,21 @@ describe("Driver Pickup Workflow & Fleet Trip Permission Guard Suite", () => {
         false,
         "Delivery personnel must be prohibited from creating trips"
       );
+    });
+
+    test("DELIVERY_PERSONNEL must NOT be authorized to manually complete vehicle trips in fleet table", () => {
+      const canComplete = checkCanCompleteTrip("DELIVERY_PERSONNEL");
+      assert.strictEqual(
+        canComplete,
+        false,
+        "Delivery personnel must NOT be able to manually complete fleet trips; button must be hidden"
+      );
+    });
+
+    test("OWNER and OFFICE_ADMIN must be authorized to complete fleet trips", () => {
+      assert.strictEqual(checkCanCompleteTrip("OWNER"), true);
+      assert.strictEqual(checkCanCompleteTrip("OFFICE_ADMIN"), true);
+      assert.strictEqual(checkCanCompleteTrip("YARD_IN_CHARGE"), true);
     });
 
     test("OWNER and YARD_IN_CHARGE must be authorized to create vehicle trips", () => {
@@ -202,6 +224,81 @@ describe("Driver Pickup Workflow & Fleet Trip Permission Guard Suite", () => {
       assert.ok(line2.includes("77.594563"));
       assert.ok(line2.includes("±5m"));
       assert.ok(line3.includes("2026-11-18T10:30:00.000Z"));
+    });
+  });
+
+  // 5. Driver Trip History Scoping (Granular Record Scope)
+  describe("Driver Trip History Scoping (Granular Record Scope)", () => {
+    const allTrips = [
+      {
+        id: "trip-1",
+        tripNumber: "AE/TRIP/2026-27/0002",
+        driverId: "drv-ramesh",
+        driverName: "Ramesh",
+        driverPhone: "9841265700",
+        status: "COMPLETED",
+      },
+      {
+        id: "trip-2",
+        tripNumber: "AE/TRIP/2026-27/0001",
+        driverId: "drv-manjunath",
+        driverName: "Manjunath R.",
+        driverPhone: "9845223344",
+        status: "IN_TRANSIT",
+      },
+      {
+        id: "trip-3",
+        tripNumber: "AE/TRIP/DEMO-001",
+        driverId: "drv-suresh",
+        driverName: "Suresh Gowda",
+        driverPhone: "9845112233",
+        status: "COMPLETED",
+      },
+    ];
+
+    function filterTripsForUser(trips, user) {
+      if (user.role === "DELIVERY_PERSONNEL" || user.role === "DELIVERY_DRIVER") {
+        return trips.filter(
+          (t) =>
+            t.driverId === user.driverId ||
+            (t.driverName && t.driverName.toLowerCase() === user.name.toLowerCase()) ||
+            (t.driverPhone && user.mobile && t.driverPhone === user.mobile)
+        );
+      }
+      return trips;
+    }
+
+    test("DELIVERY_PERSONNEL user (Ramesh) only receives their own trips and excludes other drivers", () => {
+      const driverUser = {
+        id: "usr-ramesh",
+        name: "Ramesh",
+        mobile: "9841265700",
+        role: "DELIVERY_PERSONNEL",
+        driverId: "drv-ramesh",
+      };
+
+      const scopedTrips = filterTripsForUser(allTrips, driverUser);
+      assert.strictEqual(scopedTrips.length, 1);
+      assert.strictEqual(scopedTrips[0].tripNumber, "AE/TRIP/2026-27/0002");
+      assert.strictEqual(scopedTrips[0].driverName, "Ramesh");
+
+      // Verify other drivers' trips are excluded
+      assert.ok(!scopedTrips.some((t) => t.driverName === "Manjunath R."));
+      assert.ok(!scopedTrips.some((t) => t.driverName === "Suresh Gowda"));
+    });
+
+    test("OWNER and ADMIN see all trips across the entire company fleet", () => {
+      const adminUser = {
+        id: "usr-admin",
+        name: "Thanikaivel",
+        role: "OWNER",
+      };
+
+      const allFleetTrips = filterTripsForUser(allTrips, adminUser);
+      assert.strictEqual(allFleetTrips.length, 3);
+      assert.ok(allFleetTrips.some((t) => t.driverName === "Ramesh"));
+      assert.ok(allFleetTrips.some((t) => t.driverName === "Manjunath R."));
+      assert.ok(allFleetTrips.some((t) => t.driverName === "Suresh Gowda"));
     });
   });
 });

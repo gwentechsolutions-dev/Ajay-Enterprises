@@ -12,6 +12,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const session = await getSession();
     await requirePermission(session, "fleet", "edit");
 
+    // Delivery drivers cannot arbitrarily complete trips in office fleet management
+    if (session?.role === "DELIVERY_PERSONNEL" || session?.role === "DELIVERY_DRIVER") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            message: "Delivery drivers cannot manually complete fleet trips. Trips are completed automatically via Delivery / Return handover in the Delivery Portal or by an authorized Fleet Manager.",
+          },
+        },
+        { status: 403 }
+      );
+    }
+
     const { id } = await params;
     const trip = await db.vehicleTrip.findUnique({
       where: { id },

@@ -180,13 +180,17 @@ export default function FleetTripsPage() {
             </Link>
           </div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-[#0B1E36]">Vehicle Trips & Delivery Runs</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-[#0B1E36]">
+              {isDeliveryPerson ? "My Vehicle Trips & Delivery Runs" : "Vehicle Trips & Delivery Runs"}
+            </h1>
             <span className="text-xs px-2 py-0.5 rounded font-mono font-bold bg-slate-100 text-slate-700">
-              {trips.length} Total Trips
+              {trips.length} {isDeliveryPerson ? "My Trips" : "Total Trips"}
             </span>
           </div>
           <p className="text-sm text-slate-500">
-            Dispatch trip logging, multiple Delivery Note assignment, and odometer distance reconciliation
+            {isDeliveryPerson
+              ? "Your assigned dispatch trips, vehicle logs, and completed delivery runs"
+              : "Dispatch trip logging, multiple Delivery Note assignment, and odometer distance reconciliation"}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -262,7 +266,7 @@ export default function FleetTripsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    {t.status === "IN_TRANSIT" && (
+                    {!isDeliveryPerson && t.status === "IN_TRANSIT" && (
                       <Button
                         size="sm"
                         onClick={() => openCompleteModal(t)}
@@ -271,6 +275,11 @@ export default function FleetTripsPage() {
                         <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
                         Complete
                       </Button>
+                    )}
+                    {isDeliveryPerson && (
+                      <span className="text-xs text-slate-400 font-medium">
+                        {t.status === "COMPLETED" ? "Logged" : t.status === "IN_TRANSIT" ? "In Transit" : "—"}
+                      </span>
                     )}
                   </td>
                 </tr>
