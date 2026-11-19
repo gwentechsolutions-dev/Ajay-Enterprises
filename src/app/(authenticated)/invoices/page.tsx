@@ -31,6 +31,13 @@ import {
 import { TableSkeleton } from "@/components/ui/loading-states";
 import { WhatsAppShareButton } from "@/components/ui/whatsapp-share-button";
 import { SearchableCombobox, ComboboxOption } from "@/components/ui/searchable-combobox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { fetchWithClientCache, invalidateClientCache } from "@/lib/client-cache";
 
 export default function InvoicesPage() {
@@ -350,27 +357,30 @@ export default function InvoicesPage() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-10 px-3 py-2 text-sm bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0B1E36]"
-            >
-              <option value="ALL">All Payment Statuses</option>
-              <option value="UNPAID">Unpaid</option>
-              <option value="PARTIALLY_PAID">Partially Paid</option>
-              <option value="PAID">Paid</option>
-              <option value="OVERDUE">Overdue</option>
-            </select>
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="h-10 px-3 py-2 text-sm bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0B1E36]"
-            >
-              <option value="ALL">All Invoice Types</option>
-              <option value="RENTAL">Rental Invoice</option>
-              <option value="SALES">Sales Invoice</option>
-              <option value="SERVICE">Service Invoice</option>
-            </select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[185px] bg-white">
+                <SelectValue placeholder="All Payment Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Payment Statuses</SelectItem>
+                <SelectItem value="UNPAID">Unpaid</SelectItem>
+                <SelectItem value="PARTIALLY_PAID">Partially Paid</SelectItem>
+                <SelectItem value="PAID">Paid</SelectItem>
+                <SelectItem value="OVERDUE">Overdue</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-[170px] bg-white">
+                <SelectValue placeholder="All Invoice Types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Invoice Types</SelectItem>
+                <SelectItem value="RENTAL">Rental Invoice</SelectItem>
+                <SelectItem value="SALES">Sales Invoice</SelectItem>
+                <SelectItem value="SERVICE">Service Invoice</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

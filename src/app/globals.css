@@ -82,3 +82,45 @@ body {
   background: #94a3b8;
 }
 
+/* Modern Select & Dropdown Styling across the entire application */
+select {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") !important;
+  background-position: right 0.75rem center !important;
+  background-repeat: no-repeat !important;
+  background-size: 1.25em 1.25em !important;
+  padding-right: 2.5rem !important;
+  border-radius: 0.75rem !important;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  font-weight: 500;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+select:hover:not(:disabled) {
+  border-color: #94a3b8 !important;
+  background-color: #f8fafc;
+}
+
+select:focus {
+  outline: none !important;
+  border-color: #0B1E36 !important;
+  box-shadow: 0 0 0 3px rgba(11, 30, 54, 0.12) !important;
+}
+
+select:disabled {
+  background-color: #f1f5f9 !important;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+select option {
+  padding: 10px 14px;
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 500;
+}
+
+

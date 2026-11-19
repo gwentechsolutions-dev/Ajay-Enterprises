@@ -22,6 +22,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function ChartOfAccountsPage() {
   const [accounts, setAccounts] = React.useState<any[]>([]);
@@ -155,18 +162,19 @@ export default function ChartOfAccountsPage() {
               className="pl-9"
             />
           </div>
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="h-10 px-3 py-2 text-sm bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0B1E36]"
-          >
-            <option value="ALL">All Categories</option>
-            <option value="ASSET">Assets (1000s)</option>
-            <option value="LIABILITY">Liabilities (2000s)</option>
-            <option value="EQUITY">Equity (3000s)</option>
-            <option value="INCOME">Income (4000s)</option>
-            <option value="EXPENSE">Expenses (5000s)</option>
-          </select>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-[195px] bg-white">
+              <SelectValue placeholder="All Categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Categories</SelectItem>
+              <SelectItem value="ASSET">Assets (1000s)</SelectItem>
+              <SelectItem value="LIABILITY">Liabilities (2000s)</SelectItem>
+              <SelectItem value="EQUITY">Equity (3000s)</SelectItem>
+              <SelectItem value="INCOME">Income (4000s)</SelectItem>
+              <SelectItem value="EXPENSE">Expenses (5000s)</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Table */}
@@ -287,33 +295,41 @@ export default function ChartOfAccountsPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs font-medium text-slate-700">Category *</Label>
-                <select
-                  value={category}
-                  onChange={(e) => {
-                    const cat = e.target.value;
-                    setCategory(cat);
-                    setNormalBalance(cat === "ASSET" || cat === "EXPENSE" ? "DEBIT" : "CREDIT");
-                  }}
-                  className="w-full mt-1 h-10 px-3 text-sm bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-[#0B1E36]"
-                >
-                  <option value="ASSET">ASSET</option>
-                  <option value="LIABILITY">LIABILITY</option>
-                  <option value="EQUITY">EQUITY</option>
-                  <option value="INCOME">INCOME</option>
-                  <option value="EXPENSE">EXPENSE</option>
-                </select>
+                <div className="mt-1">
+                  <Select
+                    value={category}
+                    onValueChange={(cat) => {
+                      setCategory(cat);
+                      setNormalBalance(cat === "ASSET" || cat === "EXPENSE" ? "DEBIT" : "CREDIT");
+                    }}
+                  >
+                    <SelectTrigger className="w-full bg-white">
+                      <SelectValue placeholder="Select Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ASSET">ASSET</SelectItem>
+                      <SelectItem value="LIABILITY">LIABILITY</SelectItem>
+                      <SelectItem value="EQUITY">EQUITY</SelectItem>
+                      <SelectItem value="INCOME">INCOME</SelectItem>
+                      <SelectItem value="EXPENSE">EXPENSE</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div>
                 <Label className="text-xs font-medium text-slate-700">Normal Balance *</Label>
-                <select
-                  value={normalBalance}
-                  onChange={(e) => setNormalBalance(e.target.value)}
-                  className="w-full mt-1 h-10 px-3 text-sm bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-[#0B1E36]"
-                >
-                  <option value="DEBIT">DEBIT</option>
-                  <option value="CREDIT">CREDIT</option>
-                </select>
+                <div className="mt-1">
+                  <Select value={normalBalance} onValueChange={setNormalBalance}>
+                    <SelectTrigger className="w-full bg-white">
+                      <SelectValue placeholder="Select Balance" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DEBIT">DEBIT</SelectItem>
+                      <SelectItem value="CREDIT">CREDIT</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 

@@ -24,6 +24,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { WhatsAppShareButton } from "@/components/ui/whatsapp-share-button";
 
 export default function PurchaseBillsPage() {
@@ -310,17 +317,18 @@ export default function PurchaseBillsPage() {
               className="pl-9"
             />
           </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="h-10 px-3 py-2 text-sm bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0B1E36]"
-          >
-            <option value="ALL">All Payment Statuses</option>
-            <option value="UNPAID">Unpaid</option>
-            <option value="PARTIALLY_PAID">Partially Paid</option>
-            <option value="PAID">Paid</option>
-            <option value="OVERDUE">Overdue</option>
-          </select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[195px] bg-white">
+              <SelectValue placeholder="All Payment Statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Payment Statuses</SelectItem>
+              <SelectItem value="UNPAID">Unpaid</SelectItem>
+              <SelectItem value="PARTIALLY_PAID">Partially Paid</SelectItem>
+              <SelectItem value="PAID">Paid</SelectItem>
+              <SelectItem value="OVERDUE">Overdue</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="overflow-x-auto">

@@ -17,6 +17,13 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { FormFieldError } from "@/components/ui/form-field-error";
 import { parseApiValidationErrors, formatValidationToast } from "@/lib/forms/validation-mapper";
 
@@ -199,20 +206,21 @@ export default function FleetVehiclesPage() {
           />
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Filter className="w-4 h-4 text-slate-400" />
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="text-sm border border-slate-200 rounded-md px-3 py-1.5 bg-white text-slate-700 focus:outline-none"
-          >
-            <option value="ALL">All Categories</option>
-            <option value="TRUCK">Truck</option>
-            <option value="PICKUP">Pickup</option>
-            <option value="VAN">Van</option>
-            <option value="TRACTOR">Tractor</option>
-            <option value="TWO_WHEELER">Two-Wheeler</option>
-            <option value="OTHER">Other</option>
-          </select>
+          <Filter className="w-4 h-4 text-slate-400 shrink-0" />
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-[170px] bg-white h-10">
+              <SelectValue placeholder="All Categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Categories</SelectItem>
+              <SelectItem value="TRUCK">Truck</SelectItem>
+              <SelectItem value="PICKUP">Pickup</SelectItem>
+              <SelectItem value="VAN">Van</SelectItem>
+              <SelectItem value="TRACTOR">Tractor</SelectItem>
+              <SelectItem value="TWO_WHEELER">Two-Wheeler</SelectItem>
+              <SelectItem value="OTHER">Other</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
