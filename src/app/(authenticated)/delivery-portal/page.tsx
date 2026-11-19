@@ -203,6 +203,8 @@ function DeliveryPortalContent({
   const [submittingDelivery, setSubmittingDelivery] = React.useState(false);
   const [uploadingDeliveryPhoto, setUploadingDeliveryPhoto] = React.useState(false);
   const [deliveryPhotoPreview, setDeliveryPhotoPreview] = React.useState<string | null>(null);
+  const [deliveryPhotoPreviews, setDeliveryPhotoPreviews] = React.useState<string[]>([]);
+  const [deliveryUploadedUrls, setDeliveryUploadedUrls] = React.useState<string[]>([]);
   const deliveryCameraInputRef = React.useRef<HTMLInputElement>(null);
   const [deliverErrors, setDeliverErrors] = React.useState<Record<string, string>>({});
 
@@ -415,10 +417,16 @@ function DeliveryPortalContent({
     }
   };
 
-  // Handle Photo Capture for Delivery Note
+  // Handle Photo Capture for Delivery Note (Multiple Photos Supported, Max 10)
   const handleDeliveryPhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (deliveryUploadedUrls.length >= 10) {
+      toast.error("Maximum 10 images allowed for Delivery Note");
+      if (e.target) e.target.value = "";
+      return;
+    }
 
     try {
       setUploadingDeliveryPhoto(true);
@@ -448,19 +456,37 @@ function DeliveryPortalContent({
       if (!res.ok) throw new Error(json.error?.message || "Photo upload failed");
 
       const uploadedPath = json.data?.url || (json.data?.storagePath ? `/api/v1/storage/download?path=${encodeURIComponent(json.data.storagePath)}` : "");
+      setDeliveryPhotoPreviews((prev) => [...prev, dataUrl]);
+      setDeliveryUploadedUrls((prev) => [...prev, uploadedPath]);
       setDeliveryProofForm((prev) => ({ ...prev, photoUrl: uploadedPath }));
       toast.success(t.toastPhotoCaptured);
     } catch (err: any) {
       toast.error(`Photo upload error: ${err.message}`);
     } finally {
       setUploadingDeliveryPhoto(false);
+      if (e.target) e.target.value = "";
     }
   };
 
-  // Handle Photo Capture for Pickup (Multiple Photos Supported)
+  const removeDeliveryPhoto = (index: number) => {
+    setDeliveryPhotoPreviews((prev) => prev.filter((_, i) => i !== index));
+    setDeliveryUploadedUrls((prev) => {
+      const updated = prev.filter((_, i) => i !== index);
+      setDeliveryProofForm((f) => ({ ...f, photoUrl: updated[0] || "" }));
+      return updated;
+    });
+  };
+
+  // Handle Photo Capture for Pickup (Multiple Photos Supported, Max 10)
   const handlePickupPhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (pickupUploadedUrls.length >= 10) {
+      toast.error("Maximum 10 images allowed for Return Note");
+      if (e.target) e.target.value = "";
+      return;
+    }
 
     try {
       setUploadingPickupPhoto(true);
@@ -495,6 +521,7 @@ function DeliveryPortalContent({
       toast.error(`Photo upload error: ${err.message}`);
     } finally {
       setUploadingPickupPhoto(false);
+      if (e.target) e.target.value = "";
     }
   };
 
@@ -506,6 +533,8 @@ function DeliveryPortalContent({
   const openDeliveryModal = (dn: any) => {
     setSelectedDN(dn);
     setDeliveryPhotoPreview(null);
+    setDeliveryPhotoPreviews([]);
+    setDeliveryUploadedUrls([]);
     setDeliverErrors({});
     const initialPhone = (dn.customerSite?.siteContactDetails || "").replace(/\D/g, "").slice(0, 10);
     setDeliveryProofForm({
@@ -633,7 +662,7 @@ function DeliveryPortalContent({
       newErrors.receiverPhone = t.validationReceiverPhoneInvalid;
     }
 
-    if (!deliveryProofForm.photoUrl) {
+    if (deliveryUploadedUrls.length === 0 && !deliveryProofForm.photoUrl) {
       newErrors.photo = t.validationPhotoMandatory;
     }
 
@@ -648,6 +677,9 @@ function DeliveryPortalContent({
     try {
       setSubmittingDelivery(true);
 
+      const finalPrimaryPhoto = deliveryUploadedUrls[0] || deliveryProofForm.photoUrl;
+      const finalAdditionalPhotos = deliveryUploadedUrls.slice(1);
+
       if (!isOnline) {
         queueOfflineDraft({
           documentType: "DELIVERY_NOTE",
@@ -655,6 +687,8 @@ function DeliveryPortalContent({
             dnId: selectedDN.id,
             ...deliveryProofForm,
             receiverPhone: cleanPhone,
+            photoUrl: finalPrimaryPhoto,
+            additionalPhotoUrls: finalAdditionalPhotos,
           },
         });
         toast.warning(t.toastOfflineSaved);
@@ -670,7 +704,8 @@ function DeliveryPortalContent({
           receiverName: deliveryProofForm.receiverName.trim(),
           receiverPhone: cleanPhone,
           receiverDesignation: deliveryProofForm.receiverDesignation,
-          photoUrl: deliveryProofForm.photoUrl,
+          photoUrl: finalPrimaryPhoto,
+          additionalPhotoUrls: finalAdditionalPhotos,
           gpsLatitude: deliveryProofForm.gpsLatitude,
           gpsLongitude: deliveryProofForm.gpsLongitude,
           gpsAccuracy: deliveryProofForm.gpsAccuracy,
@@ -2371,7 +2406,12 @@ function DeliveryPortalContent({
             </div>
 
             <div>
-              <Label className="text-xs font-semibold block mb-1">{t.uploadDeliveryPhoto} *</Label>
+              <div className="flex items-center justify-between mb-1">
+                <Label className="text-xs font-semibold">{t.uploadDeliveryPhoto} *</Label>
+                <span className="text-[10px] font-semibold text-slate-500">
+                  {deliveryUploadedUrls.length}/10 photos
+                </span>
+              </div>
               <input
                 ref={deliveryCameraInputRef}
                 type="file"
@@ -2381,28 +2421,28 @@ function DeliveryPortalContent({
                 className="hidden"
               />
 
-              {deliveryPhotoPreview ? (
-                <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-900 mb-1">
-                  <img
-                    src={deliveryPhotoPreview}
-                    alt="Delivery proof with GPS watermark"
-                    className="w-full max-h-56 object-contain bg-slate-900"
-                  />
-                  <div className="absolute top-2 right-2 flex items-center gap-1.5">
-                    <span className="flex items-center gap-1 font-medium bg-emerald-600/90 text-white text-[10px] px-2 py-0.5 rounded-full shadow-sm">
-                      <CheckCircle2 className="h-3 w-3" />
-                      {uploadingDeliveryPhoto ? "Uploading..." : "GPS Watermarked"}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => deliveryCameraInputRef.current?.click()}
-                      className="bg-black/70 hover:bg-black/90 text-white text-[10px] px-2.5 py-0.5 rounded-full font-medium shadow-sm cursor-pointer"
-                    >
-                      {t.btnRetake}
-                    </button>
-                  </div>
+              {deliveryPhotoPreviews.length > 0 && (
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  {deliveryPhotoPreviews.map((preview, i) => (
+                    <div key={i} className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-900 group">
+                      <img src={preview} alt={`Delivery Evidence ${i + 1}`} className="w-full h-28 object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeDeliveryPhoto(i)}
+                        className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 shadow-md hover:bg-red-700"
+                        title="Remove photo"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                      <div className="absolute bottom-1 left-1 bg-black/70 text-white text-[9px] px-1.5 py-0.5 rounded font-mono">
+                        GPS Watermarked
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ) : (
+              )}
+
+              {deliveryUploadedUrls.length < 10 ? (
                 <button
                   type="button"
                   onClick={() => deliveryCameraInputRef.current?.click()}
@@ -2414,13 +2454,21 @@ function DeliveryPortalContent({
                   </div>
                   <div>
                     <span className="text-xs font-bold text-slate-800 block">
-                      {uploadingDeliveryPhoto ? "Uploading..." : t.btnTakeEvidencePhoto}
+                      {uploadingDeliveryPhoto
+                        ? "Watermarking & Uploading..."
+                        : deliveryUploadedUrls.length > 0
+                        ? `Add More Photos (${deliveryUploadedUrls.length}/10)`
+                        : t.btnTakeEvidencePhoto}
                     </span>
                     <span className="text-[11px] text-slate-500">
-                      {t.captureSitePhotoDesc}
+                      {t.captureSitePhotoDesc} (Max 10 photos)
                     </span>
                   </div>
                 </button>
+              ) : (
+                <div className="text-xs text-center p-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 font-medium">
+                  Maximum 10 delivery photos uploaded
+                </div>
               )}
               <FormFieldError error={deliverErrors.photo} />
             </div>
@@ -2609,8 +2657,8 @@ function DeliveryPortalContent({
                 <Label className="text-xs font-bold text-slate-800 uppercase tracking-wide">
                   {t.uploadReturnEvidencePhoto}
                 </Label>
-                <span className="text-[10px] text-slate-500">
-                  {pickupUploadedUrls.length}
+                <span className="text-[10px] font-semibold text-slate-500">
+                  {pickupUploadedUrls.length}/10 photos
                 </span>
               </div>
 
@@ -2644,17 +2692,27 @@ function DeliveryPortalContent({
                 </div>
               )}
 
-              <button
-                type="button"
-                onClick={() => pickupCameraInputRef.current?.click()}
-                disabled={uploadingPickupPhoto}
-                className="w-full border-2 border-dashed border-amber-400 hover:border-amber-600 bg-amber-50/60 hover:bg-amber-50 rounded-xl p-3 text-center cursor-pointer transition flex items-center justify-center gap-2"
-              >
-                <Camera className="w-5 h-5 text-amber-700" />
-                <span className="text-xs font-bold text-slate-800">
-                  {uploadingPickupPhoto ? "Watermarking & Uploading..." : t.btnTakeEvidencePhoto}
-                </span>
-              </button>
+              {pickupUploadedUrls.length < 10 ? (
+                <button
+                  type="button"
+                  onClick={() => pickupCameraInputRef.current?.click()}
+                  disabled={uploadingPickupPhoto}
+                  className="w-full border-2 border-dashed border-amber-400 hover:border-amber-600 bg-amber-50/60 hover:bg-amber-50 rounded-xl p-3 text-center cursor-pointer transition flex items-center justify-center gap-2"
+                >
+                  <Camera className="w-5 h-5 text-amber-700" />
+                  <span className="text-xs font-bold text-slate-800">
+                    {uploadingPickupPhoto
+                      ? "Watermarking & Uploading..."
+                      : pickupUploadedUrls.length > 0
+                      ? `Add More Photos (${pickupUploadedUrls.length}/10)`
+                      : t.btnTakeEvidencePhoto}
+                  </span>
+                </button>
+              ) : (
+                <div className="text-xs text-center p-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 font-medium">
+                  Maximum 10 return photos uploaded
+                </div>
+              )}
               <FormFieldError error={pickupErrors.photo} />
             </div>
 

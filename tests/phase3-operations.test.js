@@ -95,6 +95,7 @@ const deliverNoteWithEvidenceSchema = z.object({
   receiverPhone: IndianMobileSchema,
   receiverDesignation: z.string().optional().nullable(),
   photoUrl: z.string().min(5),
+  additionalPhotoUrls: z.array(z.string()).max(10, "Maximum 10 images allowed").optional().default([]),
   storagePath: z.string().optional().nullable(),
   gpsLatitude: z.coerce.number().min(-90).max(90),
   gpsLongitude: z.coerce.number().min(-180).max(180),
@@ -394,6 +395,37 @@ describe("5. Delivery Evidence, GPS Proof & Receiver Acknowledgement", () => {
     assert.equal(res.success, true);
     assert.equal(res.data.receiverName, "Suresh Gowda");
     assert.equal(res.data.gpsLatitude, 12.9715987);
+  });
+
+  it("should validate delivery note evidence with multiple photos up to 10 images", () => {
+    const multiPhotoDeliver = {
+      receiverName: "Suresh Gowda",
+      receiverPhone: "9845012345",
+      photoUrl: "https://storage.supabase.co/deliveries/p1.jpg",
+      additionalPhotoUrls: [
+        "https://storage.supabase.co/deliveries/p2.jpg",
+        "https://storage.supabase.co/deliveries/p3.jpg",
+        "https://storage.supabase.co/deliveries/p4.jpg",
+      ],
+      gpsLatitude: 12.9715987,
+      gpsLongitude: 77.5945627,
+    };
+    const res = deliverNoteWithEvidenceSchema.safeParse(multiPhotoDeliver);
+    assert.equal(res.success, true);
+    assert.equal(res.data.additionalPhotoUrls.length, 3);
+  });
+
+  it("should reject delivery note evidence with more than 10 additional images", () => {
+    const tooManyPhotos = {
+      receiverName: "Suresh Gowda",
+      receiverPhone: "9845012345",
+      photoUrl: "https://storage.supabase.co/deliveries/p1.jpg",
+      additionalPhotoUrls: Array.from({ length: 11 }, (_, i) => `https://storage.supabase.co/deliveries/p${i + 2}.jpg`),
+      gpsLatitude: 12.9715987,
+      gpsLongitude: 77.5945627,
+    };
+    const res = deliverNoteWithEvidenceSchema.safeParse(tooManyPhotos);
+    assert.equal(res.success, false);
   });
 });
 

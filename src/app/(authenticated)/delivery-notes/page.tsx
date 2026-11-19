@@ -23,6 +23,7 @@ import {
   RefreshCw,
   Ban,
   Camera,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -90,6 +91,8 @@ export default function DeliveryNotesPage() {
   const [isCustomDnVehicle, setIsCustomDnVehicle] = React.useState(false);
   const [uploadingDeliveryPhoto, setUploadingDeliveryPhoto] = React.useState(false);
   const [deliverPhotoPreview, setDeliverPhotoPreview] = React.useState<string | null>(null);
+  const [deliverPhotoPreviews, setDeliverPhotoPreviews] = React.useState<string[]>([]);
+  const [deliverUploadedUrls, setDeliverUploadedUrls] = React.useState<string[]>([]);
   const deliverCameraInputRef = React.useRef<HTMLInputElement>(null);
 
   // Dispatch stock check state
@@ -559,6 +562,12 @@ export default function DeliveryNotesPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (deliverUploadedUrls.length >= 10) {
+      toast.error("Maximum 10 images allowed for Delivery Note");
+      if (e.target) e.target.value = "";
+      return;
+    }
+
     try {
       setUploadingDeliveryPhoto(true);
 
@@ -591,18 +600,32 @@ export default function DeliveryNotesPage() {
       if (!res.ok) throw new Error(json.error?.message || "Photo upload failed");
 
       const uploadedPath = json.data?.url || (json.data?.storagePath ? `/api/v1/storage/download?path=${encodeURIComponent(json.data.storagePath)}` : "");
+      setDeliverPhotoPreviews((prev) => [...prev, dataUrl]);
+      setDeliverUploadedUrls((prev) => [...prev, uploadedPath]);
       setDeliverForm((prev) => ({ ...prev, photoUrl: uploadedPath }));
       toast.success("Delivery photo uploaded with GPS watermark!");
     } catch (err: any) {
       toast.error(`Photo upload error: ${err.message}`);
     } finally {
       setUploadingDeliveryPhoto(false);
+      if (e.target) e.target.value = "";
     }
+  };
+
+  const removeDeliverPhoto = (index: number) => {
+    setDeliverPhotoPreviews((prev) => prev.filter((_, i) => i !== index));
+    setDeliverUploadedUrls((prev) => {
+      const updated = prev.filter((_, i) => i !== index);
+      setDeliverForm((f) => ({ ...f, photoUrl: updated[0] || "" }));
+      return updated;
+    });
   };
 
   const openDeliverModal = (dn: any) => {
     setSelectedDN(dn);
     setDeliverPhotoPreview(null);
+    setDeliverPhotoPreviews([]);
+    setDeliverUploadedUrls([]);
     setDeliverErrors({});
     const initialPhone = (dn.customerSite?.siteContactDetails || "").replace(/\D/g, "").slice(0, 10);
     setDeliverForm({
@@ -637,7 +660,7 @@ export default function DeliveryNotesPage() {
       newErrors.receiverPhone = "Must start with 6, 7, 8, or 9 (valid Indian mobile)";
     }
 
-    if (!deliverForm.photoUrl) {
+    if (deliverUploadedUrls.length === 0 && !deliverForm.photoUrl) {
       newErrors.photo = "Site delivery proof photo is required before confirming delivery";
     }
 
@@ -656,6 +679,8 @@ export default function DeliveryNotesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...deliverForm,
+          photoUrl: deliverUploadedUrls[0] || deliverForm.photoUrl,
+          additionalPhotoUrls: deliverUploadedUrls.slice(1),
           receiverName: deliverForm.receiverName.trim(),
           receiverPhone: cleanPhone,
         }),
@@ -1780,7 +1805,12 @@ export default function DeliveryNotesPage() {
             </div>
 
             <div>
-              <Label className="text-xs font-semibold block mb-1">Delivery Proof Photo *</Label>
+              <div className="flex items-center justify-between mb-1">
+                <Label className="text-xs font-semibold">Delivery Proof Photos *</Label>
+                <span className="text-[10px] font-semibold text-slate-500">
+                  {deliverUploadedUrls.length}/10 photos
+                </span>
+              </div>
               <input
                 ref={deliverCameraInputRef}
                 type="file"
@@ -1790,28 +1820,28 @@ export default function DeliveryNotesPage() {
                 className="hidden"
               />
 
-              {deliverPhotoPreview ? (
-                <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-900 mb-1">
-                  <img
-                    src={deliverPhotoPreview}
-                    alt="Delivery proof with GPS watermark"
-                    className="w-full max-h-56 object-contain bg-slate-900"
-                  />
-                  <div className="absolute top-2 right-2 flex items-center gap-1.5">
-                    <span className="flex items-center gap-1 font-medium bg-emerald-600/90 text-white text-[10px] px-2 py-0.5 rounded-full shadow-sm">
-                      <CheckCircle2 className="h-3 w-3" />
-                      {uploadingDeliveryPhoto ? "Uploading..." : "GPS Watermarked"}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => deliverCameraInputRef.current?.click()}
-                      className="bg-black/70 hover:bg-black/90 text-white text-[10px] px-2.5 py-0.5 rounded-full font-medium shadow-sm cursor-pointer"
-                    >
-                      Change Photo
-                    </button>
-                  </div>
+              {deliverPhotoPreviews.length > 0 && (
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  {deliverPhotoPreviews.map((preview, i) => (
+                    <div key={i} className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-900 group">
+                      <img src={preview} alt={`Delivery Evidence ${i + 1}`} className="w-full h-28 object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeDeliverPhoto(i)}
+                        className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 shadow-md hover:bg-red-700"
+                        title="Remove photo"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                      <div className="absolute bottom-1 left-1 bg-black/70 text-white text-[9px] px-1.5 py-0.5 rounded font-mono">
+                        GPS Watermarked
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ) : (
+              )}
+
+              {deliverUploadedUrls.length < 10 ? (
                 <button
                   type="button"
                   onClick={() => deliverCameraInputRef.current?.click()}
@@ -1823,13 +1853,21 @@ export default function DeliveryNotesPage() {
                   </div>
                   <div>
                     <span className="text-xs font-bold text-slate-800 block">
-                      {uploadingDeliveryPhoto ? "Uploading Photo..." : "Tap to Open Camera & Upload Site Photo"}
+                      {uploadingDeliveryPhoto
+                        ? "Uploading Photo..."
+                        : deliverUploadedUrls.length > 0
+                        ? `Add More Photos (${deliverUploadedUrls.length}/10)`
+                        : "Tap to Open Camera & Upload Site Photo"}
                     </span>
                     <span className="text-[11px] text-slate-500">
-                      Site photograph with GPS watermark stored in Supabase private storage
+                      Site photograph with GPS watermark stored in Supabase private storage (Max 10 images)
                     </span>
                   </div>
                 </button>
+              ) : (
+                <div className="text-xs text-center p-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 font-medium">
+                  Maximum 10 delivery photos uploaded
+                </div>
               )}
               <FormFieldError error={deliverErrors.photo} />
             </div>

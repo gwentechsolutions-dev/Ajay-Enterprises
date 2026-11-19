@@ -45,6 +45,7 @@ export const deliverNoteWithEvidenceSchema = z.object({
   receiverDesignation: z.string().optional().nullable(),
   receiverSignatureUrl: z.string().optional().nullable(),
   photoUrl: z.string().optional().nullable(),
+  additionalPhotoUrls: z.array(z.string()).max(10, "Maximum 10 images allowed").optional().default([]),
   gpsLatitude: z.coerce.number().min(-90).max(90).optional().nullable(),
   gpsLongitude: z.coerce.number().min(-180).max(180).optional().nullable(),
   gpsAccuracy: z.coerce.number().min(0).optional().nullable(),

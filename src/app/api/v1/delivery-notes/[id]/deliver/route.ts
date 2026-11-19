@@ -49,14 +49,37 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     };
 
     const updated = await db.$transaction(async (tx) => {
-      // 1. Create Evidence record if photo or signature provided
-      if (input.photoUrl || input.receiverSignatureUrl || input.missingEvidenceReason) {
+      // 1. Create Evidence records for all photos (supporting multiple photos up to 10)
+      const additionalPhotos: string[] = input.additionalPhotoUrls || [];
+      const allPhotos = [input.photoUrl, ...additionalPhotos].filter(Boolean) as string[];
+
+      if (allPhotos.length > 0) {
+        for (const pUrl of allPhotos) {
+          await tx.movementEvidence.create({
+            data: {
+              documentType: "DELIVERY_NOTE",
+              documentId: dn.id,
+              deliveryNoteId: dn.id,
+              photoUrl: pUrl,
+              gpsLatitude: input.gpsLatitude ? new Prisma.Decimal(input.gpsLatitude) : null,
+              gpsLongitude: input.gpsLongitude ? new Prisma.Decimal(input.gpsLongitude) : null,
+              gpsAccuracy: input.gpsAccuracy ? new Prisma.Decimal(input.gpsAccuracy) : null,
+              capturedById: actor.id,
+              receiverName: input.receiverName,
+              receiverPhone: input.receiverPhone || null,
+              receiverDesignation: input.receiverDesignation || null,
+              receiverSignatureUrl: input.receiverSignatureUrl || null,
+              missingEvidenceReason: input.missingEvidenceReason || null,
+            },
+          });
+        }
+      } else if (input.receiverSignatureUrl || input.missingEvidenceReason) {
         await tx.movementEvidence.create({
           data: {
             documentType: "DELIVERY_NOTE",
             documentId: dn.id,
             deliveryNoteId: dn.id,
-            photoUrl: input.photoUrl || "/placeholder-evidence.png",
+            photoUrl: "/placeholder-evidence.png",
             gpsLatitude: input.gpsLatitude ? new Prisma.Decimal(input.gpsLatitude) : null,
             gpsLongitude: input.gpsLongitude ? new Prisma.Decimal(input.gpsLongitude) : null,
             gpsAccuracy: input.gpsAccuracy ? new Prisma.Decimal(input.gpsAccuracy) : null,
@@ -79,7 +102,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           receiverPhone: input.receiverPhone || null,
           receiverDesignation: input.receiverDesignation || null,
           receiverSignatureUrl: input.receiverSignatureUrl || null,
-          photoUrl: input.photoUrl || null,
+          photoUrl: allPhotos[0] || input.photoUrl || null,
           gpsLatitude: input.gpsLatitude ? new Prisma.Decimal(input.gpsLatitude) : null,
           gpsLongitude: input.gpsLongitude ? new Prisma.Decimal(input.gpsLongitude) : null,
           gpsAccuracy: input.gpsAccuracy ? new Prisma.Decimal(input.gpsAccuracy) : null,
