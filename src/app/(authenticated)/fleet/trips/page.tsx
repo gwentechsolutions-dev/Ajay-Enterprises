@@ -220,19 +220,19 @@ export default function FleetTripsPage() {
       {/* Trips Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-600">
+          <table className="w-full text-left text-sm text-slate-600 min-w-[850px]">
             <thead className="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
               <tr>
-                <th className="px-4 py-3">Trip #</th>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Vehicle</th>
-                <th className="px-4 py-3">Driver</th>
-                <th className="px-4 py-3">Linked DNs</th>
-                <th className="px-4 py-3">Start Odo</th>
-                <th className="px-4 py-3">End Odo</th>
-                <th className="px-4 py-3">Distance</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <th className="px-4 py-3 whitespace-nowrap">Trip #</th>
+                <th className="px-4 py-3 whitespace-nowrap">Date</th>
+                <th className="px-4 py-3 whitespace-nowrap">Vehicle</th>
+                <th className="px-4 py-3 whitespace-nowrap">Driver</th>
+                <th className="px-4 py-3 whitespace-nowrap">Linked DNs</th>
+                <th className="px-4 py-3 whitespace-nowrap">Start Odo</th>
+                <th className="px-4 py-3 whitespace-nowrap">End Odo</th>
+                <th className="px-4 py-3 whitespace-nowrap">Distance</th>
+                <th className="px-4 py-3 whitespace-nowrap">Status</th>
+                <th className="px-4 py-3 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">

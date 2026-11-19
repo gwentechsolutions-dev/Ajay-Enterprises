@@ -184,18 +184,18 @@ export default function FleetFuelPage() {
       {/* Fuel Logs Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-600">
+          <table className="w-full text-left text-sm text-slate-600 min-w-[850px]">
             <thead className="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
               <tr>
-                <th className="px-4 py-3">Log #</th>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Vehicle</th>
-                <th className="px-4 py-3">Odometer</th>
-                <th className="px-4 py-3">Litres</th>
-                <th className="px-4 py-3">Rate</th>
-                <th className="px-4 py-3">Total Cost</th>
-                <th className="px-4 py-3">Calculated Mileage</th>
-                <th className="px-4 py-3">Full Tank</th>
+                <th className="px-4 py-3 whitespace-nowrap">Log #</th>
+                <th className="px-4 py-3 whitespace-nowrap">Date</th>
+                <th className="px-4 py-3 whitespace-nowrap">Vehicle</th>
+                <th className="px-4 py-3 whitespace-nowrap">Odometer</th>
+                <th className="px-4 py-3 whitespace-nowrap">Litres</th>
+                <th className="px-4 py-3 whitespace-nowrap">Rate</th>
+                <th className="px-4 py-3 whitespace-nowrap">Total Cost</th>
+                <th className="px-4 py-3 whitespace-nowrap">Calculated Mileage</th>
+                <th className="px-4 py-3 whitespace-nowrap">Full Tank</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">

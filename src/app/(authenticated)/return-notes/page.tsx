@@ -672,34 +672,34 @@ export default function MaterialReturnsPage() {
 
       {/* Tabs & Search Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="grid grid-cols-5 gap-1 bg-slate-100 p-1 rounded-xl text-xs font-bold text-slate-600 w-full sm:w-auto">
+        <div className="flex overflow-x-auto no-scrollbar sm:grid sm:grid-cols-5 gap-1 bg-slate-100 p-1 rounded-xl text-xs font-bold text-slate-600 w-full sm:w-auto">
           <button
             onClick={() => setStatusTab("ALL")}
-            className={`py-1.5 px-3 rounded-lg transition ${statusTab === "ALL" ? "bg-white text-slate-900 shadow-sm" : "hover:text-slate-900"}`}
+            className={`py-1.5 px-3 rounded-lg transition whitespace-nowrap ${statusTab === "ALL" ? "bg-white text-slate-900 shadow-sm" : "hover:text-slate-900"}`}
           >
             All ({returnNotes.length})
           </button>
           <button
             onClick={() => setStatusTab("REQUESTED")}
-            className={`py-1.5 px-3 rounded-lg transition ${statusTab === "REQUESTED" ? "bg-amber-50 text-amber-900 shadow-sm" : "hover:text-slate-900"}`}
+            className={`py-1.5 px-3 rounded-lg transition whitespace-nowrap ${statusTab === "REQUESTED" ? "bg-amber-50 text-amber-900 shadow-sm" : "hover:text-slate-900"}`}
           >
             Requested
           </button>
           <button
             onClick={() => setStatusTab("IN_TRANSIT")}
-            className={`py-1.5 px-3 rounded-lg transition ${statusTab === "IN_TRANSIT" ? "bg-sky-50 text-sky-900 shadow-sm" : "hover:text-slate-900"}`}
+            className={`py-1.5 px-3 rounded-lg transition whitespace-nowrap ${statusTab === "IN_TRANSIT" ? "bg-sky-50 text-sky-900 shadow-sm" : "hover:text-slate-900"}`}
           >
             In Transit
           </button>
           <button
             onClick={() => setStatusTab("AWAITING_INSPECTION")}
-            className={`py-1.5 px-3 rounded-lg transition ${statusTab === "AWAITING_INSPECTION" ? "bg-purple-50 text-purple-900 shadow-sm" : "hover:text-slate-900"}`}
+            className={`py-1.5 px-3 rounded-lg transition whitespace-nowrap ${statusTab === "AWAITING_INSPECTION" ? "bg-purple-50 text-purple-900 shadow-sm" : "hover:text-slate-900"}`}
           >
             Yard QC
           </button>
           <button
             onClick={() => setStatusTab("FINALIZED")}
-            className={`py-1.5 px-3 rounded-lg transition ${statusTab === "FINALIZED" ? "bg-emerald-50 text-emerald-900 shadow-sm" : "hover:text-slate-900"}`}
+            className={`py-1.5 px-3 rounded-lg transition whitespace-nowrap ${statusTab === "FINALIZED" ? "bg-emerald-50 text-emerald-900 shadow-sm" : "hover:text-slate-900"}`}
           >
             Finalized
           </button>
@@ -719,16 +719,16 @@ export default function MaterialReturnsPage() {
       {/* Main Table */}
       <Card className="border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-600">
+          <table className="w-full text-left text-sm text-slate-600 min-w-[900px]">
             <thead className="bg-slate-50 text-[11px] uppercase font-semibold text-slate-700 border-b border-slate-200">
               <tr>
-                <th className="px-4 py-3">MRN Number</th>
-                <th className="px-4 py-3">Customer & Site</th>
-                <th className="px-4 py-3">Fleet Vehicle & Trip</th>
-                <th className="px-4 py-3">Destination Yard</th>
-                <th className="px-4 py-3 text-center">Material Qty</th>
-                <th className="px-4 py-3 text-center">Status</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <th className="px-4 py-3 whitespace-nowrap">MRN Number</th>
+                <th className="px-4 py-3 whitespace-nowrap">Customer & Site</th>
+                <th className="px-4 py-3 whitespace-nowrap">Fleet Vehicle & Trip</th>
+                <th className="px-4 py-3 whitespace-nowrap">Destination Yard</th>
+                <th className="px-4 py-3 text-center whitespace-nowrap">Material Qty</th>
+                <th className="px-4 py-3 text-center whitespace-nowrap">Status</th>
+                <th className="px-4 py-3 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 bg-white">

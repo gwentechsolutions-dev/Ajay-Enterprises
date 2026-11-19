@@ -177,7 +177,7 @@ export function DriverQuickActions({
 
       {/* Quick Actions Bottom Sheet / Modal */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-md p-0 overflow-hidden rounded-2xl border-0 shadow-2xl">
+        <DialogContent hideClose className="max-w-md p-0 overflow-hidden rounded-2xl border-0 shadow-2xl">
           <div className="bg-[#0B1E36] p-4 text-white">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -189,7 +189,8 @@ export function DriverQuickActions({
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-full"
+                aria-label="Close"
+                className="text-slate-400 hover:text-white hover:bg-white/10 p-1.5 rounded-full transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>

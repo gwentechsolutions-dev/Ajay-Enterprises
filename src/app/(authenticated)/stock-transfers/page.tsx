@@ -299,15 +299,15 @@ export default function StockTransfersPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-600">
+          <table className="w-full text-left text-sm text-slate-600 min-w-[800px]">
             <thead className="bg-slate-50 text-xs uppercase font-semibold text-slate-700 border-b border-slate-200">
               <tr>
-                <th className="px-6 py-4">STN Number</th>
-                <th className="px-6 py-4">Source Yard</th>
-                <th className="px-6 py-4">Destination Yard</th>
-                <th className="px-6 py-4">Date</th>
-                <th className="px-6 py-4 text-center">Status</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                <th className="px-6 py-4 whitespace-nowrap">STN Number</th>
+                <th className="px-6 py-4 whitespace-nowrap">Source Yard</th>
+                <th className="px-6 py-4 whitespace-nowrap">Destination Yard</th>
+                <th className="px-6 py-4 whitespace-nowrap">Date</th>
+                <th className="px-6 py-4 text-center whitespace-nowrap">Status</th>
+                <th className="px-6 py-4 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 bg-white">

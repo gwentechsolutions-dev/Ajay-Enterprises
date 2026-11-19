@@ -196,16 +196,16 @@ export default function FleetDriversPage() {
       {/* Drivers Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-600">
+          <table className="w-full text-left text-sm text-slate-600 min-w-[750px]">
             <thead className="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
               <tr>
-                <th className="px-4 py-3">Driver Code</th>
-                <th className="px-4 py-3">Full Name</th>
-                <th className="px-4 py-3">Mobile #</th>
-                <th className="px-4 py-3">Licence Number</th>
-                <th className="px-4 py-3">Licence Expiry</th>
-                <th className="px-4 py-3">Salary Type</th>
-                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3 whitespace-nowrap">Driver Code</th>
+                <th className="px-4 py-3 whitespace-nowrap">Full Name</th>
+                <th className="px-4 py-3 whitespace-nowrap">Mobile #</th>
+                <th className="px-4 py-3 whitespace-nowrap">Licence Number</th>
+                <th className="px-4 py-3 whitespace-nowrap">Licence Expiry</th>
+                <th className="px-4 py-3 whitespace-nowrap">Salary Type</th>
+                <th className="px-4 py-3 whitespace-nowrap">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">

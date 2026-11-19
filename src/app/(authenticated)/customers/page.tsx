@@ -278,16 +278,16 @@ export default function CustomersPage() {
       {/* Customers Table */}
       <Card className="border-slate-200 shadow-sm overflow-hidden bg-white">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs min-w-[850px]">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 uppercase font-semibold tracking-wider">
               <tr>
-                <th className="py-3 px-4">Customer ID</th>
-                <th className="py-3 px-4">Client Name & Business Type</th>
-                <th className="py-3 px-4">Contact Details</th>
-                <th className="py-3 px-4">GST & PAN Compliance</th>
-                <th className="py-3 px-4 text-center">Sites</th>
-                <th className="py-3 px-4 text-center">Status</th>
-                <th className="py-3 px-4 text-right">Action</th>
+                <th className="py-3 px-4 whitespace-nowrap">Customer ID</th>
+                <th className="py-3 px-4 whitespace-nowrap">Client Name & Business Type</th>
+                <th className="py-3 px-4 whitespace-nowrap">Contact Details</th>
+                <th className="py-3 px-4 whitespace-nowrap">GST & PAN Compliance</th>
+                <th className="py-3 px-4 text-center whitespace-nowrap">Sites</th>
+                <th className="py-3 px-4 text-center whitespace-nowrap">Status</th>
+                <th className="py-3 px-4 text-right whitespace-nowrap">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-600">

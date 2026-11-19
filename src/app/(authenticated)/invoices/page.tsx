@@ -376,19 +376,19 @@ export default function InvoicesPage() {
 
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
+          <table className="w-full text-sm text-left min-w-[950px]">
             <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
               <tr>
-                <th className="px-4 py-3">Invoice #</th>
-                <th className="px-4 py-3">Customer & Site</th>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Due Date</th>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3 text-right">Taxable</th>
-                <th className="px-4 py-3 text-right">GST</th>
-                <th className="px-4 py-3 text-right">Total Amount</th>
-                <th className="px-4 py-3 text-center">Status</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <th className="px-4 py-3 whitespace-nowrap">Invoice #</th>
+                <th className="px-4 py-3 whitespace-nowrap">Customer & Site</th>
+                <th className="px-4 py-3 whitespace-nowrap">Date</th>
+                <th className="px-4 py-3 whitespace-nowrap">Due Date</th>
+                <th className="px-4 py-3 whitespace-nowrap">Type</th>
+                <th className="px-4 py-3 text-right whitespace-nowrap">Taxable</th>
+                <th className="px-4 py-3 text-right whitespace-nowrap">GST</th>
+                <th className="px-4 py-3 text-right whitespace-nowrap">Total Amount</th>
+                <th className="px-4 py-3 text-center whitespace-nowrap">Status</th>
+                <th className="px-4 py-3 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">

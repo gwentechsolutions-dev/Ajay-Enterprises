@@ -10,6 +10,7 @@ export const viewport: Viewport = {
   themeColor: "#0B1E36",
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
   viewportFit: "cover",
 };
 
@@ -20,7 +21,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     title: "INVENTRA",
   },
   icons: {

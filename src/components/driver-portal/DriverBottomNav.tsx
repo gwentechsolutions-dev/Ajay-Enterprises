@@ -65,7 +65,7 @@ export function DriverBottomNav({
   return (
     <nav
       className={cn(
-        "fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 px-2 py-1 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] md:hidden",
+        "fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 px-2 py-1 pb-[calc(env(safe-area-inset-bottom,0px)+0.25rem)] shadow-[0_-4px_16px_rgba(0,0,0,0.06)] md:hidden",
         className
       )}
       aria-label="Driver portal navigation"

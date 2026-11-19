@@ -156,17 +156,17 @@ export default function AuditLogsPage() {
       {/* Audit Log Table */}
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs min-w-[850px]">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 text-[10px] font-bold uppercase tracking-wider">
               <tr>
-                <th className="py-3 px-4">Timestamp</th>
-                <th className="py-3 px-4">Actor</th>
-                <th className="py-3 px-4">Action</th>
-                <th className="py-3 px-4">Module</th>
-                <th className="py-3 px-4">Target Entity</th>
-                <th className="py-3 px-4">IP Address</th>
-                <th className="py-3 px-4">Notes</th>
-                <th className="py-3 px-4 text-right">Details</th>
+                <th className="py-3 px-4 whitespace-nowrap">Timestamp</th>
+                <th className="py-3 px-4 whitespace-nowrap">Actor</th>
+                <th className="py-3 px-4 whitespace-nowrap">Action</th>
+                <th className="py-3 px-4 whitespace-nowrap">Module</th>
+                <th className="py-3 px-4 whitespace-nowrap">Target Entity</th>
+                <th className="py-3 px-4 whitespace-nowrap">IP Address</th>
+                <th className="py-3 px-4 whitespace-nowrap">Notes</th>
+                <th className="py-3 px-4 text-right whitespace-nowrap">Details</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700 font-normal">

@@ -332,16 +332,16 @@ export default function UsersPage() {
       {/* Users Table / Grid */}
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs min-w-[800px]">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-semibold text-[10px] tracking-wider">
               <tr>
-                <th className="py-3 px-4">User</th>
-                <th className="py-3 px-4">Role & Scope</th>
-                <th className="py-3 px-4">Assignment</th>
-                <th className="py-3 px-4">Mobile</th>
-                <th className="py-3 px-4">Last Login</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+                <th className="py-3 px-4 whitespace-nowrap">User</th>
+                <th className="py-3 px-4 whitespace-nowrap">Role & Scope</th>
+                <th className="py-3 px-4 whitespace-nowrap">Assignment</th>
+                <th className="py-3 px-4 whitespace-nowrap">Mobile</th>
+                <th className="py-3 px-4 whitespace-nowrap">Last Login</th>
+                <th className="py-3 px-4 whitespace-nowrap">Status</th>
+                <th className="py-3 px-4 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">

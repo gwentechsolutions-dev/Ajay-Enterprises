@@ -208,7 +208,7 @@ export function Sidebar({ user, isCollapsed, setIsCollapsed, mobileOpen, setMobi
         )}
       >
         {/* Brand Header */}
-        <div className="flex h-16 items-center justify-between border-b border-slate-800 px-4">
+        <div className="flex min-h-16 items-center justify-between border-b border-slate-800 px-4 pt-[env(safe-area-inset-top,0px)]">
           <Link
             href={getDefaultPortalForRole(user?.role)}
             className="flex items-center gap-3 overflow-hidden"

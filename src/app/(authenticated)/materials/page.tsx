@@ -468,17 +468,17 @@ export default function MaterialsPage() {
       {/* Materials Table */}
       <Card className="border-slate-200 shadow-sm overflow-hidden bg-white">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs min-w-[850px]">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 uppercase font-semibold tracking-wider">
               <tr>
-                <th className="py-3 px-4">Code</th>
-                <th className="py-3 px-4">Material Variant</th>
-                <th className="py-3 px-4">Size</th>
-                <th className="py-3 px-4">Category / Type</th>
-                <th className="py-3 px-4 text-right">Daily Rental Rate</th>
-                <th className="py-3 px-4 text-center">Ownership</th>
-                <th className="py-3 px-4 text-center">Status</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+                <th className="py-3 px-4 whitespace-nowrap">Code</th>
+                <th className="py-3 px-4 whitespace-nowrap">Material Variant</th>
+                <th className="py-3 px-4 whitespace-nowrap">Size</th>
+                <th className="py-3 px-4 whitespace-nowrap">Category / Type</th>
+                <th className="py-3 px-4 text-right whitespace-nowrap">Daily Rental Rate</th>
+                <th className="py-3 px-4 text-center whitespace-nowrap">Ownership</th>
+                <th className="py-3 px-4 text-center whitespace-nowrap">Status</th>
+                <th className="py-3 px-4 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-600">
