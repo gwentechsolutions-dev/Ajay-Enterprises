@@ -509,6 +509,16 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
   }
 
   ${
+    data.notes && data.secondaryPartyName
+      ? `
+    <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 4px; padding: 8px 12px; margin-bottom: 14px; font-size: 8.5pt; line-height: 1.4; color: #475569;">
+      <strong style="color: #0B1E36;">Operating Notes &amp; Document Traceability:</strong> ${data.notes}
+    </div>
+  `
+      : ""
+  }
+
+  ${
     data.documentType === "MRN" || data.documentType === "DSTN"
       ? `
     <!-- Dedicated Two-Section Acknowledgement for Material Return Note & Direct Site Transfer -->

@@ -857,6 +857,7 @@ function DeliveryPortalContent({
   const completedDeliveries = data?.completedToday || [];
   const pendingPickups = data?.activePickups || [];
   const completedPickups = data?.completedPickupsToday || [];
+  const pendingDirectTransfers = data?.activeDirectTransfers || [];
   const yardReceivers: any[] = data?.yardReceivers || [];
 
   const yardReceiverOptions: ComboboxOption[] = React.useMemo(() => {
@@ -1381,6 +1382,108 @@ function DeliveryPortalContent({
                       </Card>
                     )}
                   </div>
+
+                  {/* Active Direct Site-to-Site Transfers */}
+                  {pendingDirectTransfers.length > 0 && (
+                    <div className="space-y-2 pt-1">
+                      <div className="flex items-center justify-between px-1">
+                        <span className="text-xs font-bold uppercase tracking-wider text-orange-700 flex items-center gap-1.5">
+                          <RotateCcw className="h-3.5 w-3.5 text-[#F26522]" />
+                          Direct Site Transfers ({pendingDirectTransfers.length})
+                        </span>
+                        <span className="text-[10px] font-semibold text-slate-500">
+                          Direct site-to-site transit
+                        </span>
+                      </div>
+                      <div className="space-y-3">
+                        {pendingDirectTransfers.map((dstn: any) => {
+                          const isPickup = dstn.status === "DRAFT" || dstn.status === "SOURCE_PICKUP_PENDING";
+                          const isDelivery = dstn.status === "SOURCE_PICKUP_COMPLETED" || dstn.status === "IN_TRANSIT";
+                          const isGodown = dstn.status === "GODOWN_RETURN_PENDING";
+
+                          const targetSite = isPickup ? dstn.sourceCustomerSite : dstn.destinationCustomerSite;
+                          const targetCustomer = isPickup ? dstn.sourceCustomer : dstn.destinationCustomer;
+                          const targetPhone = isPickup
+                            ? dstn.sourceCustomerSite?.siteContactDetails || dstn.sourceCustomer?.primaryMobile
+                            : dstn.destinationCustomerSite?.siteContactDetails || dstn.destinationCustomer?.primaryMobile;
+
+                          const navQuery = encodeURIComponent(
+                            `${targetSite?.siteName || ""} ${targetSite?.fullAddress || ""}`.trim()
+                          );
+                          const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${navQuery}`;
+
+                          return (
+                            <Card key={dstn.id} className="border-orange-200 shadow-sm overflow-hidden bg-white rounded-2xl">
+                              <div className="bg-gradient-to-r from-orange-50 to-amber-50 px-4 py-2.5 border-b border-orange-200 flex justify-between items-center">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-mono text-xs font-black text-slate-900">{dstn.transferNumber}</span>
+                                  <Badge className="bg-[#F26522] text-white text-[10px] font-bold border-none">
+                                    {isPickup ? "Leg 1: Source Pickup" : isDelivery ? "Leg 2: Destination Delivery" : "Leg 3: Yard Return"}
+                                  </Badge>
+                                </div>
+                                <span className="text-[11px] font-bold text-orange-950 font-mono">
+                                  {dstn.items?.length || 0} Materials
+                                </span>
+                              </div>
+                              <CardContent className="p-4 space-y-3">
+                                <div className="space-y-1.5 text-xs">
+                                  <div className="flex items-start justify-between">
+                                    <div>
+                                      <div className="text-[10px] font-bold text-slate-400 uppercase">
+                                        {isPickup ? "Pickup From" : "Deliver To"}
+                                      </div>
+                                      <div className="font-bold text-slate-900">{targetCustomer?.name}</div>
+                                      <div className="text-slate-600 flex items-center gap-1 mt-0.5">
+                                        <MapPin className="h-3 w-3 text-slate-400 shrink-0" />
+                                        <span>{targetSite?.siteName}</span>
+                                      </div>
+                                    </div>
+                                    {targetPhone && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        asChild
+                                        className="h-8 px-2.5 text-xs text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100"
+                                      >
+                                        <a href={`tel:${targetPhone}`}>
+                                          <Phone className="h-3.5 w-3.5 mr-1" /> Call
+                                        </a>
+                                      </Button>
+                                    )}
+                                  </div>
+                                  <div className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                    <span className="font-semibold text-slate-700">Direct Route: </span>
+                                    {dstn.sourceCustomerSite?.siteName} &rarr; {dstn.destinationCustomerSite?.siteName}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 pt-1">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    asChild
+                                    className="flex-1 text-xs h-9 border-slate-200"
+                                  >
+                                    <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer">
+                                      <Navigation className="h-3.5 w-3.5 mr-1 text-sky-600" />
+                                      Navigate
+                                    </a>
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => router.push(`/operations/direct-transfers/${dstn.id}`)}
+                                    className="flex-1 text-xs h-9 font-bold bg-[#0B1E36] hover:bg-[#1E293B] text-white"
+                                  >
+                                    <Camera className="h-3.5 w-3.5 mr-1 text-orange-400" />
+                                    {isPickup ? "Pickup Material" : isDelivery ? "Deliver Material" : "Yard Return"}
+                                  </Button>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Navigation Shortcut Cards */}
                   <div className="space-y-2 pt-2">
