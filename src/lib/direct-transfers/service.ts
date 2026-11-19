@@ -124,10 +124,38 @@ export async function getDirectTransferById(id: string) {
   const transfer = await db.directSiteTransferNote.findUnique({
     where: { id },
     include: {
-      sourceCustomer: true,
-      sourceCustomerSite: true,
-      destinationCustomer: true,
-      destinationCustomerSite: true,
+      sourceCustomer: {
+        include: {
+          contacts: {
+            where: { isActive: true },
+            orderBy: [{ isPrimary: "desc" }, { name: "asc" }],
+          },
+        },
+      },
+      sourceCustomerSite: {
+        include: {
+          contacts: {
+            where: { isActive: true },
+            orderBy: [{ isPrimary: "desc" }, { name: "asc" }],
+          },
+        },
+      },
+      destinationCustomer: {
+        include: {
+          contacts: {
+            where: { isActive: true },
+            orderBy: [{ isPrimary: "desc" }, { name: "asc" }],
+          },
+        },
+      },
+      destinationCustomerSite: {
+        include: {
+          contacts: {
+            where: { isActive: true },
+            orderBy: [{ isPrimary: "desc" }, { name: "asc" }],
+          },
+        },
+      },
       sourceRentalAgreement: {
         include: { items: true },
       },
@@ -154,7 +182,173 @@ export async function getDirectTransferById(id: string) {
     throw new DirectTransferError(`Direct Site Transfer '${id}' not found.`, "NOT_FOUND", 404);
   }
 
-  return transfer;
+  // Fetch candidate site representatives from recent dispatches / returns
+  const [pastSiteReturns, pastSiteDeliveries] = await Promise.all([
+    db.materialReturnNote.findMany({
+      where: {
+        customerSiteId: transfer.sourceCustomerSiteId,
+        customerRepresentativeName: { not: null },
+      },
+      select: {
+        customerRepresentativeName: true,
+        customerRepresentativePhone: true,
+        customerRepresentativeDesignation: true,
+      },
+      distinct: ["customerRepresentativeName"],
+      take: 5,
+    }),
+    db.deliveryNote.findMany({
+      where: {
+        customerSiteId: transfer.sourceCustomerSiteId,
+        receiverName: { not: null },
+      },
+      select: {
+        receiverName: true,
+        receiverPhone: true,
+        receiverDesignation: true,
+      },
+      distinct: ["receiverName"],
+      take: 5,
+    }),
+  ]);
+
+  const candidateMap = new Map<
+    string,
+    {
+      name: string;
+      phone: string;
+      designation: string;
+      badge: string;
+    }
+  >();
+
+  // 1. Site Contacts
+  for (const c of transfer.sourceCustomerSite?.contacts || []) {
+    if (c.name) {
+      candidateMap.set(c.name.toLowerCase().trim(), {
+        name: c.name.trim(),
+        phone: c.mobile || "",
+        designation: c.designation || "Site In-Charge",
+        badge: c.isPrimary ? "PRIMARY IN-CHARGE" : "SITE CONTACT",
+      });
+    }
+  }
+
+  // 2. Site in-charge field
+  if (transfer.sourceCustomerSite?.siteInCharge) {
+    const name = transfer.sourceCustomerSite.siteInCharge.trim();
+    if (!candidateMap.has(name.toLowerCase())) {
+      candidateMap.set(name.toLowerCase(), {
+        name,
+        phone: transfer.sourceCustomerSite.siteContactDetails || "",
+        designation: "Site In-Charge",
+        badge: "SITE IN-CHARGE",
+      });
+    }
+  }
+
+  // 3. Site owner field
+  if (transfer.sourceCustomerSite?.siteOwnerName) {
+    const name = transfer.sourceCustomerSite.siteOwnerName.trim();
+    if (!candidateMap.has(name.toLowerCase())) {
+      candidateMap.set(name.toLowerCase(), {
+        name,
+        phone: transfer.sourceCustomerSite.siteOwnerContact || "",
+        designation: "Site Owner",
+        badge: "SITE OWNER",
+      });
+    }
+  }
+
+  // 4. Customer Contacts
+  for (const c of transfer.sourceCustomer?.contacts || []) {
+    if (c.name && !candidateMap.has(c.name.toLowerCase().trim())) {
+      candidateMap.set(c.name.toLowerCase().trim(), {
+        name: c.name.trim(),
+        phone: c.mobile || "",
+        designation: c.designation || "Customer Contact",
+        badge: "CUSTOMER CONTACT",
+      });
+    }
+  }
+
+  // 5. Past returns & delivery receivers
+  for (const r of pastSiteReturns) {
+    if (r.customerRepresentativeName && !candidateMap.has(r.customerRepresentativeName.toLowerCase().trim())) {
+      candidateMap.set(r.customerRepresentativeName.toLowerCase().trim(), {
+        name: r.customerRepresentativeName.trim(),
+        phone: r.customerRepresentativePhone || "",
+        designation: r.customerRepresentativeDesignation || "Site Representative",
+        badge: "PAST RETURN REP",
+      });
+    }
+  }
+
+  for (const d of pastSiteDeliveries) {
+    if (d.receiverName && !candidateMap.has(d.receiverName.toLowerCase().trim())) {
+      candidateMap.set(d.receiverName.toLowerCase().trim(), {
+        name: d.receiverName.trim(),
+        phone: d.receiverPhone || "",
+        designation: d.receiverDesignation || "Site Engineer",
+        badge: "PAST RECEIVER",
+      });
+    }
+  }
+
+  const sourceRepCandidates = Array.from(candidateMap.values());
+
+  // Destination Candidates
+  const destCandidateMap = new Map<
+    string,
+    {
+      name: string;
+      phone: string;
+      designation: string;
+      badge: string;
+    }
+  >();
+
+  for (const c of transfer.destinationCustomerSite?.contacts || []) {
+    if (c.name) {
+      destCandidateMap.set(c.name.toLowerCase().trim(), {
+        name: c.name.trim(),
+        phone: c.mobile || "",
+        designation: c.designation || "Site In-Charge",
+        badge: c.isPrimary ? "PRIMARY IN-CHARGE" : "SITE CONTACT",
+      });
+    }
+  }
+
+  if (transfer.destinationCustomerSite?.siteInCharge) {
+    const name = transfer.destinationCustomerSite.siteInCharge.trim();
+    if (!destCandidateMap.has(name.toLowerCase())) {
+      destCandidateMap.set(name.toLowerCase(), {
+        name,
+        phone: transfer.destinationCustomerSite.siteContactDetails || "",
+        designation: "Site In-Charge",
+        badge: "SITE IN-CHARGE",
+      });
+    }
+  }
+
+  for (const c of transfer.destinationCustomer?.contacts || []) {
+    if (c.name && !destCandidateMap.has(c.name.toLowerCase().trim())) {
+      destCandidateMap.set(c.name.toLowerCase().trim(), {
+        name: c.name.trim(),
+        phone: c.mobile || "",
+        designation: c.designation || "Customer Contact",
+        badge: "CUSTOMER CONTACT",
+      });
+    }
+  }
+
+  const destRepCandidates = Array.from(destCandidateMap.values());
+
+  return {
+    ...transfer,
+    sourceRepCandidates,
+    destRepCandidates,
+  };
 }
 
 /**

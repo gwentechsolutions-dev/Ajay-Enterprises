@@ -34,6 +34,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { SearchableCombobox, ComboboxOption } from "@/components/ui/searchable-combobox";
 import { toast } from "sonner";
 
 export default function DirectTransferDetailPage() {
@@ -49,6 +50,10 @@ export default function DirectTransferDetailPage() {
   const [isReceiveModalOpen, setIsReceiveModalOpen] = React.useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
+
+  // Manual entry toggle
+  const [isManualRepInput, setIsManualRepInput] = React.useState(false);
+  const [isManualDestRepInput, setIsManualDestRepInput] = React.useState(false);
 
   // Dispatch Form
   const [dispatchForm, setDispatchForm] = React.useState({
@@ -121,6 +126,140 @@ export default function DirectTransferDetailPage() {
   React.useEffect(() => {
     if (id) loadData();
   }, [id, loadData]);
+
+  const sourceRepCandidates: any[] = React.useMemo(() => {
+    return transfer?.sourceRepCandidates || [];
+  }, [transfer]);
+
+  const sourceRepOptions: ComboboxOption[] = React.useMemo(() => {
+    return sourceRepCandidates.map((c: any) => ({
+      value: c.name,
+      label: c.name,
+      sublabel: `${c.designation || "Site Representative"}${c.phone ? ` • 📞 ${c.phone}` : ""}`,
+      badge: c.badge || "CONTACT",
+    }));
+  }, [sourceRepCandidates]);
+
+  const destRepCandidates: any[] = React.useMemo(() => {
+    return transfer?.destRepCandidates || [];
+  }, [transfer]);
+
+  const destRepOptions: ComboboxOption[] = React.useMemo(() => {
+    return destRepCandidates.map((c: any) => ({
+      value: c.name,
+      label: c.name,
+      sublabel: `${c.designation || "Site Receiver"}${c.phone ? ` • 📞 ${c.phone}` : ""}`,
+      badge: c.badge || "CONTACT",
+    }));
+  }, [destRepCandidates]);
+
+  const handleSelectSourceRep = (val: string) => {
+    const matched = sourceRepCandidates.find(
+      (c: any) => c.name.toLowerCase().trim() === val.toLowerCase().trim()
+    );
+
+    if (matched) {
+      setDispatchForm((prev) => ({
+        ...prev,
+        sourceRepName: matched.name,
+        sourceRepPhone: matched.phone || prev.sourceRepPhone,
+        sourceRepDesignation: matched.designation || prev.sourceRepDesignation,
+      }));
+    } else {
+      setDispatchForm((prev) => ({
+        ...prev,
+        sourceRepName: val,
+      }));
+    }
+  };
+
+  const handleSelectDestRep = (val: string) => {
+    const matched = destRepCandidates.find(
+      (c: any) => c.name.toLowerCase().trim() === val.toLowerCase().trim()
+    );
+
+    if (matched) {
+      setReceiveForm((prev) => ({
+        ...prev,
+        destRepName: matched.name,
+        destRepPhone: matched.phone || prev.destRepPhone,
+        destRepDesignation: matched.designation || prev.destRepDesignation,
+      }));
+    } else {
+      setReceiveForm((prev) => ({
+        ...prev,
+        destRepName: val,
+      }));
+    }
+  };
+
+  const openDispatchModal = () => {
+    const matched = sourceRepCandidates[0] || null;
+
+    setDispatchForm((prev) => ({
+      ...prev,
+      sourceRepName: prev.sourceRepName || matched?.name || transfer?.sourceCustomerSite?.siteInCharge || "",
+      sourceRepPhone: prev.sourceRepPhone || matched?.phone || transfer?.sourceCustomerSite?.siteContactDetails || "",
+      sourceRepDesignation: prev.sourceRepDesignation || matched?.designation || "Site In-Charge",
+      sourceGpsLat: transfer?.sourceCustomerSite?.gpsLatitude
+        ? transfer.sourceCustomerSite.gpsLatitude.toString()
+        : prev.sourceGpsLat,
+      sourceGpsLng: transfer?.sourceCustomerSite?.gpsLongitude
+        ? transfer.sourceCustomerSite.gpsLongitude.toString()
+        : prev.sourceGpsLng,
+    }));
+
+    setIsManualRepInput(false);
+    setIsDispatchModalOpen(true);
+
+    if (typeof window !== "undefined" && navigator?.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setDispatchForm((prev) => ({
+            ...prev,
+            sourceGpsLat: pos.coords.latitude.toFixed(7),
+            sourceGpsLng: pos.coords.longitude.toFixed(7),
+          }));
+        },
+        () => {},
+        { enableHighAccuracy: true, timeout: 5000 }
+      );
+    }
+  };
+
+  const openReceiveModal = () => {
+    const matched = destRepCandidates[0] || null;
+
+    setReceiveForm((prev) => ({
+      ...prev,
+      destRepName: prev.destRepName || matched?.name || transfer?.destinationCustomerSite?.siteInCharge || "",
+      destRepPhone: prev.destRepPhone || matched?.phone || transfer?.destinationCustomerSite?.siteContactDetails || "",
+      destRepDesignation: prev.destRepDesignation || matched?.designation || "Site Engineer",
+      destGpsLat: transfer?.destinationCustomerSite?.gpsLatitude
+        ? transfer.destinationCustomerSite.gpsLatitude.toString()
+        : prev.destGpsLat,
+      destGpsLng: transfer?.destinationCustomerSite?.gpsLongitude
+        ? transfer.destinationCustomerSite.gpsLongitude.toString()
+        : prev.destGpsLng,
+    }));
+
+    setIsManualDestRepInput(false);
+    setIsReceiveModalOpen(true);
+
+    if (typeof window !== "undefined" && navigator?.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setReceiveForm((prev) => ({
+            ...prev,
+            destGpsLat: pos.coords.latitude.toFixed(7),
+            destGpsLng: pos.coords.longitude.toFixed(7),
+          }));
+        },
+        () => {},
+        { enableHighAccuracy: true, timeout: 5000 }
+      );
+    }
+  };
 
   const handleDispatch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -331,7 +470,7 @@ export default function DirectTransferDetailPage() {
               <Button
                 size="sm"
                 className="bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={() => setIsDispatchModalOpen(true)}
+                onClick={openDispatchModal}
               >
                 <Send className="h-4 w-4 mr-2" />
                 Dispatch Transfer
@@ -343,7 +482,7 @@ export default function DirectTransferDetailPage() {
             <Button
               size="sm"
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
-              onClick={() => setIsReceiveModalOpen(true)}
+              onClick={openReceiveModal}
             >
               <CheckCircle2 className="h-4 w-4 mr-2" />
               Receive & Reconcile
@@ -626,14 +765,43 @@ export default function DirectTransferDetailPage() {
               className={cn("space-y-4 border-0 p-0 m-0 min-w-0 transition-opacity", submitting && "pointer-events-none opacity-60")}
             >
             <div>
-              <Label className="text-xs font-medium">Source Rep Name *</Label>
-              <Input
-                placeholder="Site Incharge Name"
-                value={dispatchForm.sourceRepName}
-                onChange={(e) => setDispatchForm({ ...dispatchForm, sourceRepName: e.target.value })}
-                className="mt-1"
-                required
-              />
+              <div className="flex items-center justify-between mb-1">
+                <Label className="text-xs font-medium">Source Rep Name *</Label>
+                <button
+                  type="button"
+                  onClick={() => setIsManualRepInput(!isManualRepInput)}
+                  className="text-[11px] text-[#F26522] hover:underline font-semibold cursor-pointer"
+                >
+                  {isManualRepInput ? "← Select from contacts" : "+ Enter custom name"}
+                </button>
+              </div>
+
+              {isManualRepInput ? (
+                <Input
+                  placeholder="Enter representative name manually..."
+                  value={dispatchForm.sourceRepName}
+                  onChange={(e) => setDispatchForm({ ...dispatchForm, sourceRepName: e.target.value })}
+                  className="mt-1"
+                  autoFocus
+                  required
+                />
+              ) : (
+                <SearchableCombobox
+                  options={sourceRepOptions}
+                  value={dispatchForm.sourceRepName}
+                  onChange={handleSelectSourceRep}
+                  placeholder={
+                    sourceRepOptions.length > 0
+                      ? "Select site representative or type name..."
+                      : "Type representative name..."
+                  }
+                  searchPlaceholder="Search site contacts or type new name..."
+                  emptyText="No contacts found. Press Enter or click below to use as custom name."
+                  allowCustomValue={true}
+                  customBadge="MANUAL"
+                  className="mt-1"
+                />
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -718,16 +886,44 @@ export default function DirectTransferDetailPage() {
               disabled={submitting}
               className={cn("space-y-4 border-0 p-0 m-0 min-w-0 transition-opacity", submitting && "pointer-events-none opacity-60")}
             >
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
-                <Label className="text-xs font-medium">Receiver Name *</Label>
-                <Input
-                  placeholder="Receiver Name"
-                  value={receiveForm.destRepName}
-                  onChange={(e) => setReceiveForm({ ...receiveForm, destRepName: e.target.value })}
-                  className="mt-1"
-                  required
-                />
+                <div className="flex items-center justify-between mb-1">
+                  <Label className="text-xs font-medium">Receiver Name *</Label>
+                  <button
+                    type="button"
+                    onClick={() => setIsManualDestRepInput(!isManualDestRepInput)}
+                    className="text-[10px] text-[#F26522] hover:underline font-semibold cursor-pointer"
+                  >
+                    {isManualDestRepInput ? "← Select" : "+ Custom"}
+                  </button>
+                </div>
+                {isManualDestRepInput ? (
+                  <Input
+                    placeholder="Receiver Name"
+                    value={receiveForm.destRepName}
+                    onChange={(e) => setReceiveForm({ ...receiveForm, destRepName: e.target.value })}
+                    className="mt-1"
+                    autoFocus
+                    required
+                  />
+                ) : (
+                  <SearchableCombobox
+                    options={destRepOptions}
+                    value={receiveForm.destRepName}
+                    onChange={handleSelectDestRep}
+                    placeholder={
+                      destRepOptions.length > 0
+                        ? "Select receiver..."
+                        : "Type receiver name..."
+                    }
+                    searchPlaceholder="Search receiver contacts or type new..."
+                    emptyText="No contacts found. Press Enter to use as custom name."
+                    allowCustomValue={true}
+                    customBadge="MANUAL"
+                    className="mt-1"
+                  />
+                )}
               </div>
               <div>
                 <Label className="text-xs font-medium">Phone</Label>
