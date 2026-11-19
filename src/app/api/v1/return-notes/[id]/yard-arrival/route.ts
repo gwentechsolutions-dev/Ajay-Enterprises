@@ -108,26 +108,26 @@ export async function POST(
         }
       }
 
-      // 3. Log Audit Event
-      await logAuditEvent({
-        userId: actor.id,
-        userName: actor.name,
-        userRole: actor.role,
-        ipAddress: actor.ipAddress,
-        action: "UPDATE",
-        module: "delivery_portal",
-        entityType: "MaterialReturnNote",
-        entityId: mrn.id,
-        beforeState: { status: mrn.status },
-        afterState: {
-          status: "AWAITING_INSPECTION",
-          yardArrivedAt: yardTime,
-          receiverName: input.receiverName,
-        },
-        notes: `Driver ${actor.name} returned to ${mrn.receivingWarehouse.name} and handed over materials to ${input.receiverName}. MRN ${mrn.mrnNumber} is awaiting warehouse physical QC inspection.`,
-      });
-
       return res;
+    }, { maxWait: 15000, timeout: 30000 });
+
+    // 3. Log Audit Event after transaction commits
+    await logAuditEvent({
+      userId: actor.id,
+      userName: actor.name,
+      userRole: actor.role,
+      ipAddress: actor.ipAddress,
+      action: "UPDATE",
+      module: "delivery_portal",
+      entityType: "MaterialReturnNote",
+      entityId: mrn.id,
+      beforeState: { status: mrn.status },
+      afterState: {
+        status: "AWAITING_INSPECTION",
+        yardArrivedAt: yardTime,
+        receiverName: input.receiverName,
+      },
+      notes: `Driver ${actor.name} returned to ${mrn.receivingWarehouse.name} and handed over materials to ${input.receiverName}. MRN ${mrn.mrnNumber} is awaiting warehouse physical QC inspection.`,
     });
 
     return NextResponse.json({

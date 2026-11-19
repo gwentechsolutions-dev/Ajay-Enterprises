@@ -207,22 +207,22 @@ export async function POST(
       // 3. Allocate returns to active rental batches (FIFO)
       await allocateReturnToBatches(mrn.id, tx);
 
-      // 3. Log Audit Event
-      await logAuditEvent({
-        userId: actor.id,
-        userName: actor.name,
-        userRole: actor.role,
-        ipAddress: actor.ipAddress,
-        action: "POST",
-        module: "material_returns",
-        entityType: "MaterialReturnNote",
-        entityId: mrn.id,
-        beforeState: { status: mrn.status },
-        afterState: { status: "POSTED", postedAt: res.postedAt },
-        notes: `MRN ${mrn.mrnNumber} finalized by ${actor.name}. Physical stock re-credited to ${mrn.receivingWarehouse.name} and rental return billing allocated.`,
-      });
-
       return res;
+    }, { maxWait: 15000, timeout: 30000 });
+
+    // 4. Log Audit Event after successful transaction commit
+    await logAuditEvent({
+      userId: actor.id,
+      userName: actor.name,
+      userRole: actor.role,
+      ipAddress: actor.ipAddress,
+      action: "POST",
+      module: "material_returns",
+      entityType: "MaterialReturnNote",
+      entityId: mrn.id,
+      beforeState: { status: mrn.status },
+      afterState: { status: "POSTED", postedAt: finalizedMRN.postedAt },
+      notes: `MRN ${mrn.mrnNumber} finalized by ${actor.name}. Physical stock re-credited to ${mrn.receivingWarehouse.name} and rental return billing allocated.`,
     });
 
     // 4. Send WhatsApp Notification to customer if configured

@@ -155,21 +155,21 @@ export async function POST(
         },
       });
 
-      // 4. Log audit event
-      await logAuditEvent({
-        userId: actor.id,
-        userName: actor.name,
-        userRole: actor.role,
-        action: "UPDATE",
-        module: "material_returns",
-        entityType: "MaterialReturnNote",
-        entityId: mrn.id,
-        beforeState: { status: mrn.status, vehicleTripId: mrn.vehicleTripId },
-        afterState: { status: updatedMRN.status, vehicleTripId: updatedMRN.vehicleTripId },
-        ipAddress: actor.ipAddress,
-      });
-
       return updatedMRN;
+    }, { maxWait: 15000, timeout: 30000 });
+
+    // 4. Log audit event after transaction commits
+    await logAuditEvent({
+      userId: actor.id,
+      userName: actor.name,
+      userRole: actor.role,
+      action: "UPDATE",
+      module: "material_returns",
+      entityType: "MaterialReturnNote",
+      entityId: mrn.id,
+      beforeState: { status: mrn.status, vehicleTripId: mrn.vehicleTripId },
+      afterState: { status: result.status, vehicleTripId: result.vehicleTripId },
+      ipAddress: actor.ipAddress,
     });
 
     return NextResponse.json({

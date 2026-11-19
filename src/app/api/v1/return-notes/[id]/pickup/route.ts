@@ -73,10 +73,10 @@ export async function POST(
     };
 
     const pickupTime = validatedData.pickupCompletedAt ? new Date(validatedData.pickupCompletedAt) : new Date();
+    const primaryPhoto = validatedData.photoUrl;
 
     const updated = await db.$transaction(async (tx) => {
       // 1. Create Evidence record with photo & GPS
-      const primaryPhoto = validatedData.photoUrl;
       const additionalPhotos: string[] = validatedData.additionalPhotoUrls || [];
       const allPhotos = [primaryPhoto, ...additionalPhotos].filter(Boolean);
 
@@ -162,27 +162,27 @@ export async function POST(
         });
       }
 
-      // 6. Audit Log
-      await logAuditEvent({
-        userId: actor.id,
-        userName: actor.name,
-        userRole: actor.role,
-        ipAddress: actor.ipAddress,
-        action: "UPDATE",
-        module: "delivery_portal",
-        entityType: "MaterialReturnNote",
-        entityId: mrn.id,
-        beforeState: { status: mrn.status },
-        afterState: {
-          status: "PICKUP_COMPLETED",
-          pickupCompletedAt: pickupTime,
-          customerRepresentativeName: res.customerRepresentativeName,
-          photoUrl: primaryPhoto,
-        },
-        notes: `Driver ${actor.name} confirmed material pickup for MRN ${mrn.mrnNumber} at site ${mrn.customerSite.siteName}. Materials are now in transit to yard.`,
-      });
-
       return res;
+    }, { maxWait: 15000, timeout: 30000 });
+
+    // 6. Audit Log after transaction commits
+    await logAuditEvent({
+      userId: actor.id,
+      userName: actor.name,
+      userRole: actor.role,
+      ipAddress: actor.ipAddress,
+      action: "UPDATE",
+      module: "delivery_portal",
+      entityType: "MaterialReturnNote",
+      entityId: mrn.id,
+      beforeState: { status: mrn.status },
+      afterState: {
+        status: "PICKUP_COMPLETED",
+        pickupCompletedAt: pickupTime,
+        customerRepresentativeName: updated.customerRepresentativeName,
+        photoUrl: primaryPhoto,
+      },
+      notes: `Driver ${actor.name} confirmed material pickup for MRN ${mrn.mrnNumber} at site ${mrn.customerSite.siteName}. Materials are now in transit to yard.`,
     });
 
     return NextResponse.json({

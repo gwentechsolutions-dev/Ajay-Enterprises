@@ -170,26 +170,26 @@ export async function POST(
         },
       });
 
-      // 3. Audit Log
-      await logAuditEvent({
-        userId: actor.id,
-        userName: actor.name,
-        userRole: actor.role,
-        ipAddress: actor.ipAddress,
-        action: "UPDATE",
-        module: "MATERIAL_RETURNS",
-        entityType: "MaterialReturnNote",
-        entityId: mrn.id,
-        afterState: {
-          mrnNumber: mrn.mrnNumber,
-          inspectionStatus: "COMPLETED",
-          inspectorName: input.inspectorName,
-          customerAgreedDamage: input.customerAgreedDamage,
-        },
-        notes: `Recorded material inspection for MRN ${mrn.mrnNumber} by ${input.inspectorName}. Customer handover details preserved.`,
-      });
-
       return res;
+    }, { maxWait: 15000, timeout: 30000 });
+
+    // 3. Audit Log after transaction commits
+    await logAuditEvent({
+      userId: actor.id,
+      userName: actor.name,
+      userRole: actor.role,
+      ipAddress: actor.ipAddress,
+      action: "UPDATE",
+      module: "MATERIAL_RETURNS",
+      entityType: "MaterialReturnNote",
+      entityId: mrn.id,
+      afterState: {
+        mrnNumber: mrn.mrnNumber,
+        inspectionStatus: "COMPLETED",
+        inspectorName: input.inspectorName,
+        customerAgreedDamage: input.customerAgreedDamage,
+      },
+      notes: `Recorded material inspection for MRN ${mrn.mrnNumber} by ${input.inspectorName}. Customer handover details preserved.`,
     });
 
     return NextResponse.json({
