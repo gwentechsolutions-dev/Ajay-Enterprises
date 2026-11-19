@@ -235,7 +235,7 @@ export default function StockAuditWorksheetPage() {
         <div className="text-xs text-slate-600 flex items-start gap-2">
           <ShieldCheck className="h-4 w-4 text-[#0B1E36] shrink-0 mt-0.5" />
           <div>
-            <strong>Reconciliation Protocol (Prompt 10 & Business Rule 16):</strong> Expected stock balances are frozen from the immutable movement ledger. Physical counts are verified against expected quantities. Upon approval, automated <code className="bg-slate-200 px-1 py-0.5 rounded text-[11px]">FOUND_STOCK</code> (excess) or <code className="bg-slate-200 px-1 py-0.5 rounded text-[11px]">MISSING</code> (shortage) adjustment movements are posted. Inventory balances are never directly overwritten.
+            <strong>Stock Reconciliation Protocol:</strong> Expected stock balances are frozen from the immutable movement ledger. Physical counts are verified against expected quantities. Upon approval, automated <code className="bg-slate-200 px-1 py-0.5 rounded text-[11px]">FOUND_STOCK</code> (excess) or <code className="bg-slate-200 px-1 py-0.5 rounded text-[11px]">MISSING</code> (shortage) adjustment movements are posted. Inventory balances are never directly overwritten.
           </div>
         </div>
       </Card>

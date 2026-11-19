@@ -1452,7 +1452,7 @@ export default function DeliveryNotesPage() {
                 className="h-4 w-4 text-[#F26522] rounded border-slate-300"
               />
               <label htmlFor="includeDeliveryDate" className="font-medium text-slate-700 cursor-pointer">
-                Include Delivery Date in Rental Billing calculation (Per Business Rule #12)
+                Include Delivery Date in Rental Billing calculation
               </label>
             </div>
 
@@ -2104,7 +2104,7 @@ export default function DeliveryNotesPage() {
                 )}
                 <p className="text-[11px] text-slate-400">
                   {!isCustomEwbVehicle && fleetVehicles.length > 0
-                    ? `AJAY ENTERPRISES Company-Owned Fleet (Rule #4) · ${fleetVehicles.length} vehicles registered`
+                    ? `AJAY ENTERPRISES Company-Owned Fleet · ${fleetVehicles.length} vehicles registered`
                     : "Standard Indian RTO registration without spaces"}
                 </p>
               </div>

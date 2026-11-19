@@ -1265,7 +1265,7 @@ export default function CustomerDetailPage() {
             {/* Granular Authorizations */}
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
               <div className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                Operational Authorizations (Prompt 4.3)
+                Operational Authorizations
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs text-slate-700">
                 <label className="flex items-center gap-2 cursor-pointer">

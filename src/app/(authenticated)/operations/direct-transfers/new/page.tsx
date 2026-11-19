@@ -353,12 +353,12 @@ export default function NewDirectTransferPage() {
           </Card>
         </div>
 
-        {/* Step 2: Logistics & Rental Date Rule */}
+        {/* Step 2: Logistics & Rental Date Policy */}
         <Card className="border-slate-200">
           <CardHeader className="bg-slate-50 pb-3 border-b border-slate-100">
             <CardTitle className="text-sm font-semibold text-slate-800 flex items-center gap-2">
               <Truck className="h-4 w-4 text-slate-600" />
-              Logistics, Date Rules & Transport Allocation
+              Logistics, Date Policy & Transport Allocation
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">

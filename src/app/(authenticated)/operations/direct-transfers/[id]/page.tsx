@@ -578,7 +578,7 @@ export default function DirectTransferDetailPage() {
           </div>
           <div className="col-span-2 sm:col-span-4 pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
             <div>
-              <span className="font-semibold text-slate-800">Rental Cutoff Rule: </span>
+              <span className="font-semibold text-slate-800">Rental Cutoff Policy: </span>
               {transfer.includeCutoffDate ? (
                 <span className="text-blue-700">
                   Cutoff date included for Customer A (Customer A pays on transfer day; Customer B billing starts next day).

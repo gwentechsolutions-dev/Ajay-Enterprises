@@ -242,7 +242,7 @@ export default function SiteClosuresPage() {
                   <span>Unreturned Equipment on Site: {Number(auditResult.totalOutstandingQty).toFixed(2)} Nos.</span>
                 </div>
                 <p className="text-red-800 leading-relaxed">
-                  Permanent Rule: Normal site closure is strictly prohibited when centering materials remain in customer custody. An authorized Owner must explicitly approve an exception.
+                  Notice: Normal site closure is strictly prohibited when centering materials remain in customer custody. An authorized Owner must explicitly approve an exception.
                 </p>
                 <div className="bg-white p-3 rounded border border-red-200 space-y-1">
                   <div className="font-bold text-slate-800 mb-1">Unreturned Materials:</div>

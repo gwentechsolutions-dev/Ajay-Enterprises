@@ -146,7 +146,7 @@ export default function RentalReportsPage() {
               {/* Strict OWNED vs HIRED_IN Segregation Card */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base text-[#0B1E36]">Equipment Pool Segregation (Rule #17)</CardTitle>
+                  <CardTitle className="text-base text-[#0B1E36]">Equipment Pool Segregation</CardTitle>
                   <CardDescription className="text-xs">
                     OWNED equipment belonging to AJAY ENTERPRISES and HIRED-IN third-party custody materials remain strictly partitioned.
                   </CardDescription>

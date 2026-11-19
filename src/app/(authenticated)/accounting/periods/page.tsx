@@ -167,7 +167,7 @@ export default function AccountingPeriodsPage() {
       <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 text-xs text-amber-900 flex items-start gap-3">
         <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
         <div>
-          <div className="font-bold">Period Lock & Immutability Rules:</div>
+          <div className="font-bold">Period Lock & Immutability Policy:</div>
           <p className="mt-0.5 text-amber-800">
             When an accounting period is locked, no back-dated journal entries, invoices, purchase bills, or
             payments can be posted into it. Annual Financial Year closing permanently seals the year, transfers net

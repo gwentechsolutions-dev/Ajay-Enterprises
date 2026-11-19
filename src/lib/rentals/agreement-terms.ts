@@ -19,9 +19,9 @@ export const STANDARD_RENTAL_CONDITIONS: RentalAgreementCondition[] = [
   },
   {
     number: 2,
-    title: "DATE INCLUSION RULES (BUSINESS RULE #12)",
+    title: "DATE INCLUSION RULES",
     description:
-      "Per statutory business rules, 'Include Delivery Date' and 'Include Return Date' are independent Boolean calculations. Inclusion precedence hierarchy strictly follows: Line Item Override > Site Override > Customer Override > Business Default.",
+      "'Include Delivery Date' and 'Include Return Date' are independent calculations. Inclusion precedence hierarchy strictly follows: Line Item Agreement > Site Policy > Customer Policy > Standard Default.",
   },
   {
     number: 3,

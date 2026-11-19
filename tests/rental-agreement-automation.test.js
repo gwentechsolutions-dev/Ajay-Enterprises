@@ -48,7 +48,7 @@ describe("Rental Agreement Automation & WhatsApp Sharing Suite", () => {
     const termsSource = fs.readFileSync(path.resolve("src/lib/rentals/agreement-terms.ts"), "utf-8");
 
     assert.ok(termsSource.includes("COMMENCEMENT & BILLING CYCLE"), "Condition 1 must cover commencement");
-    assert.ok(termsSource.includes("DATE INCLUSION RULES (BUSINESS RULE #12)"), "Condition 2 must cover Rule #12 Date Inclusion");
+    assert.ok(termsSource.includes("DATE INCLUSION RULES"), "Condition 2 must cover Date Inclusion");
     assert.ok(termsSource.includes("DAILY RENTAL ACCRUAL & CHARGES"), "Condition 3 must cover daily rental charges");
     assert.ok(termsSource.includes("PARTIAL MATERIAL RETURNS"), "Condition 4 must cover partial returns");
     assert.ok(termsSource.includes("MATERIAL INSPECTION & ACCEPTANCE"), "Condition 5 must cover inspection");

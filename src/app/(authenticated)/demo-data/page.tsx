@@ -432,7 +432,7 @@ export default function DemoDataPage() {
               No pretend transactions. General ledger journals adhere to strict double-entry (<code className="bg-slate-100 px-1 py-0.5 rounded text-[11px]">Debits == Credits</code>).
             </p>
             <p>
-              Stock balances are mathematically derived from movement ledgers, preserving all INVENTRA rules.
+              Stock balances are mathematically derived from movement ledgers.
             </p>
           </CardContent>
         </Card>

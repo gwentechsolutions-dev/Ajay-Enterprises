@@ -1624,7 +1624,7 @@ export default function MaterialReturnsPage() {
               </ul>
             </div>
 
-            {/* Business Rule #12: Include Return Date */}
+            {/* Include Return Date */}
             <div className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-lg border border-slate-200">
               <input
                 type="checkbox"
@@ -1634,7 +1634,7 @@ export default function MaterialReturnsPage() {
                 className="h-4 w-4 rounded text-[#F26522] focus:ring-[#F26522] border-slate-300 cursor-pointer"
               />
               <label htmlFor="includeReturnDateFinalize" className="text-xs font-semibold text-slate-700 cursor-pointer">
-                Include Return Date in Rental Billing (Business Rule #12)
+                Include Return Date in Rental Billing
               </label>
             </div>
 
