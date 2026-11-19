@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
-import { dispatchDirectTransferSchema } from "@/lib/schemas/direct-transfer";
+import { pickupDirectTransferSchema } from "@/lib/schemas/direct-transfer";
 import { validationErrorResponse } from "@/lib/api-validation";
 import {
-  dispatchDirectTransfer,
+  confirmSourcePickup,
   DirectTransferError,
 } from "@/lib/direct-transfers/service";
 
@@ -19,7 +19,7 @@ export async function POST(
     const { id } = await params;
     const body = await req.json();
 
-    const parsed = dispatchDirectTransferSchema.safeParse(body);
+    const parsed = pickupDirectTransferSchema.safeParse(body);
     if (!parsed.success) {
       return validationErrorResponse(parsed.error);
     }
@@ -31,11 +31,12 @@ export async function POST(
       ipAddress: req.headers.get("x-forwarded-for") || undefined,
     };
 
-    const dispatched = await dispatchDirectTransfer(id, parsed.data, actor);
+    const dispatched = await confirmSourcePickup(id, parsed.data, actor);
 
     return NextResponse.json({ success: true, data: dispatched });
   } catch (error: any) {
-    const status = error.statusCode || (error instanceof DirectTransferError ? (error.statusCode || 400) : 400);
+    const status =
+      error.statusCode || (error instanceof DirectTransferError ? (error.statusCode || 400) : 400);
     return NextResponse.json(
       {
         success: false,

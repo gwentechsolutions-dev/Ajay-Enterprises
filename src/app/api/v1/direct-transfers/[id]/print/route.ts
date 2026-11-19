@@ -25,6 +25,9 @@ export async function GET(
         vehicle: true,
         driver: true,
         vehicleTrip: true,
+        sourceMrn: true,
+        destinationDn: true,
+        godownMrn: true,
         items: {
           include: {
             materialVariant: true,
@@ -40,6 +43,13 @@ export async function GET(
     const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "ajay-enterprises-gwen-tech.vercel.app";
     const proto = req.headers.get("x-forwarded-proto") || "https";
     const origin = `${proto}://${host}`;
+
+    const linkedDocSummary = [
+      transfer.sourceMrn ? `Linked Source MRN: ${transfer.sourceMrn.mrnNumber}` : null,
+      transfer.vehicleTrip ? `Linked Fleet Trip: ${transfer.vehicleTrip.tripNumber}` : null,
+      transfer.destinationDn ? `Linked Destination DN: ${transfer.destinationDn.dnNumber}` : null,
+      transfer.godownMrn ? `Linked Godown Return MRN: ${transfer.godownMrn.mrnNumber}` : null,
+    ].filter(Boolean).join(" • ");
 
     const html = await generateDocumentHTML({
       title: "DIRECT SITE-TO-SITE TRANSFER NOTE (DSTN)",
@@ -79,12 +89,18 @@ export async function GET(
       items: transfer.items.map((item, idx) => {
         const qDispatched = Number(item.quantityDispatched);
         const qAccepted = item.quantityAccepted !== null && item.quantityAccepted !== undefined ? Number(item.quantityAccepted) : undefined;
+        const qGodown = item.quantityGodownReturned ? Number(item.quantityGodownReturned) : 0;
         const qDamaged = item.quantityDamaged ? Number(item.quantityDamaged) : 0;
         const qMissing = item.quantityMissing ? Number(item.quantityMissing) : 0;
 
         let remarks = item.remarks || "";
-        if (transfer.status === "COMPLETED" || transfer.status === "PARTIALLY_RECEIVED") {
-          remarks = `Accepted: ${qAccepted ?? qDispatched} ${item.materialVariant.uom}${qDamaged > 0 ? `, Damaged: ${qDamaged}` : ""}${qMissing > 0 ? `, Missing: ${qMissing}` : ""}`;
+        if (transfer.status === "COMPLETED" || transfer.status === "PARTIALLY_RECEIVED" || transfer.status === "GODOWN_RETURN_PENDING") {
+          const parts = [];
+          if (qAccepted !== undefined) parts.push(`Accepted: ${qAccepted}`);
+          if (qGodown > 0) parts.push(`Godown Return: ${qGodown}`);
+          if (qDamaged > 0) parts.push(`Damaged: ${qDamaged}`);
+          if (qMissing > 0) parts.push(`Missing: ${qMissing}`);
+          remarks = parts.join(", ") + ` ${item.materialVariant.uom}`;
         }
 
         return {
@@ -99,7 +115,7 @@ export async function GET(
           remarks: remarks || undefined,
         };
       }),
-      notes: transfer.notes || `Official Direct Site-to-Site Custody Transfer Note under GST Rule 55 Delivery Challan standards. Material custody transferred directly from ${transfer.sourceCustomerSite.siteName} to ${transfer.destinationCustomerSite.siteName} without godown touchpoint. All equipment remains the exclusive property of AJAY ENTERPRISES.`,
+      notes: `${linkedDocSummary ? linkedDocSummary + " • " : ""}${transfer.notes || `Official Direct Site-to-Site Custody Transfer Note under GST Rule 55 Delivery Challan standards. Material custody transferred directly from ${transfer.sourceCustomerSite.siteName} to ${transfer.destinationCustomerSite.siteName} without godown touchpoint. All equipment remains the exclusive property of AJAY ENTERPRISES.`}`,
       origin,
     });
 

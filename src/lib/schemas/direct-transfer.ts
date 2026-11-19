@@ -5,6 +5,8 @@ export const directTransferItemInputSchema = z.object({
   ownershipType: z.enum(["OWNED", "HIRED_IN"]).default("OWNED"),
   sourceRentalBatchId: z.string().uuid().optional().nullable(),
   quantityDispatched: z.coerce.number().positive("Dispatched quantity must be greater than zero"),
+  quantityCollected: z.coerce.number().min(0).optional(),
+  quantityGodownReturned: z.coerce.number().min(0).optional(),
   agreedDailyRate: z.coerce.number().min(0).optional().nullable(),
   remarks: z.string().optional().nullable(),
 });
@@ -21,8 +23,11 @@ export const createDirectTransferSchema = z.object({
   vehicleId: z.string().uuid().optional().nullable(),
   driverId: z.string().uuid().optional().nullable(),
   vehicleTripId: z.string().uuid().optional().nullable(),
+  preferredPickupTime: z.string().optional().nullable(),
+  expectedArrivalTime: z.string().optional().nullable(),
   includeCutoffDate: z.boolean().default(false),
   transportCharges: z.coerce.number().min(0).default(0),
+  transportPayer: z.enum(["SOURCE_CUSTOMER", "DESTINATION_CUSTOMER", "AJAY_ENTERPRISES"]).default("DESTINATION_CUSTOMER").optional().nullable(),
   payerAllocation: z.enum(["SOURCE_CUSTOMER", "DESTINATION_CUSTOMER", "AJAY_ENTERPRISES"]).optional().nullable(),
   notes: z.string().optional().nullable(),
   items: z.array(directTransferItemInputSchema).min(1, "At least one material line item is required"),
@@ -52,11 +57,57 @@ export type DispatchDirectTransferInput = z.infer<typeof dispatchDirectTransferS
 export const receiveTransferItemSchema = z.object({
   itemId: z.string().uuid("Invalid item ID"),
   quantityAccepted: z.coerce.number().min(0, "Accepted quantity cannot be negative"),
+  quantityGodownReturned: z.coerce.number().min(0).default(0),
   quantityDamaged: z.coerce.number().min(0).default(0),
   quantityMissing: z.coerce.number().min(0).default(0),
   quantityRejected: z.coerce.number().min(0).default(0),
   remarks: z.string().optional().nullable(),
 });
+
+export const pickupTransferItemSchema = z.object({
+  itemId: z.string().uuid("Invalid item ID"),
+  quantityCollected: z.coerce.number().min(0, "Collected quantity cannot be negative"),
+  quantityUnavailable: z.coerce.number().min(0).default(0),
+  quantityDamaged: z.coerce.number().min(0).default(0),
+  remarks: z.string().optional().nullable(),
+});
+
+export const pickupDirectTransferSchema = z.object({
+  sourceRepName: z.string().min(1, "Source representative name is required"),
+  sourceRepPhone: z.string().optional().nullable(),
+  sourceRepDesignation: z.string().optional().nullable(),
+  sourceRepSignatureUrl: z.string().optional().nullable(),
+  sourceGpsLat: z.coerce.number().optional().nullable(),
+  sourceGpsLng: z.coerce.number().optional().nullable(),
+  sourcePhotoUrl: z.string().optional().nullable(),
+  odometerReading: z.coerce.number().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  items: z.array(pickupTransferItemSchema).optional(),
+});
+
+export type PickupDirectTransferInput = z.infer<typeof pickupDirectTransferSchema>;
+
+export const godownReturnTransferSchema = z.object({
+  warehouseId: z.string().uuid("Receiving warehouse is required"),
+  yardArrivalGpsLat: z.coerce.number().optional().nullable(),
+  yardArrivalGpsLng: z.coerce.number().optional().nullable(),
+  yardOdometer: z.coerce.number().optional().nullable(),
+  photoUrl: z.string().optional().nullable(),
+  receiverName: z.string().optional().nullable(),
+  remarks: z.string().optional().nullable(),
+  items: z
+    .array(
+      z.object({
+        itemId: z.string().uuid(),
+        quantityReceived: z.coerce.number().min(0),
+        quantityDamaged: z.coerce.number().min(0).default(0),
+        condition: z.string().default("GOOD"),
+      })
+    )
+    .optional(),
+});
+
+export type GodownReturnTransferInput = z.infer<typeof godownReturnTransferSchema>;
 
 export const receiveDirectTransferSchema = z.object({
   destRepName: z.string().min(1, "Destination representative name is required"),

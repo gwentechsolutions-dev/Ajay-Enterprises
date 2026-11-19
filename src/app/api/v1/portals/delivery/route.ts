@@ -314,6 +314,50 @@ export async function GET(req: NextRequest) {
       take: 15,
     });
 
+    // 6. Active Direct Site-to-Site Transfers assigned to driver
+    const dstnConditions: any[] = [];
+    if (sessionName) {
+      dstnConditions.push({ driver: { name: { contains: sessionName, mode: "insensitive" } } });
+    }
+    if (sessionMobile) {
+      dstnConditions.push({ driver: { mobileNumber: sessionMobile } });
+    }
+    const dstnDriverFilter = isDriverOnly && dstnConditions.length > 0 ? { OR: dstnConditions } : {};
+
+    const activeDirectTransfers = await db.directSiteTransferNote.findMany({
+      where: {
+        status: {
+          in: [
+            "DRAFT",
+            "SOURCE_PICKUP_PENDING",
+            "SOURCE_PICKUP_COMPLETED",
+            "IN_TRANSIT",
+            "DESTINATION_DELIVERED",
+            "GODOWN_RETURN_PENDING",
+          ],
+        },
+        ...dstnDriverFilter,
+      },
+      include: {
+        sourceCustomer: { select: { id: true, name: true, primaryMobile: true, whatsappNumber: true } },
+        sourceCustomerSite: { select: { id: true, siteName: true, fullAddress: true, siteContactDetails: true, siteInCharge: true, gpsLatitude: true, gpsLongitude: true } },
+        destinationCustomer: { select: { id: true, name: true, primaryMobile: true, whatsappNumber: true } },
+        destinationCustomerSite: { select: { id: true, siteName: true, fullAddress: true, siteContactDetails: true, siteInCharge: true, gpsLatitude: true, gpsLongitude: true } },
+        vehicle: { select: { id: true, vehicleNumber: true, make: true, model: true } },
+        driver: { select: { id: true, name: true, driverCode: true, mobileNumber: true } },
+        vehicleTrip: true,
+        sourceMrn: true,
+        destinationDn: true,
+        godownMrn: true,
+        items: {
+          include: {
+            materialVariant: { select: { id: true, name: true, size: true, uom: true, materialCode: true } },
+          },
+        },
+      },
+      orderBy: { transferDate: "asc" },
+    });
+
     return NextResponse.json({
       success: true,
       data: {
@@ -321,6 +365,7 @@ export async function GET(req: NextRequest) {
         completedToday,
         activePickups,
         completedPickupsToday,
+        activeDirectTransfers,
         assignedTrips,
         yardReceivers,
         preferredLanguage: session?.preferredLanguage || "en",
@@ -332,9 +377,10 @@ export async function GET(req: NextRequest) {
           role: session?.role || "DELIVERY_PERSONNEL",
         },
         summary: {
-          pendingCount: activeDeliveries.length + activePickups.length,
+          pendingCount: activeDeliveries.length + activePickups.length + activeDirectTransfers.length,
           pendingDeliveriesCount: activeDeliveries.length,
           pendingPickupsCount: activePickups.length,
+          pendingTransfersCount: activeDirectTransfers.length,
           completedTodayCount: completedToday.length + completedPickupsToday.length,
           completedDeliveriesCount: completedToday.length,
           completedPickupsCount: completedPickupsToday.length,

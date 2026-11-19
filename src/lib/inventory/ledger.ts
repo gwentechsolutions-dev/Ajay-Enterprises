@@ -358,7 +358,7 @@ async function applyBalanceChanges(
   }
 }
 
-async function adjustWarehouseBalance(
+export async function adjustWarehouseBalance(
   tx: Prisma.TransactionClient,
   params: {
     warehouseId: string;

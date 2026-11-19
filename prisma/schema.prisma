@@ -1048,6 +1048,10 @@ model DeliveryNote {
   isDemo    Boolean @default(false)
   demoRunId String? @db.Uuid
 
+  isDirectTransfer      Boolean                  @default(false)
+  directSiteTransferId  String?                  @db.Uuid
+  directTransfersAsDest DirectSiteTransferNote[] @relation("DstnDestinationDn")
+
   @@index([dnNumber])
   @@index([customerId])
   @@index([customerSiteId])
@@ -1163,6 +1167,11 @@ model MaterialReturnNote {
 
   isDemo    Boolean @default(false)
   demoRunId String? @db.Uuid
+
+  isDirectTransfer        Boolean                  @default(false)
+  directSiteTransferId    String?                  @db.Uuid
+  directTransfersAsSource DirectSiteTransferNote[] @relation("DstnSourceMrn")
+  directTransfersAsGodown DirectSiteTransferNote[] @relation("DstnGodownMrn")
 
   @@index([mrnNumber])
   @@index([customerId])
@@ -1660,7 +1669,13 @@ model DirectSiteTransferNote {
   vehicleId                    String?  @db.Uuid
   driverId                     String?  @db.Uuid
   vehicleTripId                String?  @db.Uuid
-  status                       String   @default("DRAFT") // DRAFT, PENDING_APPROVAL, APPROVED, DISPATCHED, PARTIALLY_RECEIVED, COMPLETED, REJECTED, CANCELLED
+  sourceMrnId                  String?  @db.Uuid
+  destinationDnId              String?  @db.Uuid
+  godownMrnId                  String?  @db.Uuid
+  preferredPickupTime          String?
+  expectedArrivalTime          String?
+  transportPayer               String?  @default("DESTINATION_CUSTOMER") // DESTINATION_CUSTOMER, SOURCE_CUSTOMER, AJAY_ENTERPRISES
+  status                       String   @default("DRAFT") // DRAFT, PENDING_APPROVAL, APPROVED, SOURCE_PICKUP_PENDING, SOURCE_PICKUP_COMPLETED, IN_TRANSIT, DESTINATION_DELIVERED, GODOWN_RETURN_PENDING, GODOWN_RECEIVED, RECONCILED, COMPLETED, REJECTED, CANCELLED
 
   // Dispatch fields
   dispatchedAt          DateTime?
@@ -1705,6 +1720,9 @@ model DirectSiteTransferNote {
   vehicle                    Vehicle?         @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
   driver                     Driver?          @relation(fields: [driverId], references: [id], onDelete: SetNull)
   vehicleTrip                VehicleTrip?     @relation(fields: [vehicleTripId], references: [id], onDelete: SetNull)
+  sourceMrn                  MaterialReturnNote? @relation("DstnSourceMrn", fields: [sourceMrnId], references: [id], onDelete: SetNull)
+  destinationDn              DeliveryNote?       @relation("DstnDestinationDn", fields: [destinationDnId], references: [id], onDelete: SetNull)
+  godownMrn                  MaterialReturnNote? @relation("DstnGodownMrn", fields: [godownMrnId], references: [id], onDelete: SetNull)
 
   items              DirectSiteTransferItem[]
   rentalBatches      RentalBatch[]            @relation("DestBatchTransfer")
@@ -1721,6 +1739,9 @@ model DirectSiteTransferNote {
   @@index([destinationCustomerSiteId])
   @@index([status])
   @@index([transferDate])
+  @@index([sourceMrnId])
+  @@index([destinationDnId])
+  @@index([godownMrnId])
 }
 
 model DirectSiteTransferItem {
@@ -1730,7 +1751,9 @@ model DirectSiteTransferItem {
   ownershipType       String   @default("OWNED") // OWNED, HIRED_IN
   sourceRentalBatchId String?  @db.Uuid
   quantityDispatched  Decimal  @db.Decimal(12, 3)
+  quantityCollected   Decimal  @default(0) @db.Decimal(12, 3)
   quantityAccepted    Decimal  @default(0) @db.Decimal(12, 3)
+  quantityGodownReturned Decimal @default(0) @db.Decimal(12, 3)
   quantityDamaged     Decimal  @default(0) @db.Decimal(12, 3)
   quantityMissing     Decimal  @default(0) @db.Decimal(12, 3)
   quantityRejected    Decimal  @default(0) @db.Decimal(12, 3)
