@@ -14,6 +14,7 @@ import {
   Send,
   Building,
   RefreshCw,
+  Printer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -192,17 +193,17 @@ export default function DirectTransfersPage() {
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
+            <table className="w-full text-sm text-left min-w-[850px]">
               <thead className="bg-slate-50 text-slate-500 text-xs font-medium border-b border-slate-200">
                 <tr>
-                  <th className="py-3 px-4">Transfer #</th>
-                  <th className="py-3 px-4">Date</th>
-                  <th className="py-3 px-4">Source Job Site (Customer A)</th>
-                  <th className="py-3 px-4">Destination Job Site (Customer B)</th>
-                  <th className="py-3 px-4">Vehicle / Driver</th>
-                  <th className="py-3 px-4 text-center">Items</th>
-                  <th className="py-3 px-4 text-center">Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th className="py-3 px-4 whitespace-nowrap">Transfer #</th>
+                  <th className="py-3 px-4 whitespace-nowrap">Date</th>
+                  <th className="py-3 px-4 whitespace-nowrap">Source Job Site (Customer A)</th>
+                  <th className="py-3 px-4 whitespace-nowrap">Destination Job Site (Customer B)</th>
+                  <th className="py-3 px-4 whitespace-nowrap">Vehicle / Driver</th>
+                  <th className="py-3 px-4 text-center whitespace-nowrap">Items</th>
+                  <th className="py-3 px-4 text-center whitespace-nowrap">Status</th>
+                  <th className="py-3 px-4 text-right whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -247,12 +248,25 @@ export default function DirectTransfersPage() {
                       </td>
                       <td className="py-3.5 px-4 text-center">{getStatusBadge(t.status)}</td>
                       <td className="py-3.5 px-4 text-right">
-                        <Link href={`/operations/direct-transfers/${t.id}`}>
-                          <Button variant="ghost" size="sm" className="h-8 px-2 text-slate-700 hover:text-slate-900">
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Link href={`/operations/direct-transfers/${t.id}`}>
+                            <Button variant="ghost" size="sm" className="h-8 px-2 text-slate-700 hover:text-slate-900">
+                              <Eye className="h-4 w-4 mr-1" />
+                              View
+                            </Button>
+                          </Link>
+                          <Button variant="outline" size="sm" asChild className="h-8 px-2 text-xs">
+                            <a
+                              href={`/api/v1/direct-transfers/${t.id}/print`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Print Direct Site Transfer Note (DSTN)"
+                            >
+                              <Printer className="h-3.5 w-3.5 mr-1" />
+                              Slip
+                            </a>
                           </Button>
-                        </Link>
+                        </div>
                       </td>
                     </tr>
                   ))

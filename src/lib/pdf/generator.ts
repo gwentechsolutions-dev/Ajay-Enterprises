@@ -36,7 +36,7 @@ export interface PDFDocumentData {
   title: string;
   documentNumber: string;
   documentDate: Date | string;
-  documentType: "PO" | "GRN" | "PR" | "DN" | "MRN" | "STN" | "HDN" | "HRN";
+  documentType: "PO" | "GRN" | "PR" | "DN" | "MRN" | "STN" | "HDN" | "HRN" | "DSTN";
   partyTitle: string;
   partyName: string;
   partyAddress?: string;
@@ -509,55 +509,67 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
   }
 
   ${
-    data.documentType === "MRN"
+    data.documentType === "MRN" || data.documentType === "DSTN"
       ? `
-    <!-- Dedicated Two-Section Acknowledgement for Material Return Note -->
+    <!-- Dedicated Two-Section Acknowledgement for Material Return Note & Direct Site Transfer -->
     <table class="ack-table" style="page-break-inside: avoid;">
       <tr>
-        <!-- 1. Customer / Site Representative - Material Handover -->
+        <!-- 1. Customer / Site Representative - Material Handover / Release -->
         <td class="ack-box" style="width: 48%; vertical-align: top; height: auto; min-height: 140px; background-color: #fafaf9;">
           <div style="font-weight: 800; color: #0B1E36; font-size: 8.5pt; text-transform: uppercase; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 4px; margin-bottom: 6px; display: flex; justify-content: space-between;">
-            <span>1. Customer Handover Sign-Off</span>
+            <span>${data.documentType === "DSTN" ? "1. Source Site Release Sign-Off" : "1. Customer Handover Sign-Off"}</span>
             <span style="font-size: 7.5pt; color: #64748b; font-weight: normal;">Site Custody Release</span>
           </div>
           <div style="font-size: 8pt; color: #475569; margin-bottom: 6px; line-height: 1.3;">
-            I hereby confirm that the declared centering materials listed above have been released and handed over from construction site custody to AJAY ENTERPRISES.
+            ${data.documentType === "DSTN"
+              ? "I hereby confirm that the declared centering materials listed above have been released from site custody for direct transport to the receiving destination site."
+              : "I hereby confirm that the declared centering materials listed above have been released and handed over from construction site custody to AJAY ENTERPRISES."
+            }
           </div>
           <div style="font-size: 8.5pt; line-height: 1.55; color: #1e293b;">
             ${data.customerHandoverDetails?.name ? `Representative: <strong>${data.customerHandoverDetails.name}</strong><br>` : "Representative: ___________________________<br>"}
             ${data.customerHandoverDetails?.designation ? `Designation: <strong>${data.customerHandoverDetails.designation}</strong><br>` : "Designation: ____________________________<br>"}
             ${data.customerHandoverDetails?.phone ? `Mobile: <strong>+91 ${data.customerHandoverDetails.phone}</strong><br>` : "Mobile: _________________________________<br>"}
-            ${data.customerHandoverDetails?.handoverAt ? `Handover Date: <strong>${new Date(data.customerHandoverDetails.handoverAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</strong><br>` : `Handover Date: <strong>${formattedDate}</strong><br>`}
+            ${data.customerHandoverDetails?.handoverAt ? `Release Date: <strong>${new Date(data.customerHandoverDetails.handoverAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</strong><br>` : `Release Date: <strong>${formattedDate}</strong><br>`}
           </div>
           <div style="margin-top: 10px; font-size: 8pt; color: #64748b; border-top: 1px dashed #cbd5e1; padding-top: 4px; display: flex; justify-content: space-between; align-items: flex-end; min-height: 38px;">
-            <span>Representative Signature</span>
+            <span>${data.documentType === "DSTN" ? "Releasing Representative" : "Representative Signature"}</span>
             ${data.customerHandoverDetails?.signatureUrl ? `<img src="${data.customerHandoverDetails.signatureUrl}" alt="Customer Signature" style="max-height: 36px; max-width: 110px; object-fit: contain;" />` : `<div style="color: #94a3b8; font-style: italic; font-size: 7.5pt;">(Authorised Signatory / Stamp)</div>`}
           </div>
         </td>
 
         <td style="width: 4%;"></td>
 
-        <!-- 2. AJAY ENTERPRISES - Material Receiving Acknowledgement -->
+        <!-- 2. Destination Site Receipt / AJAY ENTERPRISES Receipt -->
         <td class="ack-box" style="width: 48%; vertical-align: top; height: auto; min-height: 140px; background-color: #f8fafc;">
           <div style="font-weight: 800; color: #0B1E36; font-size: 8.5pt; text-transform: uppercase; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 4px; margin-bottom: 6px; display: flex; justify-content: space-between;">
-            <span>2. AJAY ENTERPRISES Receipt</span>
-            <span style="font-size: 7.5pt; color: #64748b; font-weight: normal;">Yard Custody</span>
+            <span>${data.documentType === "DSTN" ? "2. Destination Site Receipt" : "2. AJAY ENTERPRISES Receipt"}</span>
+            <span style="font-size: 7.5pt; color: #64748b; font-weight: normal;">${data.documentType === "DSTN" ? "Receiving Custody" : "Yard Custody"}</span>
           </div>
           <div style="font-size: 8pt; color: #475569; margin-bottom: 6px; line-height: 1.3;">
-            Confirmed material receipt at AJAY ENTERPRISES yard custody. Accepted stock credited; damaged/missing units isolated.
+            ${data.documentType === "DSTN"
+              ? "Confirmed receipt and physical verification of centering equipment at destination site. Equipment custody accepted under active customer rental agreement."
+              : "Confirmed material receipt at AJAY ENTERPRISES yard custody. Accepted stock credited; damaged/missing units isolated."
+            }
           </div>
           <div style="font-size: 8.5pt; line-height: 1.55; color: #1e293b;">
-            Receiving Staff: <strong>${data.receiverDetails?.name || signatoryName}</strong><br>
-            Designation: <strong>${data.receiverDetails?.designation || signatoryDesignation}</strong><br>
-            Receiving Yard: <strong>${data.receiverDetails?.yardName || data.secondaryPartyName || "Centering Yard"}</strong><br>
-            ${data.receiverDetails?.receivedAt ? `Received Date: <strong>${new Date(data.receiverDetails.receivedAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</strong><br>` : `Received Date: <strong>${formattedDate}</strong><br>`}
+            ${data.documentType === "DSTN"
+              ? `Receiving Staff: <strong>${data.receiverDetails?.name || "Pending Destination Sign-Off"}</strong><br>
+                 Designation: <strong>${data.receiverDetails?.designation || "Site Engineer / Receiver"}</strong><br>
+                 ${data.receiverDetails?.phone ? `Mobile: <strong>+91 ${data.receiverDetails.phone}</strong><br>` : ""}
+                 ${data.receiverDetails?.receivedAt ? `Received Date: <strong>${new Date(data.receiverDetails.receivedAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</strong><br>` : `Received Date: <strong>${formattedDate}</strong><br>`}`
+              : `Receiving Staff: <strong>${data.receiverDetails?.name || signatoryName}</strong><br>
+                 Designation: <strong>${data.receiverDetails?.designation || signatoryDesignation}</strong><br>
+                 Receiving Yard: <strong>${data.receiverDetails?.yardName || data.secondaryPartyName || "Centering Yard"}</strong><br>
+                 ${data.receiverDetails?.receivedAt ? `Received Date: <strong>${new Date(data.receiverDetails.receivedAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</strong><br>` : `Received Date: <strong>${formattedDate}</strong><br>`}`
+            }
           </div>
           <div style="margin-top: 6px; min-height: 48px; display: flex; align-items: center; justify-content: flex-end; gap: 8px;">
             ${stampBase64 ? `<img src="${stampBase64}" alt="Company Seal" style="max-height: 52px; max-width: 80px; object-fit: contain; opacity: 0.9;" />` : ""}
             ${signatureBase64 ? `<img src="${signatureBase64}" alt="Authorised Signature" style="max-height: 42px; max-width: 110px; object-fit: contain;" />` : ""}
           </div>
           <div style="font-size: 7.5pt; color: #64748b; text-align: right; border-top: 1px dashed #cbd5e1; padding-top: 2px;">
-            For ${tradeName} • Authorised Yard In-Charge
+            For ${tradeName} • ${data.documentType === "DSTN" ? "Direct Fleet Logistics Verified" : "Authorised Yard In-Charge"}
           </div>
         </td>
       </tr>

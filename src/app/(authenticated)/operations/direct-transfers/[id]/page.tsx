@@ -451,10 +451,17 @@ export default function DirectTransferDetailPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => window.print()}
+            asChild
           >
-            <Printer className="h-4 w-4 mr-2" />
-            Print Note
+            <a
+              href={`/api/v1/direct-transfers/${transfer.id}/print`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Print Official Direct Site Transfer Note (DSTN)"
+            >
+              <Printer className="h-4 w-4 mr-2" />
+              Print Note / PDF
+            </a>
           </Button>
 
           {["DRAFT", "PENDING_APPROVAL", "APPROVED"].includes(transfer.status) && (
