@@ -171,8 +171,34 @@ function DeliveryPortalContent({
   const [currentNavTab, setCurrentNavTab] = React.useState<DriverNavTab>("HOME");
   const [signingOut, setSigningOut] = React.useState(false);
 
-  const [data, setData] = React.useState<any>(null);
-  const [loading, setLoading] = React.useState(true);
+  const [data, setData] = React.useState<any>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = sessionStorage.getItem("inventra_delivery_portal_cache");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && typeof parsed === "object") {
+            return parsed;
+          }
+        }
+      } catch {}
+    }
+    return null;
+  });
+  const [loading, setLoading] = React.useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = sessionStorage.getItem("inventra_delivery_portal_cache");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && typeof parsed === "object") {
+            return false;
+          }
+        }
+      } catch {}
+    }
+    return true;
+  });
   const [isOnline, setIsOnline] = React.useState(true);
   const [offlineCount, setOfflineCount] = React.useState(0);
   const [syncing, setSyncing] = React.useState(false);
@@ -272,25 +298,39 @@ function DeliveryPortalContent({
     gpsLongitude: 77.5946,
   });
 
-  const loadDeliveryFeed = React.useCallback(async () => {
+  const dataRef = React.useRef(data);
+  dataRef.current = data;
+
+  const onServerLanguageLoadedRef = React.useRef(onServerLanguageLoaded);
+  onServerLanguageLoadedRef.current = onServerLanguageLoaded;
+
+  const tRef = React.useRef(t);
+  tRef.current = t;
+
+  const loadDeliveryFeed = React.useCallback(async (silent = false) => {
     try {
-      setLoading(true);
-      const res = await fetch("/api/v1/portals/delivery");
+      if (!silent && !dataRef.current) {
+        setLoading(true);
+      }
+      const res = await fetch("/api/v1/portals/delivery", { cache: "no-store" });
       const json = await res.json();
       if (json.success) {
         setData(json.data);
+        try {
+          sessionStorage.setItem("inventra_delivery_portal_cache", JSON.stringify(json.data));
+        } catch {}
         if (json.data.preferredLanguage) {
-          onServerLanguageLoaded?.(json.data.preferredLanguage as DriverLanguage);
+          onServerLanguageLoadedRef.current?.(json.data.preferredLanguage as DriverLanguage);
         }
       } else {
         toast.error(json.error?.message || "Failed to load portal feed");
       }
     } catch {
-      toast.error(t.offlineWarning);
+      toast.error(tRef.current.offlineWarning);
     } finally {
       setLoading(false);
     }
-  }, [onServerLanguageLoaded, t.offlineWarning]);
+  }, []);
 
   const updateNetworkStatus = React.useCallback(() => {
     const online = typeof navigator !== "undefined" ? navigator.onLine : true;
@@ -300,7 +340,7 @@ function DeliveryPortalContent({
   }, []);
 
   React.useEffect(() => {
-    loadDeliveryFeed();
+    loadDeliveryFeed(true);
     updateNetworkStatus();
 
     const handleOnline = () => updateNetworkStatus();
@@ -947,6 +987,17 @@ function DeliveryPortalContent({
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => loadDeliveryFeed(false)}
+            disabled={loading}
+            title="Refresh feed"
+            className="h-8 w-8 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg"
+          >
+            <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
+          </Button>
+
           <DriverLanguageSelector />
 
           {isOnline ? (
@@ -3043,10 +3094,14 @@ function DeliveryPortalContent({
 export default function DeliveryPortalPage() {
   const [serverLanguage, setServerLanguage] = React.useState<DriverLanguage>("en");
 
+  const handleServerLanguageLoaded = React.useCallback((lang: DriverLanguage) => {
+    setServerLanguage((prev) => (prev !== lang ? lang : prev));
+  }, []);
+
   return (
     <PwaProvider>
       <DriverLanguageProvider initialLanguage={serverLanguage}>
-        <DeliveryPortalContent onServerLanguageLoaded={setServerLanguage} />
+        <DeliveryPortalContent onServerLanguageLoaded={handleServerLanguageLoaded} />
       </DriverLanguageProvider>
     </PwaProvider>
   );

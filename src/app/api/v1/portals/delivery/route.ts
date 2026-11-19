@@ -13,176 +13,275 @@ export async function GET(req: NextRequest) {
     const sessionName = session?.name || "";
     const sessionMobile = session?.mobile || undefined;
 
+    // Fast indexed driver lookup to avoid heavy table-wide ILIKE / contains operations
+    const driver = isDriverOnly && (sessionMobile || sessionName)
+      ? await db.driver.findFirst({
+          where: {
+            OR: [
+              ...(sessionMobile ? [{ mobileNumber: sessionMobile }] : []),
+              ...(sessionName ? [{ name: { equals: sessionName, mode: "insensitive" as const } }] : []),
+            ],
+          },
+          select: { id: true, name: true, mobileNumber: true },
+        })
+      : null;
+
     // DeliveryNote uses tripDeliveryNotes -> trip -> driver, plus driverName and driverPhone
     const dnConditions: any[] = [];
+    if (driver) {
+      dnConditions.push({ tripDeliveryNotes: { some: { trip: { driverId: driver.id } } } });
+    }
     if (sessionName) {
       dnConditions.push({ driverName: { contains: sessionName, mode: "insensitive" } });
-      dnConditions.push({
-        tripDeliveryNotes: {
-          some: {
-            trip: {
-              driver: { name: { contains: sessionName, mode: "insensitive" } },
-            },
-          },
-        },
-      });
     }
     if (sessionMobile) {
       dnConditions.push({ driverPhone: sessionMobile });
-      dnConditions.push({
-        tripDeliveryNotes: {
-          some: {
-            trip: {
-              driver: { mobileNumber: sessionMobile },
-            },
-          },
-        },
-      });
     }
     const dnDriverFilter = isDriverOnly && dnConditions.length > 0 ? { OR: dnConditions } : {};
 
     // MaterialReturnNote uses vehicleTrip -> driver, plus driverName and driverPhone
     const mrnConditions: any[] = [];
+    if (driver) {
+      mrnConditions.push({ vehicleTrip: { driverId: driver.id } });
+    }
     if (sessionName) {
       mrnConditions.push({ driverName: { contains: sessionName, mode: "insensitive" } });
-      mrnConditions.push({
-        vehicleTrip: {
-          driver: { name: { contains: sessionName, mode: "insensitive" } },
-        },
-      });
     }
     if (sessionMobile) {
       mrnConditions.push({ driverPhone: sessionMobile });
-      mrnConditions.push({
-        vehicleTrip: {
-          driver: { mobileNumber: sessionMobile },
-        },
-      });
     }
     const mrnDriverFilter = isDriverOnly && mrnConditions.length > 0 ? { OR: mrnConditions } : {};
+
+    // Vehicle trips assigned to driver
+    const tripConditions: any[] = [];
+    if (driver) {
+      tripConditions.push({ driverId: driver.id });
+    }
+    if (sessionName) {
+      tripConditions.push({ driver: { name: { contains: sessionName, mode: "insensitive" } } });
+    }
+    if (sessionMobile) {
+      tripConditions.push({ driver: { mobileNumber: sessionMobile } });
+    }
+    if (session?.id) {
+      tripConditions.push({ createdById: session.id });
+    }
+    const tripDriverFilter = isDriverOnly && tripConditions.length > 0 ? { OR: tripConditions } : {};
+
+    // Active Direct Site-to-Site Transfers assigned to driver
+    const dstnConditions: any[] = [];
+    if (driver) {
+      dstnConditions.push({ driverId: driver.id });
+    }
+    if (sessionName) {
+      dstnConditions.push({ driver: { name: { contains: sessionName, mode: "insensitive" } } });
+    }
+    if (sessionMobile) {
+      dstnConditions.push({ driver: { mobileNumber: sessionMobile } });
+    }
+    const dstnDriverFilter = isDriverOnly && dstnConditions.length > 0 ? { OR: dstnConditions } : {};
 
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
 
-    // 1. Active Dispatched Deliveries (Awaiting Delivery & Receiver Sign-off)
-    const activeDeliveries = await db.deliveryNote.findMany({
-      where: {
-        status: "DISPATCHED",
-        ...dnDriverFilter,
-      },
-      include: {
-        customer: { select: { id: true, name: true, primaryMobile: true, whatsappNumber: true } },
-        customerSite: { select: { id: true, siteName: true, fullAddress: true, siteContactDetails: true, siteInCharge: true, gpsLatitude: true, gpsLongitude: true } },
-        sourceWarehouse: { select: { id: true, name: true } },
-        items: {
-          include: {
-            materialVariant: { select: { id: true, name: true, size: true, uom: true, materialCode: true } },
+    // Parallel Execution of all independent queries (prevents serial network roundtrips)
+    const [
+      activeDeliveries,
+      completedToday,
+      activePickups,
+      completedPickupsToday,
+      warehouseUsers,
+      allWarehouses,
+      assignedTrips,
+      activeDirectTransfers,
+    ] = await Promise.all([
+      // 1. Active Dispatched Deliveries (Awaiting Delivery & Receiver Sign-off)
+      db.deliveryNote.findMany({
+        where: {
+          status: "DISPATCHED",
+          ...dnDriverFilter,
+        },
+        select: {
+          id: true,
+          dnNumber: true,
+          deliveryDate: true,
+          status: true,
+          notes: true,
+          vehicleNumber: true,
+          driverName: true,
+          driverPhone: true,
+          customer: { select: { id: true, name: true, primaryMobile: true, whatsappNumber: true } },
+          customerSite: {
+            select: {
+              id: true,
+              siteName: true,
+              fullAddress: true,
+              siteContactDetails: true,
+              siteInCharge: true,
+              gpsLatitude: true,
+              gpsLongitude: true,
+            },
+          },
+          sourceWarehouse: { select: { id: true, name: true } },
+          items: {
+            select: {
+              id: true,
+              quantity: true,
+              materialVariant: { select: { id: true, name: true, size: true, uom: true, materialCode: true } },
+            },
           },
         },
-        evidences: true,
-      },
-      orderBy: { deliveryDate: "asc" },
-    });
+        orderBy: { deliveryDate: "asc" },
+      }),
 
-    // 2. Deliveries Completed Today
-    const completedToday = await db.deliveryNote.findMany({
-      where: {
-        status: "DELIVERED",
-        deliveredAt: { gte: startOfToday },
-        ...dnDriverFilter,
-      },
-      include: {
-        customer: { select: { id: true, name: true } },
-        customerSite: { select: { id: true, siteName: true } },
-        items: {
-          include: {
-            materialVariant: { select: { id: true, name: true, size: true, uom: true } },
+      // 2. Deliveries Completed Today
+      db.deliveryNote.findMany({
+        where: {
+          status: "DELIVERED",
+          deliveredAt: { gte: startOfToday },
+          ...dnDriverFilter,
+        },
+        select: {
+          id: true,
+          dnNumber: true,
+          deliveredAt: true,
+          status: true,
+          customer: { select: { id: true, name: true } },
+          customerSite: { select: { id: true, siteName: true } },
+          items: {
+            select: {
+              id: true,
+              quantity: true,
+              materialVariant: { select: { id: true, name: true, size: true, uom: true } },
+            },
           },
         },
-      },
-      orderBy: { deliveredAt: "desc" },
-    });
+        orderBy: { deliveredAt: "desc" },
+        take: 20,
+      }),
 
-    // 3. Active Material Pickups / Returns (Assigned to driver, en-route, arrived at site, or returning to yard)
-    const activePickups = await db.materialReturnNote.findMany({
-      where: {
-        status: {
-          in: [
-            "ASSIGNED",
-            "EN_ROUTE",
-            "ARRIVED_AT_SITE",
-            "PICKUP_IN_PROGRESS",
-            "PICKUP_COMPLETED",
-            "IN_TRANSIT",
-            "ARRIVED_AT_YARD",
-          ],
+      // 3. Active Material Pickups / Returns (Assigned to driver, en-route, arrived at site, or returning to yard)
+      db.materialReturnNote.findMany({
+        where: {
+          status: {
+            in: [
+              "ASSIGNED",
+              "EN_ROUTE",
+              "ARRIVED_AT_SITE",
+              "PICKUP_IN_PROGRESS",
+              "PICKUP_COMPLETED",
+              "IN_TRANSIT",
+              "ARRIVED_AT_YARD",
+            ],
+          },
+          ...mrnDriverFilter,
         },
-        ...mrnDriverFilter,
-      },
-      include: {
-        customer: { select: { id: true, name: true, primaryMobile: true, whatsappNumber: true } },
-        customerSite: { select: { id: true, siteName: true, fullAddress: true, siteContactDetails: true, siteInCharge: true, gpsLatitude: true, gpsLongitude: true } },
-        receivingWarehouse: { select: { id: true, name: true, addressLine1: true, city: true, contactPerson: true, mobile: true } },
-        referenceDeliveryNote: { select: { id: true, dnNumber: true } },
-        vehicleTrip: {
-          select: {
-            id: true,
-            tripNumber: true,
-            status: true,
-            startOdometer: true,
-            endOdometer: true,
-            distanceKm: true,
-            driver: { select: { id: true, name: true, driverCode: true, mobileNumber: true } },
-            vehicle: { select: { id: true, vehicleNumber: true, make: true, model: true } },
+        select: {
+          id: true,
+          mrnNumber: true,
+          returnDate: true,
+          status: true,
+          remarks: true,
+          vehicleNumber: true,
+          driverName: true,
+          driverPhone: true,
+          siteArrivedAt: true,
+          pickupCompletedAt: true,
+          yardArrivedAt: true,
+          customer: { select: { id: true, name: true, primaryMobile: true, whatsappNumber: true } },
+          customerSite: {
+            select: {
+              id: true,
+              siteName: true,
+              fullAddress: true,
+              siteContactDetails: true,
+              siteInCharge: true,
+              gpsLatitude: true,
+              gpsLongitude: true,
+            },
+          },
+          receivingWarehouse: {
+            select: {
+              id: true,
+              name: true,
+              addressLine1: true,
+              city: true,
+              contactPerson: true,
+              mobile: true,
+            },
+          },
+          referenceDeliveryNote: { select: { id: true, dnNumber: true } },
+          vehicleTrip: {
+            select: {
+              id: true,
+              tripNumber: true,
+              status: true,
+              startOdometer: true,
+              endOdometer: true,
+              distanceKm: true,
+              driver: { select: { id: true, name: true, driverCode: true, mobileNumber: true } },
+              vehicle: { select: { id: true, vehicleNumber: true, make: true, model: true } },
+            },
+          },
+          items: {
+            select: {
+              id: true,
+              returnedQty: true,
+              acceptedQty: true,
+              damagedQty: true,
+              missingQty: true,
+              condition: true,
+              remarks: true,
+              materialVariant: { select: { id: true, name: true, size: true, uom: true, materialCode: true } },
+            },
           },
         },
-        items: {
-          include: {
-            materialVariant: { select: { id: true, name: true, size: true, uom: true, materialCode: true } },
-          },
-        },
-        evidences: true,
-      },
-      orderBy: { returnDate: "asc" },
-    });
+        orderBy: { returnDate: "asc" },
+      }),
 
-    // 4. Material Pickups Completed Today (Handed over to warehouse, inspected, or posted today)
-    const completedPickupsToday = await db.materialReturnNote.findMany({
-      where: {
-        status: {
-          in: [
-            "HANDED_OVER_TO_WAREHOUSE",
-            "AWAITING_INSPECTION",
-            "INSPECTION_COMPLETED",
-            "POSTED",
-            "FINALIZED",
-          ],
+      // 4. Material Pickups Completed Today (Handed over to warehouse, inspected, or posted today)
+      db.materialReturnNote.findMany({
+        where: {
+          status: {
+            in: [
+              "HANDED_OVER_TO_WAREHOUSE",
+              "AWAITING_INSPECTION",
+              "INSPECTION_COMPLETED",
+              "POSTED",
+              "FINALIZED",
+            ],
+          },
+          updatedAt: { gte: startOfToday },
+          ...mrnDriverFilter,
         },
-        updatedAt: { gte: startOfToday },
-        ...mrnDriverFilter,
-      },
-      include: {
-        customer: { select: { id: true, name: true } },
-        customerSite: { select: { id: true, siteName: true } },
-        receivingWarehouse: { select: { id: true, name: true, contactPerson: true, mobile: true } },
-        vehicleTrip: {
-          select: {
-            id: true,
-            tripNumber: true,
-            vehicle: { select: { vehicleNumber: true } },
+        select: {
+          id: true,
+          mrnNumber: true,
+          updatedAt: true,
+          status: true,
+          customer: { select: { id: true, name: true } },
+          customerSite: { select: { id: true, siteName: true } },
+          receivingWarehouse: { select: { id: true, name: true, contactPerson: true, mobile: true } },
+          vehicleTrip: {
+            select: {
+              id: true,
+              tripNumber: true,
+              vehicle: { select: { vehicleNumber: true } },
+            },
+          },
+          items: {
+            select: {
+              id: true,
+              returnedQty: true,
+              materialVariant: { select: { id: true, name: true, size: true, uom: true } },
+            },
           },
         },
-        items: {
-          include: {
-            materialVariant: { select: { id: true, name: true, size: true, uom: true } },
-          },
-        },
-      },
-      orderBy: { updatedAt: "desc" },
-    });
+        orderBy: { updatedAt: "desc" },
+        take: 20,
+      }),
 
-    // 5. Fetch Yard Receiving Personnel / Warehouse Staff from DB for automatic autofill
-    const [warehouseUsers, allWarehouses, recentReceivers] = await Promise.all([
+      // 5a. Fetch Yard Receiving Personnel / Warehouse Staff from DB for automatic autofill
       db.user.findMany({
         where: {
           isActive: true,
@@ -197,7 +296,10 @@ export async function GET(req: NextRequest) {
           warehouse: { select: { id: true, name: true } },
         },
         orderBy: { name: "asc" },
+        take: 25,
       }),
+
+      // 5b. Fetch Warehouses for Receiver Options
       db.warehouse.findMany({
         where: { isActive: true },
         select: {
@@ -208,18 +310,91 @@ export async function GET(req: NextRequest) {
           warehouseType: true,
         },
         orderBy: { name: "asc" },
+        take: 15,
       }),
-      db.materialReturnNote.findMany({
-        where: { receiverName: { not: null } },
+
+      // 6. Fetch Driver's Assigned Trips
+      db.vehicleTrip.findMany({
+        where: tripDriverFilter,
         select: {
-          receiverName: true,
-          receiverDesignation: true,
-          receiverPhone: true,
-          receivingWarehouseId: true,
+          id: true,
+          tripNumber: true,
+          status: true,
+          tripDate: true,
+          startOdometer: true,
+          endOdometer: true,
+          distanceKm: true,
+          vehicle: { select: { id: true, vehicleNumber: true, make: true, model: true } },
+          driver: { select: { id: true, name: true, driverCode: true, mobileNumber: true } },
+          originWarehouse: { select: { id: true, name: true } },
+          destinationSite: { select: { id: true, siteName: true } },
+          returnNotes: { select: { id: true, mrnNumber: true, status: true } },
+          deliveryNotes: {
+            select: {
+              id: true,
+              deliveryNote: { select: { id: true, dnNumber: true, status: true } },
+            },
+          },
         },
-        distinct: ["receiverName"],
-        orderBy: { updatedAt: "desc" },
+        orderBy: { tripDate: "desc" },
         take: 10,
+      }),
+
+      // 7. Active Direct Site-to-Site Transfers assigned to driver
+      db.directSiteTransferNote.findMany({
+        where: {
+          status: {
+            in: [
+              "DRAFT",
+              "SOURCE_PICKUP_PENDING",
+              "SOURCE_PICKUP_COMPLETED",
+              "IN_TRANSIT",
+              "DESTINATION_DELIVERED",
+              "GODOWN_RETURN_PENDING",
+            ],
+          },
+          ...dstnDriverFilter,
+        },
+        select: {
+          id: true,
+          transferNumber: true,
+          status: true,
+          transferDate: true,
+          sourceCustomer: { select: { id: true, name: true, primaryMobile: true, whatsappNumber: true } },
+          sourceCustomerSite: {
+            select: {
+              id: true,
+              siteName: true,
+              fullAddress: true,
+              siteContactDetails: true,
+              siteInCharge: true,
+              gpsLatitude: true,
+              gpsLongitude: true,
+            },
+          },
+          destinationCustomer: { select: { id: true, name: true, primaryMobile: true, whatsappNumber: true } },
+          destinationCustomerSite: {
+            select: {
+              id: true,
+              siteName: true,
+              fullAddress: true,
+              siteContactDetails: true,
+              siteInCharge: true,
+              gpsLatitude: true,
+              gpsLongitude: true,
+            },
+          },
+          vehicle: { select: { id: true, vehicleNumber: true, make: true, model: true } },
+          driver: { select: { id: true, name: true, driverCode: true, mobileNumber: true } },
+          items: {
+            select: {
+              id: true,
+              quantityDispatched: true,
+              materialVariant: { select: { id: true, name: true, size: true, uom: true, materialCode: true } },
+            },
+          },
+        },
+        orderBy: { transferDate: "asc" },
       }),
     ]);
 
@@ -268,95 +443,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    for (const r of recentReceivers) {
-      if (r.receiverName && !receiversMap.has(r.receiverName.toLowerCase().trim())) {
-        receiversMap.set(r.receiverName.toLowerCase().trim(), {
-          id: `mrn-${r.receiverName.toLowerCase().trim()}`,
-          name: r.receiverName.trim(),
-          designation: r.receiverDesignation || "Yard In-Charge",
-          phone: r.receiverPhone || "",
-          warehouseId: r.receivingWarehouseId,
-          warehouseName: "",
-        });
-      }
-    }
-
     const yardReceivers = Array.from(receiversMap.values());
-
-    // 6. Fetch Driver's Assigned Trips
-    const tripConditions: any[] = [];
-    if (sessionName) {
-      tripConditions.push({ driver: { name: { contains: sessionName, mode: "insensitive" } } });
-    }
-    if (sessionMobile) {
-      tripConditions.push({ driver: { mobileNumber: sessionMobile } });
-    }
-    if (session?.id) {
-      tripConditions.push({ createdById: session.id });
-    }
-    const tripDriverFilter = isDriverOnly && tripConditions.length > 0 ? { OR: tripConditions } : {};
-
-    const assignedTrips = await db.vehicleTrip.findMany({
-      where: tripDriverFilter,
-      include: {
-        vehicle: { select: { id: true, vehicleNumber: true, make: true, model: true } },
-        driver: { select: { id: true, name: true, driverCode: true, mobileNumber: true } },
-        originWarehouse: { select: { id: true, name: true } },
-        destinationSite: { select: { id: true, siteName: true } },
-        returnNotes: { select: { id: true, mrnNumber: true, status: true } },
-        deliveryNotes: {
-          include: {
-            deliveryNote: { select: { id: true, dnNumber: true, status: true } },
-          },
-        },
-      },
-      orderBy: { tripDate: "desc" },
-      take: 15,
-    });
-
-    // 6. Active Direct Site-to-Site Transfers assigned to driver
-    const dstnConditions: any[] = [];
-    if (sessionName) {
-      dstnConditions.push({ driver: { name: { contains: sessionName, mode: "insensitive" } } });
-    }
-    if (sessionMobile) {
-      dstnConditions.push({ driver: { mobileNumber: sessionMobile } });
-    }
-    const dstnDriverFilter = isDriverOnly && dstnConditions.length > 0 ? { OR: dstnConditions } : {};
-
-    const activeDirectTransfers = await db.directSiteTransferNote.findMany({
-      where: {
-        status: {
-          in: [
-            "DRAFT",
-            "SOURCE_PICKUP_PENDING",
-            "SOURCE_PICKUP_COMPLETED",
-            "IN_TRANSIT",
-            "DESTINATION_DELIVERED",
-            "GODOWN_RETURN_PENDING",
-          ],
-        },
-        ...dstnDriverFilter,
-      },
-      include: {
-        sourceCustomer: { select: { id: true, name: true, primaryMobile: true, whatsappNumber: true } },
-        sourceCustomerSite: { select: { id: true, siteName: true, fullAddress: true, siteContactDetails: true, siteInCharge: true, gpsLatitude: true, gpsLongitude: true } },
-        destinationCustomer: { select: { id: true, name: true, primaryMobile: true, whatsappNumber: true } },
-        destinationCustomerSite: { select: { id: true, siteName: true, fullAddress: true, siteContactDetails: true, siteInCharge: true, gpsLatitude: true, gpsLongitude: true } },
-        vehicle: { select: { id: true, vehicleNumber: true, make: true, model: true } },
-        driver: { select: { id: true, name: true, driverCode: true, mobileNumber: true } },
-        vehicleTrip: true,
-        sourceMrn: true,
-        destinationDn: true,
-        godownMrn: true,
-        items: {
-          include: {
-            materialVariant: { select: { id: true, name: true, size: true, uom: true, materialCode: true } },
-          },
-        },
-      },
-      orderBy: { transferDate: "asc" },
-    });
 
     return NextResponse.json({
       success: true,
@@ -386,6 +473,10 @@ export async function GET(req: NextRequest) {
           completedPickupsCount: completedPickupsToday.length,
           assignedTripsCount: assignedTrips.length,
         },
+      },
+    }, {
+      headers: {
+        "Cache-Control": "private, no-cache, no-transform",
       },
     });
   } catch (error: any) {
