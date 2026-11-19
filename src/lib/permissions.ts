@@ -121,6 +121,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     fleet: ["view", "create", "edit", "approve", "export"],
     labour: ["view", "create", "edit", "approve", "export"],
     material_maintenance: ["view", "create", "edit", "approve", "export"],
+    direct_transfers: ["view", "create", "edit", "approve", "post", "cancel", "export"],
     reports: ["view", "export"],
     cutover: ["view", "create", "edit", "export"],
     pilot: ["view", "create", "edit", "approve", "export"],
@@ -153,6 +154,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     fleet: ["view", "create", "edit", "approve", "export"],
     labour: ["view", "create", "edit", "approve", "export"],
     material_maintenance: ["view", "create", "edit", "approve", "export"],
+    direct_transfers: ["view", "create", "edit", "approve", "post", "cancel", "export"],
     reports: ["view", "export"],
     cutover: ["view", "create", "edit", "export"],
     pilot: ["view", "create", "edit", "approve", "export"],
@@ -182,6 +184,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     rentals: ["view", "create", "edit", "approve", "post", "cancel", "export"],
     billing: ["view", "create", "edit", "approve", "post", "cancel", "export"],
     accounting: ["view", "create", "edit", "approve", "post", "cancel", "export"],
+    direct_transfers: ["view", "export"],
     fleet: ["view"],
     labour: ["view", "export"],
     reports: ["view", "export"],
@@ -215,6 +218,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     fleet: ["view"],
     labour: ["view", "create", "edit"],
     material_maintenance: ["view", "create", "edit", "approve", "post", "export"],
+    direct_transfers: ["view", "create", "edit", "approve", "post", "cancel", "export"],
     reports: ["view", "export"],
     cutover: ["view", "create", "edit"],
     pilot: ["view"],
@@ -246,6 +250,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     fleet: [],
     labour: [],
     material_maintenance: ["view", "create", "edit"],
+    direct_transfers: ["view", "edit"],
     reports: ["view"],
     training: ["view"],
   },
@@ -275,6 +280,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     fleet: ["view", "create", "edit", "approve", "export"],
     labour: [],
     material_maintenance: ["view"],
+    direct_transfers: ["view", "create", "edit", "approve", "export"],
     reports: ["view", "export"],
     pilot: ["view"],
     training: ["view"],
@@ -303,6 +309,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     billing: [],
     accounting: [],
     fleet: ["view", "create"],
+    direct_transfers: ["view", "edit", "post"],
     labour: [],
     material_maintenance: [],
     reports: [],
@@ -325,6 +332,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     billing: [],
     accounting: [],
     fleet: [],
+    direct_transfers: [],
     labour: ["view", "create", "edit", "approve", "export"],
     material_maintenance: ["view"],
     reports: ["view"],
@@ -357,6 +365,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     fleet: ["view", "export"],
     labour: ["view", "export"],
     material_maintenance: ["view", "export"],
+    direct_transfers: ["view", "export"],
     reports: ["view", "export"],
     cutover: ["view", "export"],
     pilot: ["view", "export"],
@@ -389,6 +398,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
     fleet: ["view"],
     labour: ["view"],
     material_maintenance: ["view"],
+    direct_transfers: ["view"],
     reports: ["view"],
     cutover: ["view", "export"],
     pilot: ["view", "export"],
@@ -397,9 +407,6 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, string[]>> = {
 };
 
 export async function initializeDefaultPermissions(): Promise<void> {
-  const count = await db.rolePermission.count();
-  if (count > 0) return;
-
   const records: Array<{ role: string; module: string; action: string; isAllowed: boolean }> = [];
 
   for (const roleObj of ROLES) {
@@ -420,7 +427,7 @@ export async function initializeDefaultPermissions(): Promise<void> {
     }
   }
 
-  // Batch insert
+  // Ensure all module permissions exist in DB (upsert missing combinations)
   for (const r of records) {
     await db.rolePermission.upsert({
       where: {
@@ -430,7 +437,7 @@ export async function initializeDefaultPermissions(): Promise<void> {
           action: r.action,
         },
       },
-      update: { isAllowed: r.isAllowed },
+      update: {},
       create: r,
     });
   }

@@ -336,6 +336,29 @@ export default function DirectTransferDetailPage() {
     }
   };
 
+  const hasAutoOpened = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!transfer || typeof window === "undefined" || hasAutoOpened.current) return;
+
+    const actionParam = new URLSearchParams(window.location.search).get("action");
+    if (!actionParam) return;
+
+    if (actionParam === "pickup" && ["DRAFT", "SOURCE_PICKUP_PENDING"].includes(transfer.status)) {
+      hasAutoOpened.current = true;
+      openDispatchModal();
+    } else if (
+      actionParam === "deliver" &&
+      ["SOURCE_PICKUP_COMPLETED", "IN_TRANSIT", "DISPATCHED"].includes(transfer.status)
+    ) {
+      hasAutoOpened.current = true;
+      openReceiveModal();
+    } else if (actionParam === "godown" && transfer.status === "GODOWN_RETURN_PENDING") {
+      hasAutoOpened.current = true;
+      setIsGodownModalOpen(true);
+    }
+  }, [transfer]);
+
   const handleDispatch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!dispatchForm.sourceRepName) {

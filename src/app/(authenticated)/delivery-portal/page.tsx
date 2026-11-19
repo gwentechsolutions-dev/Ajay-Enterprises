@@ -1505,7 +1505,13 @@ function DeliveryPortalContent({
                                   </Button>
                                   <Button
                                     size="sm"
-                                    onClick={() => router.push(`/operations/direct-transfers/${dstn.id}`)}
+                                    onClick={() =>
+                                      router.push(
+                                        `/operations/direct-transfers/${dstn.id}?action=${
+                                          isPickup ? "pickup" : isDelivery ? "deliver" : "godown"
+                                        }`
+                                      )
+                                    }
                                     className="flex-1 text-xs h-9 font-bold bg-[#0B1E36] hover:bg-[#1E293B] text-white"
                                   >
                                     <Camera className="h-3.5 w-3.5 mr-1 text-orange-400" />
