@@ -127,17 +127,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       grandTotalFormatted
     )}&status=${encodeURIComponent(invoice.paymentStatus || "UNPAID")}`;
 
+    const isNonGstBill = Number(invoice.totalTaxAmount) === 0;
+    const docTitle = isNonGstBill ? "Bill of Supply (Non-GST)" : "Tax Invoice";
+
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tax Invoice - ${invoice.invoiceNumber} | AJAY ENTERPRISES</title>
+  <title>${docTitle} - ${invoice.invoiceNumber} | AJAY ENTERPRISES</title>
 
   <!-- Open Graph / WhatsApp Social Preview Metadata -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="AJAY ENTERPRISES · INVENTRA ERP">
-  <meta property="og:title" content="Tax Invoice • ${invoice.invoiceNumber}">
+  <meta property="og:title" content="${docTitle} • ${invoice.invoiceNumber}">
   <meta property="og:description" content="Official Tax Invoice for ${invoice.customer?.name || "Customer"}${invoice.customerSite?.siteName ? ` (${invoice.customerSite.siteName})` : ""} • Total: Rs. ${grandTotalFormatted} — AJAY ENTERPRISES">
   <meta property="og:image" content="${ogImageUrl}">
   <meta property="og:image:secure_url" content="${ogImageUrl}">
@@ -202,7 +205,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   <!-- Screen Top Bar with Print Controls (Completely Hidden on Print / PDF export) -->
   <div class="no-print" style="position: sticky; top: 0; background: #0B1E36; color: white; padding: 10px 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.25); z-index: 9999; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
     <div style="display: flex; align-items: center; gap: 12px;">
-      <span style="font-weight: 700; font-size: 14px; letter-spacing: -0.2px;">Tax Invoice</span>
+      <span style="font-weight: 700; font-size: 14px; letter-spacing: -0.2px;">${isNonGstBill ? "Bill of Supply (Non-GST)" : "Tax Invoice"}</span>
       <span style="font-family: monospace; font-size: 13px; color: #94a3b8;">${invoice.invoiceNumber}</span>
       <span class="badge ${invoice.paymentStatus === "PAID" ? "status-paid" : "status-unpaid"}" style="font-size: 10px;">${invoice.paymentStatus}</span>
     </div>
@@ -228,11 +231,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       <p style="margin: 2px 0;"><strong>Phone:</strong> ${phone} | <strong>Email:</strong> ${email}</p>
     </div>
     <div style="text-align: right;">
-      <h2 style="margin: 0; font-size: 16px; color: #F26522; text-transform: uppercase;">TAX INVOICE</h2>
+      <h2 style="margin: 0; font-size: 16px; color: ${isNonGstBill ? "#0B1E36" : "#F26522"}; text-transform: uppercase;">
+        ${isNonGstBill ? "BILL OF SUPPLY (NON-GST)" : "TAX INVOICE"}
+      </h2>
       <p style="margin: 2px 0; font-size: 13px; font-weight: bold;">${invoice.invoiceNumber}</p>
       <p style="margin: 2px 0;"><strong>Date:</strong> ${new Date(invoice.invoiceDate).toLocaleDateString("en-IN")}</p>
       <p style="margin: 2px 0;"><strong>Due Date:</strong> ${new Date(invoice.dueDate).toLocaleDateString("en-IN")}</p>
-      <p style="margin: 2px 0;"><strong>Type:</strong> ${invoice.invoiceType}</p>
+      <p style="margin: 2px 0;"><strong>Type:</strong> ${invoice.invoiceType}${isNonGstBill ? " (Non-GST)" : ""}</p>
       <span class="badge ${invoice.paymentStatus === "PAID" ? "status-paid" : "status-unpaid"}">${invoice.paymentStatus}</span>
     </div>
   </div>
@@ -280,7 +285,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     ${Number(invoice.cgstAmount) > 0 ? `<div class="tot-row"><span>CGST:</span><span>₹${Number(invoice.cgstAmount).toFixed(2)}</span></div>` : ""}
     ${Number(invoice.sgstAmount) > 0 ? `<div class="tot-row"><span>SGST:</span><span>₹${Number(invoice.sgstAmount).toFixed(2)}</span></div>` : ""}
     ${Number(invoice.igstAmount) > 0 ? `<div class="tot-row"><span>IGST:</span><span>₹${Number(invoice.igstAmount).toFixed(2)}</span></div>` : ""}
-    <div class="tot-row"><span>Total Tax:</span><span>₹${Number(invoice.totalTaxAmount).toFixed(2)}</span></div>
+    ${isNonGstBill ? `<div class="tot-row" style="color: #64748b;"><span>GST / Tax:</span><span>₹0.00 (Non-GST / Exempt)</span></div>` : `<div class="tot-row"><span>Total Tax:</span><span>₹${Number(invoice.totalTaxAmount).toFixed(2)}</span></div>`}
     ${!Number(invoice.roundOff) === false ? `<div class="tot-row" style="color: #64748b;"><span>Round Off:</span><span>₹${Number(invoice.roundOff).toFixed(2)}</span></div>` : ""}
     <div class="tot-row" style="border-top: 2px solid #0B1E36; margin-top: 6px; padding-top: 4px; font-weight: bold; font-size: 13px; color: #0B1E36;">
       <span>Grand Total:</span><span>₹${Number(invoice.grandTotal).toFixed(2)}</span>
@@ -298,7 +303,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       <strong>Terms & Conditions:</strong><br/>
       1. Payment is due within the agreed payment terms.<br/>
       2. Rental charges continue until equipment is physically received back at our warehouse.<br/>
-      3. This is a computer-generated tax invoice.
+      3. This is a computer-generated ${isNonGstBill ? "bill of supply (non-taxable / exempt supply)" : "tax invoice"}.
     </div>
     <div class="sig-box" style="width: 240px; text-align: right; position: relative;">
       <div style="font-weight: bold; font-size: 10px; color: #0B1E36;">For ${companyName}</div>

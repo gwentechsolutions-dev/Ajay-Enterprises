@@ -13,6 +13,7 @@ import {
   AlertCircle,
   TrendingUp,
   ReceiptIndianRupee,
+  Receipt,
   ArrowRight,
   Filter,
   Truck,
@@ -47,10 +48,12 @@ export default function InvoicesPage() {
   const [search, setSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState("ALL");
   const [typeFilter, setTypeFilter] = React.useState("ALL");
+  const [taxFilter, setTaxFilter] = React.useState("ALL"); // ALL, GST, NON_GST
 
   // Convert Statement Modal
   const [isStatementModalOpen, setIsStatementModalOpen] = React.useState(false);
   const [selectedStatementId, setSelectedStatementId] = React.useState("");
+  const [taxTreatment, setTaxTreatment] = React.useState<"TAX_INVOICE" | "BILL_OF_SUPPLY">("TAX_INVOICE");
   const [invDate, setInvDate] = React.useState(() => new Date().toISOString().split("T")[0]);
   const [dueDate, setDueDate] = React.useState(() => {
     const d = new Date();
@@ -76,6 +79,7 @@ export default function InvoicesPage() {
       setTransportDescription("");
       setUnbilledDns([]);
       setUserEditedTransport(false);
+      setTaxTreatment("TAX_INVOICE");
       return;
     }
 
@@ -83,6 +87,13 @@ export default function InvoicesPage() {
     if (!st || !st.customerId) {
       setUnbilledDns([]);
       return;
+    }
+
+    // Auto-detect tax treatment based on customer GST registration status
+    if (st.customer?.gstStatus === "UNREGISTERED" || !st.customer?.gstin) {
+      setTaxTreatment("BILL_OF_SUPPLY");
+    } else {
+      setTaxTreatment("TAX_INVOICE");
     }
 
     let isMounted = true;
@@ -222,6 +233,7 @@ export default function InvoicesPage() {
           invoiceDate: invDate,
           dueDate,
           notes: invNotes || undefined,
+          taxTreatment,
           transportCharges: transportCharges ? parseFloat(transportCharges) : undefined,
           transportDescription: transportDescription || undefined,
         }),
@@ -232,6 +244,7 @@ export default function InvoicesPage() {
       }
       setIsStatementModalOpen(false);
       setSelectedStatementId("");
+      setTaxTreatment("TAX_INVOICE");
       setTransportCharges("");
       setTransportDescription("");
       setUnbilledDns([]);
@@ -255,8 +268,12 @@ export default function InvoicesPage() {
 
     const matchesStatus = statusFilter === "ALL" || inv.paymentStatus === statusFilter;
     const matchesType = typeFilter === "ALL" || inv.invoiceType === typeFilter;
+    const matchesTax =
+      taxFilter === "ALL" ||
+      (taxFilter === "GST" && Number(inv.totalTaxAmount ?? inv.totalTax ?? 0) > 0) ||
+      (taxFilter === "NON_GST" && Number(inv.totalTaxAmount ?? inv.totalTax ?? 0) === 0);
 
-    return matchesSearch && matchesStatus && matchesType;
+    return matchesSearch && matchesStatus && matchesType && matchesTax;
   });
 
   // Calculate totals
@@ -381,6 +398,17 @@ export default function InvoicesPage() {
                 <SelectItem value="SERVICE">Service Invoice</SelectItem>
               </SelectContent>
             </Select>
+
+            <Select value={taxFilter} onValueChange={setTaxFilter}>
+              <SelectTrigger className="w-[195px] bg-white">
+                <SelectValue placeholder="All Tax Treatments" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Tax Treatments</SelectItem>
+                <SelectItem value="GST">GST Tax Invoices</SelectItem>
+                <SelectItem value="NON_GST">Non-GST / Bill of Supply</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -437,15 +465,28 @@ export default function InvoicesPage() {
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-800">
                         {inv.invoiceType}
                       </span>
+                      {Number(inv.totalTaxAmount ?? inv.totalTax ?? 0) === 0 && (
+                        <span className="block mt-0.5 text-[10px] font-semibold text-emerald-700">
+                          Bill of Supply
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right font-medium text-slate-700">
                       ₹{Number(inv.taxableAmount ?? inv.subtotal ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-4 py-3 text-right text-xs text-slate-600">
-                      <div>₹{Number(inv.totalTaxAmount ?? inv.totalTax ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
-                      <div className="text-[10px] text-slate-400">
-                        {inv.isInterState ? "IGST" : "CGST+SGST"}
-                      </div>
+                      {Number(inv.totalTaxAmount ?? inv.totalTax ?? 0) === 0 ? (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          0% Non-GST
+                        </span>
+                      ) : (
+                        <>
+                          <div>₹{Number(inv.totalTaxAmount ?? inv.totalTax ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
+                          <div className="text-[10px] text-slate-400">
+                            {inv.isInterState ? "IGST" : "CGST+SGST"}
+                          </div>
+                        </>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right font-bold text-[#0B1E36]">
                       ₹{Number(inv.grandTotal ?? inv.totalAmount ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
@@ -560,6 +601,63 @@ export default function InvoicesPage() {
               )}
             </div>
 
+            {/* Tax Treatment / Bill Type Selector */}
+            <div className="p-3 bg-slate-50/80 border border-slate-200 rounded-xl space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                  <Receipt className="h-4 w-4 text-[#0B1E36]" />
+                  Tax Treatment / Bill Type *
+                </Label>
+                {selectedStatement?.customer?.gstStatus === "UNREGISTERED" && (
+                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                    Unregistered Customer
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                <div
+                  onClick={() => setTaxTreatment("TAX_INVOICE")}
+                  className={cn(
+                    "flex flex-col p-2.5 rounded-lg border text-xs cursor-pointer transition-all",
+                    taxTreatment === "TAX_INVOICE"
+                      ? "border-[#0B1E36] bg-[#0B1E36]/5 text-slate-900 ring-1 ring-[#0B1E36]"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                  )}
+                >
+                  <div className="flex items-center justify-between font-bold">
+                    <span>Tax Invoice</span>
+                    <span className="text-[10px] font-semibold text-[#F26522] bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200">
+                      Standard 18% GST
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-500 mt-1">
+                    Adds CGST+SGST / IGST tax lines. For GST-registered clients.
+                  </span>
+                </div>
+
+                <div
+                  onClick={() => setTaxTreatment("BILL_OF_SUPPLY")}
+                  className={cn(
+                    "flex flex-col p-2.5 rounded-lg border text-xs cursor-pointer transition-all",
+                    taxTreatment === "BILL_OF_SUPPLY"
+                      ? "border-emerald-600 bg-emerald-50/60 text-slate-900 ring-1 ring-emerald-600"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                  )}
+                >
+                  <div className="flex items-center justify-between font-bold">
+                    <span>Bill of Supply</span>
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                      0% GST (Non-Taxable)
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-500 mt-1">
+                    No GST added (Total = Rental). For unregistered & small vendors.
+                  </span>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label className="text-xs font-medium text-slate-700">Invoice Date *</Label>
@@ -660,11 +758,25 @@ export default function InvoicesPage() {
             </div>
 
             <div className="bg-slate-50 p-3 rounded-md text-xs text-slate-600 border border-slate-200 space-y-1">
-              <div className="font-semibold text-slate-700">Automated Accounting & Tax Posting:</div>
+              <div className="font-semibold text-slate-700">
+                {taxTreatment === "BILL_OF_SUPPLY"
+                  ? "Automated Non-GST Bill of Supply Posting:"
+                  : "Automated Tax Invoice & GST Posting:"}
+              </div>
               <ul className="list-disc list-inside space-y-0.5 text-slate-500">
-                <li>Generates sequential tax invoice number (INV-YYYY-NNNN).</li>
-                <li>Calculates CGST/SGST (intra-state) or IGST (inter-state) with paise round-off.</li>
-                <li>Posts General Ledger journal: Debits Accounts Receivable (1030), Credits Rental Income (4010), Credits Transportation Income (4050/4030 if freight charged), Credits GST Output Liability (2041/2042/2043).</li>
+                <li>Generates sequential invoice series number (INV-YYYY-NNNN).</li>
+                {taxTreatment === "BILL_OF_SUPPLY" ? (
+                  <>
+                    <li>No GST will be charged (0% tax rate). Taxable = Grand Total.</li>
+                    <li>Posts GL journal: Debits Accounts Receivable (1030), Credits Rental Income (4010). Zero tax liability posted.</li>
+                    <li>Renders statutory Bill of Supply (Non-GST) for client print & PDF.</li>
+                  </>
+                ) : (
+                  <>
+                    <li>Calculates CGST/SGST (intra-state) or IGST (inter-state) with paise round-off.</li>
+                    <li>Posts GL journal: Debits Accounts Receivable (1030), Credits Rental Income (4010), Credits GST Output Liability (2041/2042/2043).</li>
+                  </>
+                )}
                 <li>Freezes finalized snapshot payload ensuring immutable financial records.</li>
               </ul>
             </div>
@@ -683,10 +795,10 @@ export default function InvoicesPage() {
                 type="submit"
                 disabled={isSubmitting}
                 isLoading={isSubmitting}
-                loadingText="Generating Tax Invoice..."
+                loadingText={taxTreatment === "BILL_OF_SUPPLY" ? "Generating Bill of Supply..." : "Generating Tax Invoice..."}
                 className="bg-[#F26522] hover:bg-[#EA580C] text-white"
               >
-                Generate Tax Invoice
+                {taxTreatment === "BILL_OF_SUPPLY" ? "Generate Bill of Supply (Non-GST)" : "Generate Tax Invoice"}
               </Button>
             </DialogFooter>
           </form>
@@ -769,6 +881,12 @@ export default function InvoicesPage() {
                   <span className="text-slate-500">Taxable Subtotal:</span>
                   <span className="font-semibold">₹{Number(activeInvoice.taxableAmount ?? activeInvoice.subtotal ?? 0).toFixed(2)}</span>
                 </div>
+                {Number(activeInvoice.totalTaxAmount ?? activeInvoice.totalTax ?? 0) === 0 && (
+                  <div className="flex justify-between text-emerald-700 font-medium">
+                    <span>Tax (GST):</span>
+                    <span>₹0.00 (Bill of Supply / Exempt)</span>
+                  </div>
+                )}
                 {Number(activeInvoice.cgstAmount ?? activeInvoice.totalCgst ?? 0) > 0 && (
                   <div className="flex justify-between text-slate-600">
                     <span>CGST (9%):</span>

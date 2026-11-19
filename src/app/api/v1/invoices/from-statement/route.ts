@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
       invoiceDate: reqInvDate,
       dueDate: reqDueDate,
       notes,
+      taxTreatment = "TAX_INVOICE",
       transportCharges: reqTransport,
       transportDescription,
     } = parsed.data;
@@ -114,10 +115,18 @@ export async function POST(req: NextRequest) {
     const placeOfSupply = posResult.placeOfSupply;
     const isInterState = posResult.isInterState;
 
-    // Resolve applicable GST rates and confirmed HSN/SAC classifications
-    const rentalGstRate = await resolveApplicableGstRate({ category: "RENTAL", transactionDate: invoiceDate });
-    const repairGstRate = await resolveApplicableGstRate({ category: "REPAIR", transactionDate: invoiceDate });
-    const replacementGstRate = await resolveApplicableGstRate({ category: "EQUIPMENT_SUPPLY", transactionDate: invoiceDate });
+    const isBillOfSupply = taxTreatment === "BILL_OF_SUPPLY";
+
+    // Resolve applicable GST rates and confirmed HSN/SAC classifications (0% if Bill of Supply / Non-GST)
+    const rentalGstRate = isBillOfSupply
+      ? new Prisma.Decimal(0)
+      : await resolveApplicableGstRate({ category: "RENTAL", transactionDate: invoiceDate });
+    const repairGstRate = isBillOfSupply
+      ? new Prisma.Decimal(0)
+      : await resolveApplicableGstRate({ category: "REPAIR", transactionDate: invoiceDate });
+    const replacementGstRate = isBillOfSupply
+      ? new Prisma.Decimal(0)
+      : await resolveApplicableGstRate({ category: "EQUIPMENT_SUPPLY", transactionDate: invoiceDate });
 
     const rentalHsn = validateAndResolveHsnSac("9973");
     const damageHsn = validateAndResolveHsnSac("9987");
@@ -235,11 +244,13 @@ export async function POST(req: NextRequest) {
 
     if (transportDecimal.gt(0)) {
       const transportHsn = validateAndResolveHsnSac("9965");
-      const transportGstRate = await resolveApplicableGstRate({
-        category: "TRANSPORT",
-        transactionDate: invoiceDate,
-        overrideRate: 5,
-      });
+      const transportGstRate = isBillOfSupply
+        ? new Prisma.Decimal(0)
+        : await resolveApplicableGstRate({
+            category: "TRANSPORT",
+            transactionDate: invoiceDate,
+            overrideRate: 5,
+          });
       const gstTransport = calculateGst({
         taxableValue: transportDecimal,
         gstRatePercent: transportGstRate,
@@ -335,7 +346,7 @@ export async function POST(req: NextRequest) {
             outstandingAmount: roundedTotal,
             paymentStatus: "UNPAID",
             status: "POSTED",
-            notes: notes || `Generated from Statement ${statement.statementNumber}`,
+            notes: notes || (isBillOfSupply ? `Bill of Supply (Non-GST) generated from Statement ${statement.statementNumber}` : `Generated from Statement ${statement.statementNumber}`),
             createdById: actor.id,
             postedById: actor.id,
             postedAt: new Date(),
@@ -421,7 +432,7 @@ export async function POST(req: NextRequest) {
       const journal = await postJournalEntry(
         {
           journalType: "SALES",
-          narration: `Monthly Rental Tax Invoice ${invoiceNumber} against Statement ${statement.statementNumber}`,
+          narration: `${isBillOfSupply ? "Monthly Rental Bill of Supply (Non-GST)" : "Monthly Rental Tax Invoice"} ${invoiceNumber} against Statement ${statement.statementNumber}`,
           referenceDocumentType: "INVOICE",
           referenceDocumentId: inv.id,
           referenceNumber: invoiceNumber,
@@ -436,6 +447,8 @@ export async function POST(req: NextRequest) {
         frozenAt: new Date().toISOString(),
         invoiceNumber,
         statementNumber: statement.statementNumber,
+        taxTreatment: isBillOfSupply ? "BILL_OF_SUPPLY" : "TAX_INVOICE",
+        isBillOfSupply,
         billingCycle: {
           periodStart: statement.periodStartDate,
           periodEnd: statement.periodEndDate,
