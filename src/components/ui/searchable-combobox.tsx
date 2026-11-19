@@ -129,19 +129,19 @@ export function SearchableCombobox({
       >
         <div className="flex items-center gap-2 truncate min-w-0 flex-1 text-left">
           {selectedOption ? (
-            <div className="flex items-center gap-2 truncate min-w-0 flex-1">
-              <span className="font-medium text-slate-900 truncate">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <span className="font-medium text-slate-900 truncate" title={selectedOption.label}>
                 {selectedOption.label}
               </span>
               {selectedOption.badge && (
-                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 shrink-0">
+                <span className="hidden sm:inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 shrink-0">
                   {selectedOption.badge}
                 </span>
               )}
             </div>
           ) : isCustomValue ? (
-            <div className="flex items-center gap-2 truncate min-w-0 flex-1">
-              <span className="font-medium text-slate-900 truncate">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <span className="font-medium text-slate-900 truncate" title={value}>
                 {value}
               </span>
               <span className="rounded bg-orange-100 text-[#F26522] px-1.5 py-0.5 text-[10px] font-semibold shrink-0">
@@ -172,7 +172,7 @@ export function SearchableCombobox({
 
       {/* Popover Dropdown */}
       {isOpen && (
-        <div className="absolute z-50 mt-1 max-h-72 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg animate-in fade-in-50 zoom-in-95">
+        <div className="absolute z-50 mt-1 max-h-72 min-w-[280px] sm:min-w-[320px] w-full max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl animate-in fade-in-50 zoom-in-95">
           {/* Search Box */}
           <div className="flex items-center border-b border-slate-100 px-3 py-2 bg-slate-50/50">
             <Search className="mr-2 h-4 w-4 shrink-0 text-slate-400" />
@@ -254,16 +254,16 @@ export function SearchableCombobox({
                             : "text-slate-800 hover:bg-slate-100 hover:text-slate-900"
                         )}
                       >
-                        <div className="flex flex-col truncate pr-2">
-                          <span className="truncate">{opt.label}</span>
+                        <div className="flex flex-col min-w-0 flex-1 pr-2">
+                          <span className="font-medium truncate" title={opt.label}>{opt.label}</span>
                           {opt.sublabel && (
-                            <span className="text-xs text-slate-500 font-normal truncate">
+                            <span className="text-xs text-slate-500 font-normal truncate" title={opt.sublabel}>
                               {opt.sublabel}
                             </span>
                           )}
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-2 shrink-0 ml-2">
                           {opt.badge && (
                             <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
                               {opt.badge}

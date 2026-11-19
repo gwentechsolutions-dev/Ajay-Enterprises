@@ -893,49 +893,52 @@ export default function DirectTransferDetailPage() {
               disabled={submitting}
               className={cn("space-y-4 border-0 p-0 m-0 min-w-0 transition-opacity", submitting && "pointer-events-none opacity-60")}
             >
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <Label className="text-xs font-medium">Receiver Name *</Label>
-                  <button
-                    type="button"
-                    onClick={() => setIsManualDestRepInput(!isManualDestRepInput)}
-                    className="text-[10px] text-[#F26522] hover:underline font-semibold cursor-pointer"
-                  >
-                    {isManualDestRepInput ? "← Select" : "+ Custom"}
-                  </button>
-                </div>
-                {isManualDestRepInput ? (
-                  <Input
-                    placeholder="Receiver Name"
-                    value={receiveForm.destRepName}
-                    onChange={(e) => setReceiveForm({ ...receiveForm, destRepName: e.target.value })}
-                    className="mt-1"
-                    autoFocus
-                    required
-                  />
-                ) : (
-                  <SearchableCombobox
-                    options={destRepOptions}
-                    value={receiveForm.destRepName}
-                    onChange={handleSelectDestRep}
-                    placeholder={
-                      destRepOptions.length > 0
-                        ? "Select receiver..."
-                        : "Type receiver name..."
-                    }
-                    searchPlaceholder="Search receiver contacts or type new..."
-                    emptyText="No contacts found. Press Enter to use as custom name."
-                    allowCustomValue={true}
-                    customBadge="MANUAL"
-                    className="mt-1"
-                  />
-                )}
+            {/* Receiver Contact Information */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <Label className="text-xs font-medium">Receiver Name *</Label>
+                <button
+                  type="button"
+                  onClick={() => setIsManualDestRepInput(!isManualDestRepInput)}
+                  className="text-[11px] text-[#F26522] hover:underline font-semibold cursor-pointer"
+                >
+                  {isManualDestRepInput ? "← Select from contacts" : "+ Enter custom name"}
+                </button>
               </div>
+
+              {isManualDestRepInput ? (
+                <Input
+                  placeholder="Enter receiver name manually..."
+                  value={receiveForm.destRepName}
+                  onChange={(e) => setReceiveForm({ ...receiveForm, destRepName: e.target.value })}
+                  className="mt-1"
+                  autoFocus
+                  required
+                />
+              ) : (
+                <SearchableCombobox
+                  options={destRepOptions}
+                  value={receiveForm.destRepName}
+                  onChange={handleSelectDestRep}
+                  placeholder={
+                    destRepOptions.length > 0
+                      ? "Select destination site receiver or type name..."
+                      : "Type receiver name..."
+                  }
+                  searchPlaceholder="Search receiver contacts or type new name..."
+                  emptyText="No contacts found. Press Enter or click below to use as custom name."
+                  allowCustomValue={true}
+                  customBadge="MANUAL"
+                  className="mt-1"
+                />
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs font-medium">Phone</Label>
                 <Input
-                  placeholder="Phone"
+                  placeholder="9876543210"
                   value={receiveForm.destRepPhone}
                   onChange={(e) => setReceiveForm({ ...receiveForm, destRepPhone: e.target.value })}
                   className="mt-1"
@@ -944,7 +947,7 @@ export default function DirectTransferDetailPage() {
               <div>
                 <Label className="text-xs font-medium">Designation</Label>
                 <Input
-                  placeholder="Designation"
+                  placeholder="Site In-Charge / Receiver"
                   value={receiveForm.destRepDesignation}
                   onChange={(e) => setReceiveForm({ ...receiveForm, destRepDesignation: e.target.value })}
                   className="mt-1"
