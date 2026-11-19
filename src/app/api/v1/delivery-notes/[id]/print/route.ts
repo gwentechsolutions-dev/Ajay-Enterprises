@@ -25,12 +25,29 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         items: {
           include: { materialVariant: true },
         },
+        directTransfersAsDest: {
+          include: {
+            sourceCustomer: true,
+            sourceCustomerSite: true,
+          },
+        },
       },
     });
 
     if (!dn) {
       return new Response("Delivery Note not found", { status: 404 });
     }
+
+    const dstn = dn.directTransfersAsDest?.[0];
+    const isDirect = dn.isDirectTransfer || Boolean(dstn);
+
+    const secondaryPartyTitle = isDirect
+      ? "DELIVERY CONSTRUCTION SITE (DIRECT TRANSFER)"
+      : "Delivery Construction Site";
+
+    const secondaryPartyAddress = isDirect && dstn
+      ? `Source: ${dstn.sourceCustomerSite.siteName} (${dstn.sourceCustomer.name}) | Delivery: ${dn.customerSite.fullAddress || "N/A"}`
+      : dn.customerSite.fullAddress;
 
     const html = await generateDocumentHTML({
       title: "Material Delivery Note (DN)",
@@ -42,9 +59,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       partyAddress: dn.customer.billingAddress,
       partyGstin: dn.customer.gstin || undefined,
       partyMobile: dn.customer.primaryMobile,
-      secondaryPartyTitle: "Delivery Construction Site",
+      secondaryPartyTitle,
       secondaryPartyName: dn.customerSite.siteName,
-      secondaryPartyAddress: dn.customerSite.fullAddress,
+      secondaryPartyAddress,
+      isDirectTransfer: isDirect,
       transportDetails: {
         vehicleNumber: dn.vehicleNumber || undefined,
         driverName: dn.driverName || undefined,
@@ -68,7 +86,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         designation: dn.receiverDesignation || undefined,
         signatureUrl: dn.receiverSignatureUrl || undefined,
       },
-      notes: dn.notes || "Materials delivered in good condition for site centering work.",
+      notes:
+        dn.notes ||
+        (isDirect
+          ? "Direct Site-to-Site Transfer delivery document issued by AJAY ENTERPRISES under GST Rule 55 Delivery Challan standards. Material custody delivered directly from source site without godown touchpoint."
+          : "Materials delivered in good condition for site centering work."),
       origin,
     });
 

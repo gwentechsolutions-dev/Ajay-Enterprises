@@ -45,6 +45,7 @@ export interface PDFDocumentData {
   secondaryPartyTitle?: string;
   secondaryPartyName?: string;
   secondaryPartyAddress?: string;
+  isDirectTransfer?: boolean;
   transportDetails?: {
     vehicleNumber?: string;
     driverName?: string;
@@ -208,18 +209,18 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
     .info-box { border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; background-color: #f8fafc; font-size: 9.5pt; vertical-align: top; width: 48%; }
     .info-box-title { font-size: 8pt; font-weight: 700; text-transform: uppercase; color: #F26522; letter-spacing: 0.5px; margin-bottom: 4px; }
     .party-name { font-size: 11pt; font-weight: 700; color: #0B1E36; margin-bottom: 2px; }
-    .item-table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 16px; font-size: 9.5pt; }
-    .item-table th { background-color: #0B1E36; color: #ffffff; text-align: left; padding: 8px 10px; font-size: 9pt; text-transform: uppercase; letter-spacing: 0.5px; }
-    .item-table td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
+    .item-table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 16px; font-size: 9.5pt; table-layout: fixed; box-sizing: border-box; }
+    .item-table th { background-color: #0B1E36; color: #ffffff; text-align: left; padding: 7px 8px; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.4px; }
+    .item-table td { padding: 7px 8px; border-bottom: 1px solid #e2e8f0; word-break: break-word; overflow-wrap: break-word; }
     .item-table tr:nth-child(even) { background-color: #f8fafc; }
     .text-right { text-align: right; }
     .text-center { text-align: center; }
     .text-nowrap { white-space: nowrap; }
 
     /* MRN Inspection Table Specific Styles */
-    .mrn-table { width: 100%; border-collapse: collapse; margin-top: 8px; margin-bottom: 14px; font-size: 8pt; }
-    .mrn-table th { background-color: #0B1E36; color: #ffffff; padding: 6px 4px; font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
-    .mrn-table td { padding: 5px 4px; border-bottom: 1px solid #e2e8f0; font-size: 8pt; vertical-align: middle; }
+    .mrn-table { width: 100%; border-collapse: collapse; margin-top: 8px; margin-bottom: 14px; font-size: 7.5pt; table-layout: fixed; box-sizing: border-box; }
+    .mrn-table th { background-color: #0B1E36; color: #ffffff; padding: 5px 3px; font-size: 7pt; text-transform: uppercase; letter-spacing: 0.2px; text-align: left; vertical-align: middle; }
+    .mrn-table td { padding: 5px 3px; border-bottom: 1px solid #e2e8f0; font-size: 7.5pt; vertical-align: middle; word-break: break-word; overflow-wrap: break-word; }
     .mrn-table tr:nth-child(even) { background-color: #f8fafc; }
     .totals-table { width: 40%; margin-left: auto; border-collapse: collapse; font-size: 10pt; margin-bottom: 16px; }
     .totals-table td { padding: 4px 8px; }
@@ -231,11 +232,11 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
     @media print {
       .no-print { display: none !important; }
       body { padding: 0 !important; background: transparent !important; }
-      .sheet-container { box-shadow: none !important; margin: 0 !important; max-width: 100% !important; border: none !important; padding: 0 !important; }
+      .sheet-container { box-shadow: none !important; margin: 0 !important; max-width: 100% !important; width: 100% !important; border: none !important; padding: 0 !important; }
     }
     @media screen {
       body { background-color: #f1f5f9; padding-bottom: 40px; }
-      .sheet-container { background: #ffffff; max-width: 210mm; min-height: 297mm; margin: 16px auto; padding: 16mm 18mm; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border-radius: 6px; border: 1px solid #cbd5e1; }
+      .sheet-container { background: #ffffff; width: 100%; max-width: 210mm; min-height: 297mm; margin: 16px auto; padding: 14mm 16mm; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border-radius: 6px; border: 1px solid #cbd5e1; box-sizing: border-box; overflow: hidden; }
     }
   </style>
 </head>
@@ -344,16 +345,16 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
       <thead>
         <tr>
           <th class="text-center text-nowrap" style="width: 3.5%;">#</th>
-          <th class="text-nowrap" style="width: 16%;">Code</th>
-          <th style="width: 22%;">Material Description</th>
-          <th class="text-nowrap" style="width: 11%;">Size</th>
-          <th class="text-right text-nowrap" style="width: 6.5%;" title="Declared for return by customer site">Declared</th>
-          <th class="text-right text-nowrap" style="width: 6.5%;" title="Physically received at yard">Received</th>
-          <th class="text-right text-nowrap" style="width: 6.5%;" title="Accepted in good condition">Accepted</th>
-          <th class="text-right text-nowrap" style="width: 6.5%;" title="Received damaged">Damaged</th>
-          <th class="text-right text-nowrap" style="width: 6.5%;" title="Shortage / Missing">Missing</th>
-          <th class="text-center text-nowrap" style="width: 5.5%;">UOM</th>
-          <th class="text-nowrap" style="width: 9%;" title="Physical Inspection Remarks & Condition">Remarks</th>
+          <th class="text-nowrap" style="width: 14%;">Code</th>
+          <th style="width: 19%;">Material Description</th>
+          <th class="text-nowrap" style="width: 8.5%;">Size</th>
+          <th class="text-right text-nowrap" style="width: 7%;" title="Declared for return by customer site">Declared</th>
+          <th class="text-right text-nowrap" style="width: 7%;" title="Physically received at yard">Received</th>
+          <th class="text-right text-nowrap" style="width: 7%;" title="Accepted in good condition">Accepted</th>
+          <th class="text-right text-nowrap" style="width: 7%;" title="Received damaged">Damaged</th>
+          <th class="text-right text-nowrap" style="width: 7%;" title="Shortage / Missing">Missing</th>
+          <th class="text-center text-nowrap" style="width: 5%;">UOM</th>
+          <th style="width: 15%;" title="Physical Inspection Remarks & Condition">Remarks</th>
         </tr>
       </thead>
       <tbody>
@@ -374,16 +375,16 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
             return `
           <tr>
             <td class="text-center text-nowrap" style="color: #64748b; font-size: 7.5pt;">${it.sn}</td>
-            <td class="text-nowrap" style="font-family: monospace; font-weight: 600; font-size: 8pt; letter-spacing: -0.2px;">${it.code}</td>
-            <td style="font-size: 8pt; line-height: 1.25;"><strong>${it.name}</strong></td>
-            <td class="text-nowrap" style="font-size: 8pt; color: #334155;">${it.size || "-"}</td>
+            <td class="text-nowrap" style="font-family: monospace; font-weight: 600; font-size: 7.5pt; letter-spacing: -0.2px;">${it.code}</td>
+            <td style="font-size: 7.5pt; line-height: 1.25; word-break: break-word;"><strong>${it.name}</strong></td>
+            <td class="text-nowrap" style="font-size: 7.5pt; color: #334155;">${it.size || "-"}</td>
             <td class="text-right text-nowrap" style="font-weight: 600;">${declared.toFixed(isQtyFormatted)}</td>
             <td class="text-right text-nowrap" style="font-weight: 600; color: #0f172a;">${received.toFixed(isQtyFormatted)}</td>
             <td class="text-right text-nowrap" style="font-weight: 700; color: #166534;">${accepted.toFixed(isQtyFormatted)}</td>
             <td class="text-right text-nowrap" style="font-weight: 700; color: ${damaged > 0 ? "#b45309" : "#94a3b8"};">${damaged > 0 ? damaged.toFixed(isQtyFormatted) : "-"}</td>
             <td class="text-right text-nowrap" style="font-weight: 700; color: ${missing > 0 ? "#b91c1c" : "#94a3b8"};">${missing > 0 ? missing.toFixed(isQtyFormatted) : "-"}</td>
-            <td class="text-center text-nowrap" style="font-size: 8pt; color: #475569;">${it.uom}</td>
-            <td class="text-nowrap" style="font-size: 7.5pt; color: #475569;">
+            <td class="text-center text-nowrap" style="font-size: 7.5pt; color: #475569;">${it.uom}</td>
+            <td style="font-size: 7pt; color: #475569; line-height: 1.25; word-break: break-word; white-space: normal;">
               ${
                 it.inspectionRemarks || it.remarks
                   ? `<span style="color: #1e293b; font-weight: 500;">${it.inspectionRemarks || it.remarks}</span>`
@@ -399,22 +400,22 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
           .join("")}
         <!-- Totals Row -->
         <tr style="background-color: #f1f5f9; font-weight: 800; border-top: 2px solid #0B1E36;">
-          <td colspan="4" class="text-right text-nowrap" style="text-transform: uppercase; font-size: 7.5pt; padding-right: 8px; letter-spacing: 0.3px;">
+          <td colspan="4" class="text-right text-nowrap" style="text-transform: uppercase; font-size: 7pt; padding-right: 6px; letter-spacing: 0.3px;">
             Total Quantities:
           </td>
-          <td class="text-right text-nowrap" style="font-size: 8pt;">
+          <td class="text-right text-nowrap" style="font-size: 7.5pt;">
             ${data.items.reduce((sum, it) => sum + (it.declaredQty !== undefined ? it.declaredQty : it.quantity), 0).toFixed(0)}
           </td>
-          <td class="text-right text-nowrap" style="font-size: 8pt;">
+          <td class="text-right text-nowrap" style="font-size: 7.5pt;">
             ${data.items.reduce((sum, it) => sum + (it.receivedQty !== undefined ? it.receivedQty : (it.acceptedQty !== undefined ? it.acceptedQty : it.quantity) + (it.damagedQty || 0)), 0).toFixed(0)}
           </td>
-          <td class="text-right text-nowrap" style="color: #166534; font-size: 8pt;">
+          <td class="text-right text-nowrap" style="color: #166534; font-size: 7.5pt;">
             ${data.items.reduce((sum, it) => sum + (it.acceptedQty !== undefined ? it.acceptedQty : it.quantity), 0).toFixed(0)}
           </td>
-          <td class="text-right text-nowrap" style="color: #b45309; font-size: 8pt;">
+          <td class="text-right text-nowrap" style="color: #b45309; font-size: 7.5pt;">
             ${data.items.reduce((sum, it) => sum + (it.damagedQty || 0), 0).toFixed(0)}
           </td>
-          <td class="text-right text-nowrap" style="color: #b91c1c; font-size: 8pt;">
+          <td class="text-right text-nowrap" style="color: #b91c1c; font-size: 7.5pt;">
             ${data.items.reduce((sum, it) => sum + (it.missingQty || 0), 0).toFixed(0)}
           </td>
           <td colspan="2"></td>
@@ -426,12 +427,38 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
     <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 4px; padding: 8px 12px; margin-bottom: 14px; font-size: 8.5pt; line-height: 1.4;">
       <div style="font-weight: 700; color: #0B1E36; margin-bottom: 2px;">Material Custody &amp; Inspection Audit Note:</div>
       ${
-        data.inspectionDetails?.status === "PENDING"
+        data.isDirectTransfer
+          ? `<div>
+              <strong>Direct Site-to-Site Transfer Source Pickup:</strong> Materials collected from source site are transferred directly to destination construction site under DSTN. In accordance with Rule 16 &amp; 17, no intermediate godown stock credit is posted.
+              ${
+                data.items.some((it) => (it.damagedQty || 0) > 0)
+                  ? ` Damaged units (${data.items.reduce((sum, it) => sum + (it.damagedQty || 0), 0).toFixed(0)}) are segregated for repair.`
+                  : ""
+              }
+              ${
+                data.items.some((it) => (it.missingQty || 0) > 0)
+                  ? ` Missing units (${data.items.reduce((sum, it) => sum + (it.missingQty || 0), 0).toFixed(0)}) represent source site shortage.`
+                  : ""
+              }
+              <br>
+              <span style="font-weight: 600; color: ${data.customerHandoverDetails?.customerAgreedDamage || data.inspectionDetails?.customerAgreedDamage ? "#166534" : "#b45309"};">
+                Source Handover Sign-Off: ${
+                  data.customerHandoverDetails?.signatureUrl || data.customerHandoverDetails?.name
+                    ? `Acknowledged by source site representative (${data.customerHandoverDetails.name || "Site Representative"}).`
+                    : "Handover inspection recorded by AJAY ENTERPRISES fleet logistics; subject to joint reconciliation."
+                }
+              </span>
+            </div>`
+          : data.inspectionDetails?.status === "PENDING"
           ? `<div style="color: #b45309;">
               <strong>Notice:</strong> Materials have been physically transferred into yard custody based on customer declared quantities. Detailed inspection for damaged or missing components is currently pending and will be updated upon final verification.
             </div>`
           : `<div>
-              Accepted units (${data.items.reduce((sum, it) => sum + (it.acceptedQty !== undefined ? it.acceptedQty : it.quantity), 0).toFixed(0)}) have been re-credited to AJAY ENTERPRISES available rental stock.
+              ${
+                data.items.reduce((sum, it) => sum + (it.acceptedQty !== undefined ? it.acceptedQty : it.quantity), 0) > 0
+                  ? `Accepted units (${data.items.reduce((sum, it) => sum + (it.acceptedQty !== undefined ? it.acceptedQty : it.quantity), 0).toFixed(0)}) have been re-credited to AJAY ENTERPRISES available rental stock.`
+                  : "Materials received into custody; 0 units accepted to available rental stock."
+              }
               ${
                 data.items.some((it) => (it.damagedQty || 0) > 0)
                   ? ` Damaged units (${data.items.reduce((sum, it) => sum + (it.damagedQty || 0), 0).toFixed(0)}) are segregated for repair.`

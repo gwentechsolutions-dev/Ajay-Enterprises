@@ -35,12 +35,33 @@ export async function GET(
             materialVariant: true,
           },
         },
+        directTransfersAsSource: {
+          include: {
+            destinationCustomer: true,
+            destinationCustomerSite: true,
+          },
+        },
       },
     });
 
     if (!mrn) {
       return new NextResponse("Material Return Note not found", { status: 404 });
     }
+
+    const dstn = mrn.directTransfersAsSource?.[0];
+    const isDirect = mrn.isDirectTransfer || Boolean(mrn.directSiteTransferId) || Boolean(dstn);
+
+    const secondaryPartyTitle = isDirect
+      ? "TRANSFER DESTINATION (DIRECT SITE DELIVERY)"
+      : "RETURN SITE / RECEIVING YARD";
+
+    const secondaryPartyName = isDirect && dstn
+      ? `${mrn.customerSite.siteName} ➔ ${dstn.destinationCustomerSite.siteName} (${dstn.destinationCustomer.name})`
+      : `${mrn.customerSite.siteName} ➔ ${mrn.receivingWarehouse.name}`;
+
+    const secondaryPartyAddress = isDirect && dstn
+      ? `Source: ${mrn.customerSite.fullAddress || "N/A"} | Destination: ${dstn.destinationCustomerSite.fullAddress || "N/A"}`
+      : `Site: ${mrn.customerSite.fullAddress || "N/A"} | Yard: ${mrn.receivingWarehouse.addressLine1}, ${mrn.receivingWarehouse.city}`;
 
     const html = await generateDocumentHTML({
       title: "MATERIAL RETURN NOTE (MRN)",
@@ -52,9 +73,10 @@ export async function GET(
       partyAddress: mrn.customer.billingAddress || undefined,
       partyGstin: mrn.customer.gstin || undefined,
       partyMobile: mrn.customer.primaryMobile || undefined,
-      secondaryPartyTitle: "RETURN SITE / RECEIVING YARD",
-      secondaryPartyName: `${mrn.customerSite.siteName} ➔ ${mrn.receivingWarehouse.name}`,
-      secondaryPartyAddress: `Site: ${mrn.customerSite.fullAddress || "N/A"} | Yard: ${mrn.receivingWarehouse.addressLine1}, ${mrn.receivingWarehouse.city}`,
+      secondaryPartyTitle,
+      secondaryPartyName,
+      secondaryPartyAddress,
+      isDirectTransfer: isDirect,
       transportDetails: {
         vehicleNumber: mrn.vehicleTrip?.vehicle?.vehicleNumber || mrn.vehicleNumber || undefined,
         driverName: mrn.vehicleTrip?.driver?.name || mrn.driverName || undefined,
@@ -114,7 +136,11 @@ export async function GET(
           inspectionRemarks: item.inspectionRemarks || undefined,
         };
       }),
-      notes: mrn.remarks || `Physical return inspection conducted at ${mrn.receivingWarehouse.name}. Damaged and shortage items isolated in accordance with custody rules.`,
+      notes:
+        mrn.remarks ||
+        (isDirect
+          ? "Direct Site-to-Site Transfer source pickup document issued by AJAY ENTERPRISES under GST Rule 55 Delivery Challan standards. Material custody transferred directly to destination site without godown touchpoint."
+          : `Physical return inspection conducted at ${mrn.receivingWarehouse.name}. Damaged and shortage items isolated in accordance with custody rules.`),
       origin,
     });
 
