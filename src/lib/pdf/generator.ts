@@ -32,6 +32,18 @@ async function getAssetAsBase64(urlOrPath?: string | null): Promise<string | nul
   }
 }
 
+export interface PDFEvidencePhoto {
+  url: string;
+  originalUrl?: string;
+  category?: string;
+  capturedAt?: Date | string;
+  gpsLatitude?: number;
+  gpsLongitude?: number;
+  gpsAccuracy?: number;
+  address?: string;
+  notes?: string;
+}
+
 export interface PDFDocumentData {
   title: string;
   documentNumber: string;
@@ -100,6 +112,7 @@ export interface PDFDocumentData {
     remarks?: string;
     customerAgreedDamage?: boolean;
   };
+  evidences?: PDFEvidencePhoto[];
   notes?: string;
   origin?: string;
   ogImageUrl?: string;
@@ -152,6 +165,74 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
     month: "short",
     day: "numeric",
   });
+
+  let evidenceGalleryHtml = "";
+  if (data.evidences && data.evidences.length > 0) {
+    const loadedEvidences = await Promise.all(
+      data.evidences.map(async (ev, idx) => {
+        const base64 = await getAssetAsBase64(ev.url);
+        return { ...ev, base64, index: idx + 1 };
+      })
+    );
+
+    const validEvidences = loadedEvidences.filter((e) => e.base64);
+    if (validEvidences.length > 0) {
+      evidenceGalleryHtml = `
+    <div style="page-break-before: auto; page-break-inside: avoid; margin-top: 18px; margin-bottom: 14px;">
+      <div style="border-bottom: 2px solid #0B1E36; padding-bottom: 4px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-end;">
+        <div>
+          <span style="font-size: 9.5pt; font-weight: 800; color: #0B1E36; text-transform: uppercase; letter-spacing: 0.5px;">
+            📍 GPS Camera Site Proof &amp; Custody Transfer Evidence
+          </span>
+          <span style="font-size: 7.5pt; color: #F26522; font-weight: 700; margin-left: 8px;">
+            ● AJAY ENTERPRISES • GEO-VERIFIED
+          </span>
+        </div>
+        <span style="font-size: 7.5pt; color: #64748b;">
+          ${validEvidences.length} Photographic Record${validEvidences.length > 1 ? "s" : ""} Linked
+        </span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: ${validEvidences.length === 1 ? "1fr" : "1fr 1fr"}; gap: 12px; margin-bottom: 8px;">
+        ${validEvidences
+          .map((ev) => {
+            const dateStr = ev.capturedAt
+              ? new Date(ev.capturedAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
+              : formattedDate;
+            const coords =
+              ev.gpsLatitude !== undefined && ev.gpsLongitude !== undefined
+                ? `${Math.abs(ev.gpsLatitude).toFixed(6)}° ${ev.gpsLatitude >= 0 ? "N" : "S"}, ${Math.abs(ev.gpsLongitude).toFixed(6)}° ${ev.gpsLongitude >= 0 ? "E" : "W"}${ev.gpsAccuracy ? ` (±${Math.round(ev.gpsAccuracy)}m)` : ""}`
+                : null;
+            const categoryLabel = ev.category ? ev.category.replace(/_/g, " ") : "Site Delivery Evidence";
+
+            return `
+            <div style="border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; background: #ffffff; page-break-inside: avoid;">
+              <div style="background: #0B1E36; color: #ffffff; padding: 4px 8px; font-size: 7.5pt; font-weight: 700; display: flex; justify-content: space-between; align-items: center;">
+                <span>Photo #${ev.index}: ${categoryLabel}</span>
+                <span style="color: #F26522; font-size: 7pt;">● Tamper-Evident</span>
+              </div>
+              <div style="padding: 6px; text-align: center; background: #071322; min-height: 160px; max-height: 250px; display: flex; align-items: center; justify-content: center;">
+                <img src="${ev.base64}" alt="GPS Evidence #${ev.index}" style="max-width: 100%; max-height: 240px; object-fit: contain; border-radius: 4px;" />
+              </div>
+              <div style="padding: 6px 8px; font-size: 7.5pt; color: #334155; background: #f8fafc; border-top: 1px solid #e2e8f0; line-height: 1.4;">
+                ${ev.address ? `<div style="font-weight: 600; color: #0f172a; margin-bottom: 2px;">📍 ${ev.address}</div>` : ""}
+                <div style="display: flex; justify-content: space-between; color: #64748b; font-size: 7pt;">
+                  ${coords ? `<span style="font-family: monospace;">GPS: ${coords}</span>` : "<span>GPS: Verified</span>"}
+                  <span>Captured: ${dateStr} IST</span>
+                </div>
+              </div>
+            </div>
+          `;
+          })
+          .join("")}
+      </div>
+      <div style="font-size: 6.8pt; color: #94a3b8; text-align: right; font-style: italic;">
+        * Map data &amp; street metadata © Google • Verified via INVENTRA GPS Camera Engine for AJAY ENTERPRISES
+      </div>
+    </div>
+      `;
+    }
+  }
 
   const baseUrl = data.origin ? data.origin.replace(/\/$/, "") : "";
   const ogFilename =
@@ -642,6 +723,8 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
     </table>
   `
   }
+
+  ${evidenceGalleryHtml}
 
   <div class="footer-note">
     Generated by INVENTRA Enterprise ERP for AJAY ENTERPRISES. This document constitutes formal custody transfer of centering materials.

@@ -1369,35 +1369,46 @@ model HiringReturnNoteItem {
 // ------------------------------------------------------------------------------
 
 model MovementEvidence {
-  id                    String   @id @default(uuid()) @db.Uuid
-  documentType          String // DELIVERY_NOTE, RETURN_NOTE, TRANSFER_NOTE, GRN
-  documentId            String   @db.Uuid
-  deliveryNoteId        String?  @db.Uuid
-  returnNoteId          String?  @db.Uuid
-  transferNoteId        String?  @db.Uuid
-  photoUrl              String
-  storagePath           String?
-  fileChecksum          String?
-  gpsLatitude           Decimal? @db.Decimal(10, 7)
-  gpsLongitude          Decimal? @db.Decimal(10, 7)
-  gpsAccuracy           Decimal? @db.Decimal(8, 2)
-  capturedAt            DateTime @default(now())
-  capturedById          String?  @db.Uuid
-  receiverName          String?
-  receiverPhone         String?
-  receiverDesignation   String?
-  receiverSignatureUrl  String?
-  missingEvidenceReason String?
-  createdAt             DateTime @default(now())
+  id                     String   @id @default(uuid()) @db.Uuid
+  documentType           String // DELIVERY_NOTE, RETURN_NOTE, TRANSFER_NOTE, DIRECT_TRANSFER, GRN
+  documentId             String   @db.Uuid
+  deliveryNoteId         String?  @db.Uuid
+  returnNoteId           String?  @db.Uuid
+  transferNoteId         String?  @db.Uuid
+  directTransferId       String?  @db.Uuid
+  photoUrl               String
+  storagePath            String?
+  fileChecksum           String?
+  originalPhotoUrl       String?
+  originalStoragePath    String?
+  watermarkedPhotoUrl    String?
+  watermarkedStoragePath String?
+  evidenceCategory       String? // DELIVERY_PROOF, UNLOADING, RECEIVER_ACKNOWLEDGEMENT, PICKUP_PROOF, CONDITION_PROOF, LOADING, YARD_RECEIVING, SOURCE_PICKUP, DESTINATION_UNLOAD, GODOWN_RETURN
+  geocodedAddress        String?
+  geocodingStatus        String?  @default("PENDING") // SUCCESS, FAILED, PENDING_KEY
+  miniMapStatus          String?  @default("PENDING") // SUCCESS, FAILED, PENDING_KEY
+  gpsLatitude            Decimal? @db.Decimal(10, 7)
+  gpsLongitude           Decimal? @db.Decimal(10, 7)
+  gpsAccuracy            Decimal? @db.Decimal(8, 2)
+  capturedAt             DateTime @default(now())
+  capturedById           String?  @db.Uuid
+  receiverName           String?
+  receiverPhone          String?
+  receiverDesignation    String?
+  receiverSignatureUrl   String?
+  missingEvidenceReason  String?
+  createdAt              DateTime @default(now())
 
-  deliveryNote DeliveryNote?       @relation(fields: [deliveryNoteId], references: [id], onDelete: Cascade)
-  returnNote   MaterialReturnNote? @relation(fields: [returnNoteId], references: [id], onDelete: Cascade)
-  transferNote StockTransferNote?  @relation(fields: [transferNoteId], references: [id], onDelete: Cascade)
+  deliveryNote   DeliveryNote?           @relation(fields: [deliveryNoteId], references: [id], onDelete: Cascade)
+  returnNote     MaterialReturnNote?     @relation(fields: [returnNoteId], references: [id], onDelete: Cascade)
+  transferNote   StockTransferNote?      @relation(fields: [transferNoteId], references: [id], onDelete: Cascade)
+  directTransfer DirectSiteTransferNote? @relation(fields: [directTransferId], references: [id], onDelete: Cascade)
 
   @@index([documentType, documentId])
   @@index([deliveryNoteId])
   @@index([returnNoteId])
   @@index([transferNoteId])
+  @@index([directTransferId])
 }
 
 // ------------------------------------------------------------------------------
@@ -1725,6 +1736,7 @@ model DirectSiteTransferNote {
   godownMrn                  MaterialReturnNote? @relation("DstnGodownMrn", fields: [godownMrnId], references: [id], onDelete: SetNull)
 
   items              DirectSiteTransferItem[]
+  evidences          MovementEvidence[]
   rentalBatches      RentalBatch[]            @relation("DestBatchTransfer")
   returnAllocations  RentalReturnAllocation[] @relation("TransferReturnAllocations")
   damageAssessments  DamageLossAssessment[]

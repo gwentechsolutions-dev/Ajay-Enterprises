@@ -27,6 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { TableSkeleton } from "@/components/ui/loading-states";
 import { WhatsAppShareButton } from "@/components/ui/whatsapp-share-button";
+import { GpsCameraCaptureDialog } from "@/components/evidence/GpsCameraCaptureDialog";
 
 export default function MaterialReturnNoteDetailPage() {
   const params = useParams();
@@ -37,41 +38,30 @@ export default function MaterialReturnNoteDetailPage() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [activePhoto, setActivePhoto] = React.useState<string | null>(null);
+  const [isGpsCameraOpen, setIsGpsCameraOpen] = React.useState(false);
+
+  const loadMrn = React.useCallback(async () => {
+    if (!id) return;
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch(`/api/v1/return-notes/${id}`);
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error?.message || "Failed to load Material Return Note");
+      }
+      setMrn(data.data);
+    } catch (err: any) {
+      setError(err.message || "An error occurred");
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
 
   React.useEffect(() => {
-    if (!id) return;
-    let isMounted = true;
-
-    async function loadMrn() {
-      try {
-        setLoading(true);
-        setError(null);
-        const res = await fetch(`/api/v1/return-notes/${id}`);
-        const data = await res.json();
-
-        if (!res.ok || !data.success) {
-          throw new Error(data.error?.message || "Failed to load Material Return Note");
-        }
-
-        if (isMounted) {
-          setMrn(data.data);
-        }
-      } catch (err: any) {
-        if (isMounted) {
-          setError(err.message || "An error occurred");
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    }
-
     loadMrn();
-    return () => {
-      isMounted = false;
-    };
-  }, [id]);
+  }, [loadMrn]);
 
   if (loading) {
     return (
@@ -416,34 +406,75 @@ export default function MaterialReturnNoteDetailPage() {
       </Card>
 
       {/* Return Evidences & Photographs */}
-      {mrn.evidences && mrn.evidences.length > 0 && (
-        <Card className="border-slate-200 shadow-2xs">
-          <CardHeader className="p-4 pb-2 border-b border-slate-100">
-            <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-              <Camera className="w-4 h-4 text-[#F26522]" /> Pickup & Handover Photographs
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
+      <Card className="border-slate-200 shadow-2xs">
+        <CardHeader className="p-4 pb-2 border-b border-slate-100 flex flex-row items-center justify-between">
+          <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+            <Camera className="w-4 h-4 text-[#F26522]" /> Pickup &amp; Handover GPS Photographs
+          </CardTitle>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setIsGpsCameraOpen(true)}
+            className="h-8 text-xs border-slate-300 hover:bg-slate-50 text-slate-700"
+          >
+            <Camera className="w-3.5 h-3.5 mr-1.5 text-[#F26522]" /> Snap GPS Photo
+          </Button>
+        </CardHeader>
+        <CardContent className="p-4">
+          {mrn.evidences && mrn.evidences.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
-              {mrn.evidences.map((ev: any, idx: number) => (
-                <div
-                  key={ev.id || idx}
-                  onClick={() => setActivePhoto(ev.fileUrl || ev.url)}
-                  className="group relative aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-50 cursor-pointer hover:shadow-md transition-all"
-                >
-                  <img
-                    src={ev.fileUrl || ev.url}
-                    alt={`Return Evidence ${idx + 1}`}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                  />
-                  <span className="absolute bottom-1 right-1 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded">
-                    #{idx + 1}
-                  </span>
-                </div>
-              ))}
+              {mrn.evidences.map((ev: any, idx: number) => {
+                const imgUrl = ev.watermarkedPhotoUrl || ev.photoUrl || ev.fileUrl || ev.url;
+                return (
+                  <div
+                    key={ev.id || idx}
+                    onClick={() => setActivePhoto(imgUrl)}
+                    className="group relative aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-50 cursor-pointer hover:shadow-md transition-all"
+                  >
+                    <img
+                      src={imgUrl}
+                      alt={`Return Evidence ${idx + 1}`}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                    />
+                    <span className="absolute bottom-1 right-1 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded">
+                      #{idx + 1}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
-          </CardContent>
-        </Card>
+          ) : (
+            <div className="text-center py-6 border border-dashed border-slate-200 rounded-xl space-y-2">
+              <Camera className="w-8 h-8 mx-auto text-slate-300" />
+              <p className="text-xs text-slate-500">No pickup photographs recorded yet.</p>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsGpsCameraOpen(true)}
+                className="text-xs h-8"
+              >
+                <Camera className="w-3.5 h-3.5 mr-1 text-[#F26522]" /> Capture Pickup Photo
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* GPS Camera Dialog */}
+      {isGpsCameraOpen && (
+        <GpsCameraCaptureDialog
+          open={isGpsCameraOpen}
+          onOpenChange={setIsGpsCameraOpen}
+          documentType="RETURN_NOTE"
+          documentId={mrn.id}
+          documentNumber={mrn.mrnNumber}
+          siteName={mrn.customerSite?.siteName}
+          customerName={mrn.customer?.name}
+          defaultCategory="RETURN_PICKUP"
+          onSuccess={() => {
+            loadMrn();
+          }}
+        />
       )}
 
       {/* Photo Enlarge Modal */}

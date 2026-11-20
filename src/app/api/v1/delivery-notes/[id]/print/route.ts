@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
-import { generateDocumentHTML } from "@/lib/pdf/generator";
+import { generateDocumentHTML, PDFEvidencePhoto } from "@/lib/pdf/generator";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -24,6 +24,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         sourceWarehouse: true,
         items: {
           include: { materialVariant: true },
+        },
+        evidences: {
+          orderBy: { capturedAt: "asc" },
         },
         directTransfersAsDest: {
           include: {
@@ -49,6 +52,29 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       ? `Source: ${dstn.sourceCustomerSite.siteName} (${dstn.sourceCustomer.name}) | Delivery: ${dn.customerSite.fullAddress || "N/A"}`
       : dn.customerSite.fullAddress;
 
+    const evidences: PDFEvidencePhoto[] = (dn.evidences || []).map((ev) => ({
+      url: ev.watermarkedPhotoUrl || ev.photoUrl,
+      originalUrl: ev.originalPhotoUrl || undefined,
+      category: ev.evidenceCategory || "DELIVERY_PHOTO",
+      capturedAt: ev.capturedAt,
+      gpsLatitude: ev.gpsLatitude ? Number(ev.gpsLatitude) : undefined,
+      gpsLongitude: ev.gpsLongitude ? Number(ev.gpsLongitude) : undefined,
+      gpsAccuracy: ev.gpsAccuracy ? Number(ev.gpsAccuracy) : undefined,
+      address: ev.geocodedAddress || undefined,
+    }));
+
+    if (evidences.length === 0 && dn.photoUrl) {
+      evidences.push({
+        url: dn.photoUrl,
+        category: "DELIVERY_PHOTO",
+        capturedAt: dn.deliveredAt || dn.deliveryDate,
+        gpsLatitude: dn.gpsLatitude ? Number(dn.gpsLatitude) : undefined,
+        gpsLongitude: dn.gpsLongitude ? Number(dn.gpsLongitude) : undefined,
+        gpsAccuracy: dn.gpsAccuracy ? Number(dn.gpsAccuracy) : undefined,
+        address: undefined,
+      });
+    }
+
     const html = await generateDocumentHTML({
       title: "Material Delivery Note (DN)",
       documentNumber: dn.dnNumber,
@@ -63,6 +89,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       secondaryPartyName: dn.customerSite.siteName,
       secondaryPartyAddress,
       isDirectTransfer: isDirect,
+      evidences,
       transportDetails: {
         vehicleNumber: dn.vehicleNumber || undefined,
         driverName: dn.driverName || undefined,

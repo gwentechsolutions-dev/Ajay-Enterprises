@@ -53,6 +53,7 @@ import {
 import { toast } from "sonner";
 import { queueOfflineDraft, getOfflineQueue, syncPendingDrafts } from "@/lib/offline/drafts";
 import { stampGpsWatermarkOnPhoto } from "@/lib/gps-watermark";
+import { uploadEvidenceWithWatermark } from "@/lib/evidence-uploader";
 import { FormFieldError } from "@/components/ui/form-field-error";
 import { parseApiValidationErrors, formatValidationToast } from "@/lib/forms/validation-mapper";
 import { SearchableCombobox, ComboboxOption } from "@/components/ui/searchable-combobox";
@@ -470,35 +471,24 @@ function DeliveryPortalContent({
 
     try {
       setUploadingDeliveryPhoto(true);
-      const { watermarkedFile, dataUrl } = await stampGpsWatermarkOnPhoto({
+      const res = await uploadEvidenceWithWatermark({
         file,
         latitude: deliveryProofForm.gpsLatitude,
         longitude: deliveryProofForm.gpsLongitude,
         accuracy: deliveryProofForm.gpsAccuracy,
+        documentType: "DELIVERY_NOTE",
+        documentId: selectedDN?.id || "00000000-0000-0000-0000-000000000000",
+        documentNumber: selectedDN?.dnNumber || "DELIVERY-NOTE",
         siteName: selectedDN?.customerSite?.siteName || "Construction Site",
         customerName: selectedDN?.customer?.name || "",
-        documentNumber: selectedDN?.dnNumber || "DELIVERY-NOTE",
+        evidenceCategory: "DELIVERY_PHOTO",
         timestamp: new Date(),
       });
 
-      setDeliveryPhotoPreview(dataUrl);
-
-      const formData = new FormData();
-      formData.append("file", watermarkedFile);
-      formData.append("folder", "delivery-proofs");
-
-      const res = await fetch("/api/v1/storage/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error?.message || "Photo upload failed");
-
-      const uploadedPath = json.data?.url || (json.data?.storagePath ? `/api/v1/storage/download?path=${encodeURIComponent(json.data.storagePath)}` : "");
-      setDeliveryPhotoPreviews((prev) => [...prev, dataUrl]);
-      setDeliveryUploadedUrls((prev) => [...prev, uploadedPath]);
-      setDeliveryProofForm((prev) => ({ ...prev, photoUrl: uploadedPath }));
+      setDeliveryPhotoPreview(res.dataUrl);
+      setDeliveryPhotoPreviews((prev) => [...prev, res.dataUrl]);
+      setDeliveryUploadedUrls((prev) => [...prev, res.watermarkedUrl]);
+      setDeliveryProofForm((prev) => ({ ...prev, photoUrl: res.watermarkedUrl }));
       toast.success(t.toastPhotoCaptured);
     } catch (err: any) {
       toast.error(`Photo upload error: ${err.message}`);
@@ -530,32 +520,22 @@ function DeliveryPortalContent({
 
     try {
       setUploadingPickupPhoto(true);
-      const { watermarkedFile, dataUrl } = await stampGpsWatermarkOnPhoto({
+      const res = await uploadEvidenceWithWatermark({
         file,
         latitude: pickupProofForm.gpsLatitude,
         longitude: pickupProofForm.gpsLongitude,
         accuracy: pickupProofForm.gpsAccuracy,
+        documentType: "RETURN_NOTE",
+        documentId: selectedMRN?.id || "00000000-0000-0000-0000-000000000000",
+        documentNumber: selectedMRN?.mrnNumber || "MATERIAL-RETURN",
         siteName: selectedMRN?.customerSite?.siteName || "Construction Site",
         customerName: selectedMRN?.customer?.name || "",
-        documentNumber: selectedMRN?.mrnNumber || "MATERIAL-RETURN",
+        evidenceCategory: "RETURN_PICKUP",
         timestamp: new Date(),
       });
 
-      const formData = new FormData();
-      formData.append("file", watermarkedFile);
-      formData.append("folder", "return-proofs");
-
-      const res = await fetch("/api/v1/storage/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error?.message || "Photo upload failed");
-
-      const uploadedPath = json.data?.url || (json.data?.storagePath ? `/api/v1/storage/download?path=${encodeURIComponent(json.data.storagePath)}` : "");
-      setPickupPhotoPreviews((prev) => [...prev, dataUrl]);
-      setPickupUploadedUrls((prev) => [...prev, uploadedPath]);
+      setPickupPhotoPreviews((prev) => [...prev, res.dataUrl]);
+      setPickupUploadedUrls((prev) => [...prev, res.watermarkedUrl]);
       toast.success(t.toastPhotoCaptured);
     } catch (err: any) {
       toast.error(`Photo upload error: ${err.message}`);

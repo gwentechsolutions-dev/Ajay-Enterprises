@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/dialog";
 import { SearchableCombobox, ComboboxOption } from "@/components/ui/searchable-combobox";
 import { toast } from "sonner";
+import { GpsCameraCaptureDialog } from "@/components/evidence/GpsCameraCaptureDialog";
 
 export default function DirectTransferDetailPage() {
   const params = useParams();
@@ -55,6 +56,8 @@ export default function DirectTransferDetailPage() {
   const [isGodownModalOpen, setIsGodownModalOpen] = React.useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
+  const [isGpsCameraOpen, setIsGpsCameraOpen] = React.useState(false);
+  const [cameraCategory, setCameraCategory] = React.useState<"SOURCE_PICKUP" | "DESTINATION_UNLOAD">("SOURCE_PICKUP");
 
   // Manual entry toggle
   const [isManualRepInput, setIsManualRepInput] = React.useState(false);
@@ -1110,18 +1113,32 @@ export default function DirectTransferDetailPage() {
                     {parseFloat(transfer.sourceGpsLng).toFixed(6)}
                   </p>
                 )}
-                {transfer.sourcePhotoUrl && (
-                  <div className="pt-1">
+                <div className="pt-2 flex items-center justify-between border-t border-slate-100 mt-2">
+                  {transfer.sourcePhotoUrl ? (
                     <a
                       href={transfer.sourcePhotoUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-blue-600 hover:underline flex items-center gap-1"
+                      className="text-blue-600 hover:underline flex items-center gap-1 font-semibold text-[11px]"
                     >
-                      <Camera className="h-3 w-3" /> View Pickup Photo Proof
+                      <Camera className="h-3 w-3 text-[#F26522]" /> View Pickup Photo
                     </a>
-                  </div>
-                )}
+                  ) : (
+                    <span className="text-slate-400 italic text-[10px]">No pickup photo attached</span>
+                  )}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-6 text-[10px] px-2 border-slate-300"
+                    onClick={() => {
+                      setCameraCategory("SOURCE_PICKUP");
+                      setIsGpsCameraOpen(true);
+                    }}
+                  >
+                    <Camera className="h-3 w-3 mr-1 text-[#F26522]" /> {transfer.sourcePhotoUrl ? "Retake" : "Snap Photo"}
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -1155,23 +1172,54 @@ export default function DirectTransferDetailPage() {
                     {parseFloat(transfer.destGpsLng).toFixed(6)}
                   </p>
                 )}
-                {transfer.destPhotoUrl && (
-                  <div className="pt-1">
+                <div className="pt-2 flex items-center justify-between border-t border-slate-100 mt-2">
+                  {transfer.destPhotoUrl ? (
                     <a
                       href={transfer.destPhotoUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-emerald-700 hover:underline flex items-center gap-1"
+                      className="text-emerald-700 hover:underline flex items-center gap-1 font-semibold text-[11px]"
                     >
-                      <Camera className="h-3 w-3" /> View Delivery Photo Proof
+                      <Camera className="h-3 w-3 text-[#F26522]" /> View Delivery Photo
                     </a>
-                  </div>
-                )}
+                  ) : (
+                    <span className="text-slate-400 italic text-[10px]">No delivery photo attached</span>
+                  )}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-6 text-[10px] px-2 border-slate-300"
+                    onClick={() => {
+                      setCameraCategory("DESTINATION_UNLOAD");
+                      setIsGpsCameraOpen(true);
+                    }}
+                  >
+                    <Camera className="h-3 w-3 mr-1 text-[#F26522]" /> {transfer.destPhotoUrl ? "Retake" : "Snap Photo"}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* GPS Camera Dialog for Direct Transfers */}
+      {isGpsCameraOpen && (
+        <GpsCameraCaptureDialog
+          open={isGpsCameraOpen}
+          onOpenChange={setIsGpsCameraOpen}
+          documentType="DIRECT_TRANSFER"
+          documentId={transfer.id}
+          documentNumber={transfer.transferNumber}
+          siteName={cameraCategory === "SOURCE_PICKUP" ? transfer.sourceCustomerSite?.siteName : transfer.destinationCustomerSite?.siteName}
+          customerName={cameraCategory === "SOURCE_PICKUP" ? transfer.sourceCustomer?.name : transfer.destinationCustomer?.name}
+          defaultCategory={cameraCategory}
+          onSuccess={() => {
+            loadData();
+          }}
+        />
+      )}
 
       {/* DISPATCH / SOURCE PICKUP MODAL */}
       <Dialog open={isDispatchModalOpen} onOpenChange={setIsDispatchModalOpen}>

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
-import { generateDocumentHTML } from "@/lib/pdf/generator";
+import { generateDocumentHTML, PDFEvidencePhoto } from "@/lib/pdf/generator";
 
 export async function GET(
   req: NextRequest,
@@ -41,6 +41,9 @@ export async function GET(
             destinationCustomerSite: true,
           },
         },
+        evidences: {
+          orderBy: { capturedAt: "asc" },
+        },
       },
     });
 
@@ -50,6 +53,28 @@ export async function GET(
 
     const dstn = mrn.directTransfersAsSource?.[0];
     const isDirect = mrn.isDirectTransfer || Boolean(mrn.directSiteTransferId) || Boolean(dstn);
+
+    const evidences: PDFEvidencePhoto[] = (mrn.evidences || []).map((ev) => ({
+      url: ev.watermarkedPhotoUrl || ev.photoUrl,
+      originalUrl: ev.originalPhotoUrl || undefined,
+      category: ev.evidenceCategory || "RETURN_PICKUP",
+      capturedAt: ev.capturedAt,
+      gpsLatitude: ev.gpsLatitude ? Number(ev.gpsLatitude) : undefined,
+      gpsLongitude: ev.gpsLongitude ? Number(ev.gpsLongitude) : undefined,
+      gpsAccuracy: ev.gpsAccuracy ? Number(ev.gpsAccuracy) : undefined,
+      address: ev.geocodedAddress || undefined,
+    }));
+
+    if (evidences.length === 0 && mrn.photoUrl) {
+      evidences.push({
+        url: mrn.photoUrl,
+        category: "RETURN_PICKUP",
+        capturedAt: mrn.returnDate,
+        gpsLatitude: mrn.gpsLatitude ? Number(mrn.gpsLatitude) : undefined,
+        gpsLongitude: mrn.gpsLongitude ? Number(mrn.gpsLongitude) : undefined,
+        address: undefined,
+      });
+    }
 
     const secondaryPartyTitle = isDirect
       ? "TRANSFER DESTINATION (DIRECT SITE DELIVERY)"
@@ -77,6 +102,7 @@ export async function GET(
       secondaryPartyName,
       secondaryPartyAddress,
       isDirectTransfer: isDirect,
+      evidences,
       transportDetails: {
         vehicleNumber: mrn.vehicleTrip?.vehicle?.vehicleNumber || mrn.vehicleNumber || undefined,
         driverName: mrn.vehicleTrip?.driver?.name || mrn.driverName || undefined,

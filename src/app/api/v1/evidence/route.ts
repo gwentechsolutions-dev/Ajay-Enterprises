@@ -66,12 +66,22 @@ export async function POST(req: NextRequest) {
         deliveryNoteId: input.documentType === "DELIVERY_NOTE" ? input.documentId : null,
         returnNoteId: input.documentType === "RETURN_NOTE" ? input.documentId : null,
         transferNoteId: input.documentType === "TRANSFER_NOTE" ? input.documentId : null,
-        photoUrl: input.photoUrl,
-        storagePath: input.storagePath,
+        directTransferId: input.documentType === "DIRECT_TRANSFER" ? input.documentId : null,
+        photoUrl: input.watermarkedPhotoUrl || input.photoUrl,
+        storagePath: input.watermarkedStoragePath || input.storagePath,
         fileChecksum: input.fileChecksum,
+        originalPhotoUrl: input.originalPhotoUrl || null,
+        originalStoragePath: input.originalStoragePath || null,
+        watermarkedPhotoUrl: input.watermarkedPhotoUrl || input.photoUrl,
+        watermarkedStoragePath: input.watermarkedStoragePath || input.storagePath,
+        geocodedAddress: input.geocodedAddress || null,
+        geocodingStatus: input.geocodingStatus || "PENDING",
+        miniMapStatus: input.miniMapStatus || "PENDING",
+        evidenceCategory: input.evidenceCategory || null,
         gpsLatitude: input.gpsLatitude !== undefined && input.gpsLatitude !== null ? new Prisma.Decimal(input.gpsLatitude) : null,
         gpsLongitude: input.gpsLongitude !== undefined && input.gpsLongitude !== null ? new Prisma.Decimal(input.gpsLongitude) : null,
         gpsAccuracy: input.gpsAccuracy !== undefined && input.gpsAccuracy !== null ? new Prisma.Decimal(input.gpsAccuracy) : null,
+        capturedAt: input.capturedAt || new Date(),
         receiverName: input.receiverName,
         receiverPhone: input.receiverPhone,
         receiverDesignation: input.receiverDesignation,
@@ -80,6 +90,45 @@ export async function POST(req: NextRequest) {
         capturedById: actor.id,
       },
     });
+
+    // Synchronize watermarked photo onto parent movement records
+    const displayPhotoUrl = input.watermarkedPhotoUrl || input.photoUrl;
+    if (input.documentType === "DELIVERY_NOTE") {
+      await db.deliveryNote.update({
+        where: { id: input.documentId },
+        data: {
+          photoUrl: displayPhotoUrl,
+          gpsLatitude: input.gpsLatitude !== undefined && input.gpsLatitude !== null ? new Prisma.Decimal(input.gpsLatitude) : undefined,
+          gpsLongitude: input.gpsLongitude !== undefined && input.gpsLongitude !== null ? new Prisma.Decimal(input.gpsLongitude) : undefined,
+          gpsAccuracy: input.gpsAccuracy !== undefined && input.gpsAccuracy !== null ? new Prisma.Decimal(input.gpsAccuracy) : undefined,
+        },
+      }).catch(() => null);
+    } else if (input.documentType === "RETURN_NOTE") {
+      await db.materialReturnNote.update({
+        where: { id: input.documentId },
+        data: {
+          photoUrl: displayPhotoUrl,
+          gpsLatitude: input.gpsLatitude !== undefined && input.gpsLatitude !== null ? new Prisma.Decimal(input.gpsLatitude) : undefined,
+          gpsLongitude: input.gpsLongitude !== undefined && input.gpsLongitude !== null ? new Prisma.Decimal(input.gpsLongitude) : undefined,
+        },
+      }).catch(() => null);
+    } else if (input.documentType === "DIRECT_TRANSFER") {
+      const isDest = input.evidenceCategory?.includes("DEST") || input.evidenceCategory === "DESTINATION_UNLOAD";
+      await db.directSiteTransferNote.update({
+        where: { id: input.documentId },
+        data: isDest
+          ? {
+              destPhotoUrl: displayPhotoUrl,
+              destGpsLat: input.gpsLatitude !== undefined && input.gpsLatitude !== null ? new Prisma.Decimal(input.gpsLatitude) : undefined,
+              destGpsLng: input.gpsLongitude !== undefined && input.gpsLongitude !== null ? new Prisma.Decimal(input.gpsLongitude) : undefined,
+            }
+          : {
+              sourcePhotoUrl: displayPhotoUrl,
+              sourceGpsLat: input.gpsLatitude !== undefined && input.gpsLatitude !== null ? new Prisma.Decimal(input.gpsLatitude) : undefined,
+              sourceGpsLng: input.gpsLongitude !== undefined && input.gpsLongitude !== null ? new Prisma.Decimal(input.gpsLongitude) : undefined,
+            },
+      }).catch(() => null);
+    }
 
     await logAuditEvent({
       userId: actor.id,

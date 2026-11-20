@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
-import { generateDocumentHTML } from "@/lib/pdf/generator";
+import { generateDocumentHTML, PDFEvidencePhoto } from "@/lib/pdf/generator";
 
 export async function GET(
   req: NextRequest,
@@ -28,6 +28,9 @@ export async function GET(
         sourceMrn: true,
         destinationDn: true,
         godownMrn: true,
+        evidences: {
+          orderBy: { capturedAt: "asc" },
+        },
         items: {
           include: {
             materialVariant: true,
@@ -44,6 +47,39 @@ export async function GET(
     const proto = req.headers.get("x-forwarded-proto") || "https";
     const origin = `${proto}://${host}`;
 
+    const evidences: PDFEvidencePhoto[] = (transfer.evidences || []).map((ev) => ({
+      url: ev.watermarkedPhotoUrl || ev.photoUrl,
+      originalUrl: ev.originalPhotoUrl || undefined,
+      category: ev.evidenceCategory || "TRANSFER_EVIDENCE",
+      capturedAt: ev.capturedAt,
+      gpsLatitude: ev.gpsLatitude ? Number(ev.gpsLatitude) : undefined,
+      gpsLongitude: ev.gpsLongitude ? Number(ev.gpsLongitude) : undefined,
+      gpsAccuracy: ev.gpsAccuracy ? Number(ev.gpsAccuracy) : undefined,
+      address: ev.geocodedAddress || undefined,
+    }));
+
+    if (transfer.sourcePhotoUrl && !evidences.some((e) => e.url === transfer.sourcePhotoUrl)) {
+      evidences.push({
+        url: transfer.sourcePhotoUrl,
+        category: "SOURCE_PICKUP",
+        capturedAt: transfer.dispatchedAt || transfer.transferDate,
+        gpsLatitude: transfer.sourceGpsLat ? Number(transfer.sourceGpsLat) : undefined,
+        gpsLongitude: transfer.sourceGpsLng ? Number(transfer.sourceGpsLng) : undefined,
+        address: undefined,
+      });
+    }
+
+    if (transfer.destPhotoUrl && !evidences.some((e) => e.url === transfer.destPhotoUrl)) {
+      evidences.push({
+        url: transfer.destPhotoUrl,
+        category: "DESTINATION_UNLOAD",
+        capturedAt: transfer.receivedAt || transfer.transferDate,
+        gpsLatitude: transfer.destGpsLat ? Number(transfer.destGpsLat) : undefined,
+        gpsLongitude: transfer.destGpsLng ? Number(transfer.destGpsLng) : undefined,
+        address: undefined,
+      });
+    }
+
     const linkedDocSummary = [
       transfer.sourceMrn ? `Linked Source MRN: ${transfer.sourceMrn.mrnNumber}` : null,
       transfer.vehicleTrip ? `Linked Fleet Trip: ${transfer.vehicleTrip.tripNumber}` : null,
@@ -56,6 +92,7 @@ export async function GET(
       documentNumber: transfer.transferNumber,
       documentDate: transfer.transferDate,
       documentType: "DSTN",
+      evidences,
       partyTitle: "SOURCE SITE (RELEASING CUSTODY)",
       partyName: `${transfer.sourceCustomer.name} (${transfer.sourceCustomer.customerCode})`,
       partyAddress: `${transfer.sourceCustomerSite.siteName}, ${transfer.sourceCustomerSite.fullAddress || "N/A"}`,

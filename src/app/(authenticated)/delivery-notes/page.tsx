@@ -44,6 +44,7 @@ import { TableSkeleton } from "@/components/ui/loading-states";
 import { fetchWithClientCache, invalidateClientCache } from "@/lib/client-cache";
 import { useCurrentUser } from "@/lib/auth-context";
 import { stampGpsWatermarkOnPhoto } from "@/lib/gps-watermark";
+import { uploadEvidenceWithWatermark } from "@/lib/evidence-uploader";
 import { FormFieldError } from "@/components/ui/form-field-error";
 import { parseApiValidationErrors, formatValidationToast } from "@/lib/forms/validation-mapper";
 import { toast } from "sonner";
@@ -571,38 +572,25 @@ export default function DeliveryNotesPage() {
     try {
       setUploadingDeliveryPhoto(true);
 
-      // Burn indelible GPS Camera watermark banner onto the bottom of the photo
-      const { watermarkedFile, dataUrl } = await stampGpsWatermarkOnPhoto({
+      const res = await uploadEvidenceWithWatermark({
         file,
         latitude: deliverForm.gpsLatitude,
         longitude: deliverForm.gpsLongitude,
         accuracy: deliverForm.gpsAccuracy,
+        documentType: "DELIVERY_NOTE",
+        documentId: selectedDN?.id || "00000000-0000-0000-0000-000000000000",
+        documentNumber: selectedDN?.dnNumber || "DELIVERY-NOTE",
         siteName: selectedDN?.customerSite?.siteName || "Construction Site",
         customerName: selectedDN?.customer?.name || "",
-        documentNumber: selectedDN?.dnNumber || "DELIVERY-NOTE",
+        evidenceCategory: "DELIVERY_PHOTO",
         timestamp: new Date(),
       });
 
       // Show watermarked photo immediately in the preview
-      setDeliverPhotoPreview(dataUrl);
-
-      // Upload watermarked photo file to private storage
-      const formData = new FormData();
-      formData.append("file", watermarkedFile);
-      formData.append("folder", "delivery-proofs");
-
-      const res = await fetch("/api/v1/storage/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error?.message || "Photo upload failed");
-
-      const uploadedPath = json.data?.url || (json.data?.storagePath ? `/api/v1/storage/download?path=${encodeURIComponent(json.data.storagePath)}` : "");
-      setDeliverPhotoPreviews((prev) => [...prev, dataUrl]);
-      setDeliverUploadedUrls((prev) => [...prev, uploadedPath]);
-      setDeliverForm((prev) => ({ ...prev, photoUrl: uploadedPath }));
+      setDeliverPhotoPreview(res.dataUrl);
+      setDeliverPhotoPreviews((prev) => [...prev, res.dataUrl]);
+      setDeliverUploadedUrls((prev) => [...prev, res.watermarkedUrl]);
+      setDeliverForm((prev) => ({ ...prev, photoUrl: res.watermarkedUrl }));
       toast.success("Delivery photo uploaded with GPS watermark!");
     } catch (err: any) {
       toast.error(`Photo upload error: ${err.message}`);
