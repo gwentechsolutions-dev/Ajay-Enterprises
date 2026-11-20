@@ -402,4 +402,56 @@ describe("INVENTRA – Professional GPS Camera Watermark & Google Maps Suite", (
     assert.ok(mapRouteSrc.includes("getSession()"), "Static map route must check session authentication");
     assert.ok(mapRouteSrc.includes("fetchStaticMapThumbnail"), "Must call fetchStaticMapThumbnail");
   });
+
+  // --------------------------------------------------------------------------
+  // 23. Google Geocoding REQUEST_DENIED Detection & Site Fallback
+  // --------------------------------------------------------------------------
+  it("should verify google-maps.ts checks status !== OK first to prevent REQUEST_DENIED masked as ZERO_RESULTS", () => {
+    const googleMapsSrc = fs.readFileSync("src/lib/google-maps.ts", "utf-8");
+    assert.ok(
+      googleMapsSrc.includes("if (data.status !== \"OK\")"),
+      "Must check data.status !== 'OK' first"
+    );
+    assert.ok(
+      googleMapsSrc.includes("console.error(`[Google Geocoding API Error]"),
+      "Must log Google Geocoding API errors"
+    );
+  });
+
+  it("should verify gps-watermark.ts falls back to siteName and customerName when location is unmapped", () => {
+    const watermarkSrc = fs.readFileSync("src/lib/gps-watermark.ts", "utf-8");
+    assert.ok(
+      watermarkSrc.includes("isGenericOrUnmapped"),
+      "Must identify unmapped or generic location"
+    );
+    assert.ok(
+      watermarkSrc.includes("options.siteName"),
+      "Must fallback to options.siteName"
+    );
+  });
+
+  // --------------------------------------------------------------------------
+  // 24. Multi-Photo Custody Proof (Up to 10 photos)
+  // --------------------------------------------------------------------------
+  it("should verify delivery routes support up to 10 photos with duplicate prevention", () => {
+    const deliverRouteSrc = fs.readFileSync("src/app/api/v1/delivery-notes/[id]/deliver/route.ts", "utf-8");
+    assert.ok(
+      deliverRouteSrc.includes("additionalPhotoUrls"),
+      "Must support additionalPhotoUrls"
+    );
+    assert.ok(
+      deliverRouteSrc.includes("tx.movementEvidence.findFirst"),
+      "Must prevent duplicate evidence creation"
+    );
+
+    const pickupRouteSrc = fs.readFileSync("src/app/api/v1/return-notes/[id]/pickup/route.ts", "utf-8");
+    assert.ok(
+      pickupRouteSrc.includes("additionalPhotoUrls"),
+      "Must support additionalPhotoUrls on MRN"
+    );
+    assert.ok(
+      pickupRouteSrc.includes("tx.movementEvidence.findFirst"),
+      "Must prevent duplicate evidence on MRN"
+    );
+  });
 });

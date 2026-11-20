@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { TableSkeleton } from "@/components/ui/loading-states";
 import { WhatsAppShareButton } from "@/components/ui/whatsapp-share-button";
+import { GpsCameraCaptureDialog } from "@/components/evidence/GpsCameraCaptureDialog";
 
 export default function DeliveryNoteDetailPage() {
   const params = useParams();
@@ -36,6 +37,7 @@ export default function DeliveryNoteDetailPage() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [activePhoto, setActivePhoto] = React.useState<string | null>(null);
+  const [isGpsCameraOpen, setIsGpsCameraOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (!id) return;
@@ -387,49 +389,105 @@ export default function DeliveryNoteDetailPage() {
       </Card>
 
       {/* Delivery Photographs & GPS Evidences */}
-      {(dn.photoUrl || (dn.evidences && dn.evidences.length > 0)) && (
-        <Card className="border-slate-200 shadow-2xs">
-          <CardHeader className="p-4 pb-2 border-b border-slate-100">
-            <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-              <Camera className="w-4 h-4 text-[#F26522]" /> Delivery Photographs & Site Proof
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
-            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
-              {dn.photoUrl && (
-                <div
-                  onClick={() => setActivePhoto(dn.photoUrl)}
-                  className="group relative aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-50 cursor-pointer hover:shadow-md transition-all"
-                >
-                  <img
-                    src={dn.photoUrl}
-                    alt="Primary Delivery Evidence"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                  />
-                  <span className="absolute bottom-1 right-1 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded">
-                    Primary
-                  </span>
+      <Card className="border-slate-200 shadow-2xs">
+        <CardHeader className="p-4 pb-2 border-b border-slate-100 flex flex-row items-center justify-between">
+          <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+            <Camera className="w-4 h-4 text-[#F26522]" /> Delivery Photographs &amp; Site Proof
+          </CardTitle>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setIsGpsCameraOpen(true)}
+            className="h-8 text-xs border-slate-300 hover:bg-slate-50 text-slate-700"
+          >
+            <Camera className="w-3.5 h-3.5 mr-1.5 text-[#F26522]" /> Snap GPS Photo
+          </Button>
+        </CardHeader>
+        <CardContent className="p-4">
+          {(() => {
+            const photos: Array<{ url: string; originalUrl?: string; isPrimary: boolean; label: string }> = [];
+            const seen = new Set<string>();
+
+            // Add from evidences first
+            (dn.evidences || []).forEach((ev: any, idx: number) => {
+              const u = ev.watermarkedPhotoUrl || ev.photoUrl || ev.url;
+              if (u && !seen.has(u)) {
+                seen.add(u);
+                photos.push({
+                  url: u,
+                  originalUrl: ev.originalPhotoUrl,
+                  isPrimary: idx === 0,
+                  label: ev.evidenceCategory ? ev.evidenceCategory.replace(/_/g, " ") : `Photo #${photos.length + 1}`,
+                });
+              }
+            });
+
+            // Add primary photoUrl if not already in list
+            if (dn.photoUrl && !seen.has(dn.photoUrl)) {
+              seen.add(dn.photoUrl);
+              photos.unshift({
+                url: dn.photoUrl,
+                isPrimary: true,
+                label: "Primary Delivery Proof",
+              });
+            }
+
+            if (photos.length === 0) {
+              return (
+                <div className="text-center py-6 border border-dashed border-slate-200 rounded-xl space-y-2">
+                  <Camera className="w-8 h-8 mx-auto text-slate-300" />
+                  <p className="text-xs text-slate-500">No delivery proof photographs recorded yet.</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsGpsCameraOpen(true)}
+                    className="text-xs h-8"
+                  >
+                    <Camera className="w-3.5 h-3.5 mr-1 text-[#F26522]" /> Capture Delivery Photo
+                  </Button>
                 </div>
-              )}
-              {(dn.evidences || []).map((ev: any, idx: number) => (
-                <div
-                  key={ev.id || idx}
-                  onClick={() => setActivePhoto(ev.fileUrl || ev.url)}
-                  className="group relative aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-50 cursor-pointer hover:shadow-md transition-all"
-                >
-                  <img
-                    src={ev.fileUrl || ev.url}
-                    alt={`Evidence ${idx + 1}`}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                  />
-                  <span className="absolute bottom-1 right-1 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded">
-                    #{idx + 1}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              );
+            }
+
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                {photos.map((p, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => setActivePhoto(p.url)}
+                    className="group relative aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-50 cursor-pointer hover:shadow-md transition-all"
+                  >
+                    <img
+                      src={p.url}
+                      alt={`Delivery Evidence ${idx + 1}`}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                    />
+                    <span className="absolute bottom-1 right-1 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded font-mono">
+                      {p.isPrimary ? "Primary" : `#${idx + 1}`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </CardContent>
+      </Card>
+
+      {/* GPS Camera Dialog */}
+      {isGpsCameraOpen && (
+        <GpsCameraCaptureDialog
+          open={isGpsCameraOpen}
+          onOpenChange={setIsGpsCameraOpen}
+          documentType="DELIVERY_NOTE"
+          documentId={dn.id}
+          documentNumber={dn.dnNumber}
+          siteName={dn.customerSite?.siteName}
+          customerName={dn.customer?.name}
+          defaultCategory="DELIVERY_PHOTO"
+          onSuccess={() => {
+            router.refresh();
+          }}
+        />
       )}
 
       {/* Photo Enlarge Modal */}

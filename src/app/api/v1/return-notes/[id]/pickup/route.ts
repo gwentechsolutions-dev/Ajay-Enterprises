@@ -81,23 +81,43 @@ export async function POST(
       const allPhotos = [primaryPhoto, ...additionalPhotos].filter(Boolean);
 
       for (const pUrl of allPhotos) {
-        await tx.movementEvidence.create({
-          data: {
-            documentType: "RETURN_NOTE",
-            documentId: mrn.id,
+        const existing = await tx.movementEvidence.findFirst({
+          where: {
             returnNoteId: mrn.id,
-            photoUrl: pUrl,
-            gpsLatitude: validatedData.gpsLatitude ? new Prisma.Decimal(validatedData.gpsLatitude) : null,
-            gpsLongitude: validatedData.gpsLongitude ? new Prisma.Decimal(validatedData.gpsLongitude) : null,
-            gpsAccuracy: validatedData.gpsAccuracy ? new Prisma.Decimal(validatedData.gpsAccuracy) : null,
-            capturedById: actor.id,
-            receiverName: validatedData.customerRepresentativeName || validatedData.receiverName,
-            receiverPhone: validatedData.customerRepresentativePhone || validatedData.receiverPhone || null,
-            receiverDesignation: validatedData.customerRepresentativeDesignation || validatedData.receiverDesignation || null,
-            receiverSignatureUrl: validatedData.customerSignatureUrl || validatedData.receiverSignatureUrl || null,
-            missingEvidenceReason: validatedData.customerSignatureExceptionReason || validatedData.missingEvidenceReason || null,
+            OR: [{ photoUrl: pUrl }, { watermarkedPhotoUrl: pUrl }],
           },
         });
+
+        if (existing) {
+          await tx.movementEvidence.update({
+            where: { id: existing.id },
+            data: {
+              receiverName: validatedData.customerRepresentativeName || validatedData.receiverName,
+              receiverPhone: validatedData.customerRepresentativePhone || validatedData.receiverPhone || null,
+              receiverDesignation: validatedData.customerRepresentativeDesignation || validatedData.receiverDesignation || null,
+              receiverSignatureUrl: validatedData.customerSignatureUrl || validatedData.receiverSignatureUrl || null,
+            },
+          });
+        } else {
+          await tx.movementEvidence.create({
+            data: {
+              documentType: "RETURN_NOTE",
+              documentId: mrn.id,
+              returnNoteId: mrn.id,
+              photoUrl: pUrl,
+              watermarkedPhotoUrl: pUrl,
+              gpsLatitude: validatedData.gpsLatitude ? new Prisma.Decimal(validatedData.gpsLatitude) : null,
+              gpsLongitude: validatedData.gpsLongitude ? new Prisma.Decimal(validatedData.gpsLongitude) : null,
+              gpsAccuracy: validatedData.gpsAccuracy ? new Prisma.Decimal(validatedData.gpsAccuracy) : null,
+              capturedById: actor.id,
+              receiverName: validatedData.customerRepresentativeName || validatedData.receiverName,
+              receiverPhone: validatedData.customerRepresentativePhone || validatedData.receiverPhone || null,
+              receiverDesignation: validatedData.customerRepresentativeDesignation || validatedData.receiverDesignation || null,
+              receiverSignatureUrl: validatedData.customerSignatureUrl || validatedData.receiverSignatureUrl || null,
+              missingEvidenceReason: validatedData.customerSignatureExceptionReason || validatedData.missingEvidenceReason || null,
+            },
+          });
+        }
       }
 
       // 2. Update item counts if detailed driver count provided

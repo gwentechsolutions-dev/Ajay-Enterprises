@@ -192,18 +192,28 @@ export async function reverseGeocodeGps(
   const apiKey = process.env.GOOGLE_MAPS_API_KEY!.trim();
   const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`;
 
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://ajay-enterprises-gwen-tech.vercel.app");
+  const referer = appUrl.endsWith("/") ? appUrl : `${appUrl}/`;
+
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000);
 
     const res = await fetch(url, {
       method: "GET",
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        Referer: referer,
+        "User-Agent": "InventraERP/1.0",
+      },
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
 
     if (!res.ok) {
+      console.error(`[Google Geocoding API HTTP Error] HTTP ${res.status}: ${res.statusText}`);
       return {
         isConfigured: true,
         status: "FAILED",
@@ -219,12 +229,14 @@ export async function reverseGeocodeGps(
 
     const data = await res.json();
 
-    if (data.status === "ZERO_RESULTS" || !data.results || data.results.length === 0) {
+    // Check status != "OK" first, so that REQUEST_DENIED / OVER_QUERY_LIMIT are not mistakenly treated as ZERO_RESULTS
+    if (data.status !== "OK") {
+      console.error(`[Google Geocoding API Error] status: ${data.status}, message: ${data.error_message || "none"}`);
       return {
         isConfigured: true,
-        status: "ZERO_RESULTS",
-        message: "No address found for coordinates",
-        line1: "Unmapped Location",
+        status: data.status === "ZERO_RESULTS" ? "ZERO_RESULTS" : "FAILED",
+        message: data.error_message || `Geocoding status: ${data.status}`,
+        line1: data.status === "ZERO_RESULTS" ? "Unmapped Location" : "Location geocoding unavailable",
         line2: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
         formattedAddress: "",
         components: {},
@@ -233,12 +245,12 @@ export async function reverseGeocodeGps(
       };
     }
 
-    if (data.status !== "OK") {
+    if (!data.results || data.results.length === 0) {
       return {
         isConfigured: true,
-        status: "FAILED",
-        message: data.error_message || `Geocoding status: ${data.status}`,
-        line1: "Location geocoding unavailable",
+        status: "ZERO_RESULTS",
+        message: "No address results found for coordinates",
+        line1: "Unmapped Location",
         line2: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
         formattedAddress: "",
         components: {},
@@ -350,17 +362,27 @@ export async function fetchStaticMapThumbnail(
   const apiKey = process.env.GOOGLE_MAPS_API_KEY!.trim();
   const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${latitude},${longitude}&zoom=${zoom}&size=${width}x${height}&scale=${scale}&maptype=roadmap&markers=color:0xF26522%7C${latitude},${longitude}&key=${apiKey}`;
 
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://ajay-enterprises-gwen-tech.vercel.app");
+  const referer = appUrl.endsWith("/") ? appUrl : `${appUrl}/`;
+
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000);
 
     const res = await fetch(staticMapUrl, {
       method: "GET",
+      headers: {
+        Referer: referer,
+        "User-Agent": "InventraERP/1.0",
+      },
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
 
     if (!res.ok) {
+      console.error(`[Google Maps Static API Error] HTTP ${res.status}: ${res.statusText}`);
       const svg = generateFallbackMapSvg(latitude, longitude, width, height, "Map Preview Unavailable");
       return {
         buffer: Buffer.from(svg, "utf-8"),

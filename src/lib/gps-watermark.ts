@@ -254,17 +254,25 @@ async function resolveLocationData(
     geocodingStatus = "SUCCESS";
   }
 
-  // Fallbacks if geocoding is still pending or failed
-  if (!line1) {
-    if (geocodingStatus === "PENDING_KEY") {
-      line1 = "Google Maps configuration pending";
-      line2 = "Location geocoding pending";
-    } else if (options.siteName) {
+  // Intelligent fallback: if geocoding returns "Unmapped Location", "Location geocoding unavailable",
+  // "Google Maps configuration pending", or is empty, use the actual site & customer metadata!
+  const isGenericOrUnmapped =
+    !line1 ||
+    line1 === "Unmapped Location" ||
+    line1 === "Location geocoding unavailable" ||
+    line1 === "Google Maps configuration pending" ||
+    line1 === "Site Location";
+
+  if (isGenericOrUnmapped) {
+    if (options.siteName) {
       line1 = options.customerName ? `${options.siteName} (${options.customerName})` : options.siteName;
-      line2 = geocodingStatus === "OFFLINE" ? "Offline capture · Geocoding queued" : "Site coordinates recorded";
-    } else {
+      line2 = `${Math.abs(latitude).toFixed(6)}° ${latitude >= 0 ? "N" : "S"}, ${Math.abs(longitude).toFixed(6)}° ${longitude >= 0 ? "E" : "W"}`;
+    } else if (geocodingStatus === "PENDING_KEY") {
       line1 = "Google Maps configuration pending";
       line2 = "Location geocoding pending";
+    } else {
+      line1 = `${Math.abs(latitude).toFixed(6)}° ${latitude >= 0 ? "N" : "S"}, ${Math.abs(longitude).toFixed(6)}° ${longitude >= 0 ? "E" : "W"}`;
+      line2 = "Site Coordinates Recorded";
     }
   }
 
