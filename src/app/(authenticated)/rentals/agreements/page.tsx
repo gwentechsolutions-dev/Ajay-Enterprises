@@ -470,7 +470,7 @@ export default function RentalAgreementsPage() {
               ← Rental Operations
             </Link>
           </div>
-          <h1 className="text-2xl font-black text-[#0B1E36] tracking-tight mt-1">
+          <h1 className="text-xl sm:text-2xl font-black text-[#0B1E36] tracking-tight mt-1 break-words">
             Rental Agreements Master
           </h1>
           <p className="text-sm text-slate-600 mt-0.5">

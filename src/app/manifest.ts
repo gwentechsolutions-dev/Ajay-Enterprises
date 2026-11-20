@@ -2,11 +2,14 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "INVENTRA Driver Portal",
+    name: "INVENTRA Driver Portal & Centering ERP",
     short_name: "INVENTRA",
     description: "AJAY ENTERPRISES Logistics, Centering Delivery & Material Returns ERP",
-    start_url: "/delivery-portal",
+    // Base root start_url for universal portal routing (/ redirects to /delivery-portal for drivers, /dashboard for execs)
+    // start_url: "/delivery-portal" is also supported for driver direct shortcut
+    start_url: "/",
     scope: "/",
+    id: "/",
     display: "standalone",
     background_color: "#0B1E36",
     theme_color: "#0B1E36",
@@ -58,6 +61,13 @@ export default function manifest(): MetadataRoute.Manifest {
         short_name: "Trips",
         description: "Assigned vehicle trips and delivery runs",
         url: "/fleet/trips",
+        icons: [{ src: "/icons/icon-192x192.png", sizes: "192x192" }],
+      },
+      {
+        name: "Executive Dashboard",
+        short_name: "Dashboard",
+        description: "Real-time management overview and centering operations",
+        url: "/dashboard",
         icons: [{ src: "/icons/icon-192x192.png", sizes: "192x192" }],
       },
     ],

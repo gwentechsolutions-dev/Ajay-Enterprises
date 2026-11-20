@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { Suspense } from "react";
 import { TopProgressBar } from "@/components/layout/top-progress-bar";
+import { IosPwaLinkHandler } from "@/components/pwa/ios-pwa-link-handler";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -12,6 +13,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: "cover",
+  userScalable: false,
 };
 
 export const metadata: Metadata = {
@@ -28,6 +30,14 @@ export const metadata: Metadata = {
     icon: "/icons/icon-192x192.png",
     apple: "/icons/apple-touch-icon.png",
   },
+  other: {
+    "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "default",
+    "apple-mobile-web-app-title": "INVENTRA",
+    "application-name": "INVENTRA",
+    "format-detection": "telephone=no",
+  },
 };
 
 export default function RootLayout({
@@ -41,9 +51,9 @@ export default function RootLayout({
         <Suspense fallback={null}>
           <TopProgressBar />
         </Suspense>
+        <IosPwaLinkHandler />
         {children}
       </body>
     </html>
   );
 }
-

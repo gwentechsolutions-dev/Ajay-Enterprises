@@ -289,23 +289,24 @@ export function Topbar({ user, onMenuToggle }: TopbarProps) {
     : "Dashboard";
 
   return (
-    <header className="flex min-h-16 w-full items-center justify-between border-b border-slate-200 bg-white px-4 lg:px-6 shadow-sm pt-[env(safe-area-inset-top,0px)]">
+    <header className="flex min-h-16 w-full items-center justify-between border-b border-slate-200 bg-white px-3 sm:px-4 lg:px-6 shadow-sm pt-[env(safe-area-inset-top,0px)]">
       {/* Left: Mobile Toggle & Breadcrumbs */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <button
           type="button"
           onClick={onMenuToggle}
-          className="lg:hidden flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
+          className="lg:hidden flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 touch-manipulation"
+          aria-label="Open Navigation Menu"
         >
           <Menu className="h-5 w-5" />
         </button>
 
-        <div className="flex items-center gap-2 text-sm">
-          <span className="font-semibold text-slate-800">{breadcrumbTitle}</span>
+        <div className="flex items-center gap-1.5 sm:gap-2 text-sm min-w-0">
+          <span className="font-semibold text-slate-800 truncate">{breadcrumbTitle}</span>
           {pathSegments.length > 1 && (
             <>
-              <span className="text-slate-400">/</span>
-              <span className="text-slate-500 capitalize">
+              <span className="text-slate-400 shrink-0">/</span>
+              <span className="text-slate-500 capitalize truncate hidden xs:inline sm:inline">
                 {pathSegments[1].replace("-", " ")}
               </span>
             </>

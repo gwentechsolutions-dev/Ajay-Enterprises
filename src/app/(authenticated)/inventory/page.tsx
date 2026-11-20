@@ -93,11 +93,11 @@ export default function InventoryDashboardPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 break-words">
               Inventory Intelligence & Reports
             </h1>
-            <Badge variant="outline" className="text-xs bg-slate-100 text-slate-700">
+            <Badge variant="outline" className="text-xs bg-slate-100 text-slate-700 whitespace-nowrap">
               Live Movement Projections
             </Badge>
           </div>

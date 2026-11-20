@@ -63,9 +63,9 @@ export default function FleetOverviewPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-[#0B1E36]">Company Fleet Management</h1>
-            <span className="text-xs px-2 py-0.5 rounded font-mono font-bold bg-orange-100 text-[#F26522]">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#0B1E36] break-words">Company Fleet Management</h1>
+            <span className="text-xs px-2 py-0.5 rounded font-mono font-bold bg-orange-100 text-[#F26522] whitespace-nowrap">
               AJAY ENTERPRISES
             </span>
           </div>

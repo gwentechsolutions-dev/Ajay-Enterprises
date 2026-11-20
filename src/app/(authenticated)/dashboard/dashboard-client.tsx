@@ -89,19 +89,19 @@ export function OwnerDashboardClient() {
       <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
           <div className="flex flex-wrap items-center gap-2 mb-1">
-            <h1 className="text-2xl font-bold tracking-tight text-[#0B1E36] whitespace-nowrap">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#0B1E36] break-words">
               AJAY ENTERPRISES · Executive Dashboard
             </h1>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 font-semibold text-xs whitespace-nowrap shrink-0">
+            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+              <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 font-semibold text-xs whitespace-nowrap">
                 INVENTRA v1.0
               </Badge>
-              <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-200 text-xs whitespace-nowrap shrink-0">
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-200 text-xs whitespace-nowrap">
                 FY {data?.period?.fiscalYear || "2026-27"}
               </Badge>
             </div>
           </div>
-          <p className="text-sm text-slate-500">
+          <p className="text-xs sm:text-sm text-slate-500 break-words">
             Real-time management overview, reconciled accounting ledgers, and centering material operations.
           </p>
         </div>

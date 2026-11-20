@@ -4,7 +4,6 @@ import * as React from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
-import { TopProgressBar } from "./top-progress-bar";
 import { DemoModeBanner } from "./demo-mode-banner";
 import { SessionUser } from "@/lib/auth";
 import { Toaster } from "sonner";
@@ -25,11 +24,6 @@ export function AppShell({ user, children }: AppShellProps) {
   return (
     <AuthProvider user={user}>
       <div className="min-h-screen bg-slate-50 text-slate-900 flex w-full max-w-full overflow-x-hidden">
-        {/* Global Navigation Loading Progress Bar */}
-        <React.Suspense fallback={null}>
-          <TopProgressBar />
-        </React.Suspense>
-
         {/* Toast notifications */}
         <Toaster position="top-right" richColors />
 

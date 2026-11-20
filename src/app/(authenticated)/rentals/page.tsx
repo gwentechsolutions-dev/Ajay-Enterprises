@@ -52,7 +52,7 @@ export default function RentalDashboardPage() {
             </span>
             <span className="text-xs text-slate-500 font-mono">AJAY ENTERPRISES</span>
           </div>
-          <h1 className="text-2xl font-black text-[#0B1E36] tracking-tight mt-1">
+          <h1 className="text-xl sm:text-2xl font-black text-[#0B1E36] tracking-tight mt-1 break-words">
             Rental Management & Monthly Billing
           </h1>
           <p className="text-sm text-slate-600 mt-0.5">

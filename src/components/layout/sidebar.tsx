@@ -182,6 +182,11 @@ interface SidebarProps {
 export function Sidebar({ user, isCollapsed, setIsCollapsed, mobileOpen, setMobileOpen }: SidebarProps) {
   const pathname = usePathname();
 
+  // Auto-close mobile drawer when pathname changes
+  React.useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname, setMobileOpen]);
+
   const filteredNavigation = React.useMemo(() => {
     return NAVIGATION.map((group) => ({
       ...group,
@@ -194,7 +199,7 @@ export function Sidebar({ user, isCollapsed, setIsCollapsed, mobileOpen, setMobi
       {/* Mobile Backdrop */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm lg:hidden touch-manipulation select-none"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -202,7 +207,7 @@ export function Sidebar({ user, isCollapsed, setIsCollapsed, mobileOpen, setMobi
       {/* Sidebar Container */}
       <aside
         className={cn(
-          "fixed top-0 bottom-0 left-0 z-50 flex flex-col border-r border-slate-800 bg-[#0B1E36] text-white transition-all duration-300 ease-in-out",
+          "fixed top-0 bottom-0 left-0 z-50 flex flex-col border-r border-slate-800 bg-[#0B1E36] text-white transition-all duration-300 ease-in-out select-none touch-manipulation",
           isCollapsed ? "w-20" : "w-64",
           mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
@@ -211,7 +216,8 @@ export function Sidebar({ user, isCollapsed, setIsCollapsed, mobileOpen, setMobi
         <div className="flex min-h-16 items-center justify-between border-b border-slate-800 px-4 pt-[env(safe-area-inset-top,0px)]">
           <Link
             href={getDefaultPortalForRole(user?.role)}
-            className="flex items-center gap-3 overflow-hidden"
+            className="flex items-center gap-3 overflow-hidden select-none touch-manipulation"
+            draggable={false}
             onClick={() => setMobileOpen(false)}
           >
             <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-white/10 p-1 flex items-center justify-center">
@@ -247,7 +253,7 @@ export function Sidebar({ user, isCollapsed, setIsCollapsed, mobileOpen, setMobi
         </div>
 
         {/* Navigation Links */}
-        <div className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
+        <div className="flex-1 overflow-y-auto py-4 px-3 space-y-6 overscroll-contain select-none touch-manipulation">
           {filteredNavigation.map((group) => (
             <div key={group.group} className="space-y-1">
               {!isCollapsed && (
@@ -265,7 +271,7 @@ export function Sidebar({ user, isCollapsed, setIsCollapsed, mobileOpen, setMobi
                       key={item.title}
                       title={isCollapsed ? `${item.title} (${item.badge || 'Coming Soon'})` : undefined}
                       className={cn(
-                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-500 cursor-not-allowed select-none transition-colors opacity-60",
+                        "flex items-center gap-3 rounded-lg px-3 py-2.5 min-h-[44px] text-sm text-slate-500 cursor-not-allowed select-none transition-colors opacity-60",
                         isCollapsed ? "justify-center" : "justify-between"
                       )}
                     >
@@ -289,8 +295,9 @@ export function Sidebar({ user, isCollapsed, setIsCollapsed, mobileOpen, setMobi
                     href={item.href}
                     onClick={() => setMobileOpen(false)}
                     title={isCollapsed ? item.title : undefined}
+                    draggable={false}
                     className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all active:scale-[0.98]",
+                      "flex items-center gap-3 rounded-lg px-3 py-2.5 min-h-[44px] text-sm font-medium transition-all active:scale-[0.98] select-none touch-manipulation",
                       isActive
                         ? "bg-accent-500 text-white font-semibold shadow-sm"
                         : "text-slate-300 hover:bg-slate-800 hover:text-white",
@@ -308,16 +315,16 @@ export function Sidebar({ user, isCollapsed, setIsCollapsed, mobileOpen, setMobi
 
         {/* Operating Identity Footer */}
         {!isCollapsed ? (
-          <div className="p-3 border-t border-slate-800 bg-[#071322]">
+          <div className="p-3 border-t border-slate-800 bg-[#071322] pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] select-none">
             <div className="flex items-center justify-between text-xs text-slate-400">
               <span className="truncate">AJAY ENTERPRISES ERP</span>
-              <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-500/20">
+              <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-500/20 shrink-0">
                 v1.0 Live
               </span>
             </div>
           </div>
         ) : (
-          <div className="p-2 border-t border-slate-800 flex justify-center bg-[#071322]">
+          <div className="p-2 border-t border-slate-800 flex justify-center bg-[#071322] pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]">
             <span className="h-2 w-2 rounded-full bg-emerald-400" title="System Online" />
           </div>
         )}

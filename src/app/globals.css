@@ -123,4 +123,19 @@ select option {
   font-weight: 500;
 }
 
+/* iOS PWA Standalone & Touch Optimizations */
+@supports (-webkit-touch-callout: none) {
+  a, button, [role="button"] {
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
+  }
+}
+
+aside, nav {
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+
 
