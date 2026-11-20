@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
     const height = Math.max(80, Math.min(640, parseInt(searchParams.get("height") || "240", 10)));
     const format = searchParams.get("format");
 
-    const { buffer, contentType, isConfigured, isFallback } = await fetchStaticMapThumbnail({
+    const { buffer, contentType, isConfigured, isFallback, errorMessage } = await fetchStaticMapThumbnail({
       latitude: lat,
       longitude: lng,
       zoom,
@@ -55,6 +55,7 @@ export async function GET(req: NextRequest) {
           isConfigured,
           isFallback,
           contentType,
+          errorMessage,
         },
       });
     }

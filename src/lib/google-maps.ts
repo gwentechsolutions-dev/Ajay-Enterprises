@@ -345,7 +345,7 @@ export function generateFallbackMapSvg(
  */
 export async function fetchStaticMapThumbnail(
   options: StaticMapOptions
-): Promise<{ buffer: Buffer; contentType: string; isConfigured: boolean; isFallback: boolean }> {
+): Promise<{ buffer: Buffer; contentType: string; isConfigured: boolean; isFallback: boolean; errorMessage?: string }> {
   const { latitude, longitude, zoom = 17, width = 300, height = 240, scale = 2 } = options;
 
   // If Google Maps API key is not configured, generate fallback SVG
@@ -356,6 +356,7 @@ export async function fetchStaticMapThumbnail(
       contentType: "image/svg+xml",
       isConfigured: false,
       isFallback: true,
+      errorMessage: "Google Maps API key not configured",
     };
   }
 
@@ -369,26 +370,46 @@ export async function fetchStaticMapThumbnail(
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const timeoutId = setTimeout(() => controller.abort(), 7000);
 
-    const res = await fetch(staticMapUrl, {
+    let res = await fetch(staticMapUrl, {
       method: "GET",
       headers: {
+        Accept: "image/png,image/*",
         Referer: referer,
-        "User-Agent": "InventraERP/1.0",
       },
       signal: controller.signal,
     });
+
+    // If 403, retry without Referer in case key has no domain restriction
+    if (!res.ok && res.status === 403) {
+      try {
+        const retryRes = await fetch(staticMapUrl, {
+          method: "GET",
+          headers: { Accept: "image/png,image/*" },
+          signal: controller.signal,
+        });
+        if (retryRes.ok) {
+          res = retryRes;
+        }
+      } catch {}
+    }
+
     clearTimeout(timeoutId);
 
     if (!res.ok) {
-      console.error(`[Google Maps Static API Error] HTTP ${res.status}: ${res.statusText}`);
+      let errorBody = "";
+      try {
+        errorBody = await res.text();
+      } catch {}
+      console.error(`[Google Maps Static API Error] HTTP ${res.status}: ${res.statusText} - Body: ${errorBody}`);
       const svg = generateFallbackMapSvg(latitude, longitude, width, height, "Map Preview Unavailable");
       return {
         buffer: Buffer.from(svg, "utf-8"),
         contentType: "image/svg+xml",
         isConfigured: true,
         isFallback: true,
+        errorMessage: errorBody || `HTTP ${res.status}: ${res.statusText}`,
       };
     }
 
@@ -402,13 +423,14 @@ export async function fetchStaticMapThumbnail(
       isConfigured: true,
       isFallback: false,
     };
-  } catch {
+  } catch (err: any) {
     const svg = generateFallbackMapSvg(latitude, longitude, width, height, "Map Request Timeout");
     return {
       buffer: Buffer.from(svg, "utf-8"),
       contentType: "image/svg+xml",
       isConfigured: true,
       isFallback: true,
+      errorMessage: err.message || "Timeout",
     };
   }
 }
