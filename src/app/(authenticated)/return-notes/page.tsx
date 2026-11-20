@@ -557,32 +557,43 @@ export default function MaterialReturnsPage() {
     }
   };
 
-  // Filter return notes based on search query and status tabs
-  const filteredMRNs = (returnNotes || []).filter((mrn) => {
-    if (!mrn) return false;
-    const mrnNum = mrn.mrnNumber || "";
-    const custName = mrn.customer?.name || "";
-    const siteName = mrn.customerSite?.siteName || "";
-    const q = (search || "").toLowerCase();
-    const matchesSearch =
-      mrnNum.toLowerCase().includes(q) ||
-      custName.toLowerCase().includes(q) ||
-      siteName.toLowerCase().includes(q);
+  // Filter return notes based on search query and status tabs (latest created first)
+  const filteredMRNs = React.useMemo(() => {
+    return (returnNotes || [])
+      .filter((mrn) => {
+        if (!mrn) return false;
+        const mrnNum = mrn.mrnNumber || "";
+        const custName = mrn.customer?.name || "";
+        const siteName = mrn.customerSite?.siteName || "";
+        const q = (search || "").toLowerCase();
+        const matchesSearch =
+          mrnNum.toLowerCase().includes(q) ||
+          custName.toLowerCase().includes(q) ||
+          siteName.toLowerCase().includes(q);
 
-    if (!matchesSearch) return false;
+        if (!matchesSearch) return false;
 
-    if (statusTab === "ALL") return true;
-    if (statusTab === "REQUESTED") return mrn.status === "PICKUP_REQUESTED";
-    if (statusTab === "IN_TRANSIT") {
-      return ["ASSIGNED", "EN_ROUTE", "ARRIVED_AT_SITE", "PICKUP_COMPLETED", "IN_TRANSIT"].includes(mrn.status);
-    }
-    if (statusTab === "AWAITING_INSPECTION") {
-      return ["AWAITING_INSPECTION", "ARRIVED_AT_YARD", "INSPECTION_COMPLETED"].includes(mrn.status) && mrn.status !== "POSTED";
-    }
-    if (statusTab === "FINALIZED") return ["POSTED", "FINALIZED"].includes(mrn.status);
+        if (statusTab === "ALL") return true;
+        if (statusTab === "REQUESTED") return mrn.status === "PICKUP_REQUESTED";
+        if (statusTab === "IN_TRANSIT") {
+          return ["ASSIGNED", "EN_ROUTE", "ARRIVED_AT_SITE", "PICKUP_COMPLETED", "IN_TRANSIT"].includes(mrn.status);
+        }
+        if (statusTab === "AWAITING_INSPECTION") {
+          return ["AWAITING_INSPECTION", "ARRIVED_AT_YARD", "INSPECTION_COMPLETED"].includes(mrn.status) && mrn.status !== "POSTED";
+        }
+        if (statusTab === "FINALIZED") return ["POSTED", "FINALIZED"].includes(mrn.status);
 
-    return true;
-  });
+        return true;
+      })
+      .sort((a, b) => {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        if (timeB !== timeA) return timeB - timeA;
+        const dateA = a.returnDate ? new Date(a.returnDate).getTime() : 0;
+        const dateB = b.returnDate ? new Date(b.returnDate).getTime() : 0;
+        return dateB - dateA;
+      });
+  }, [returnNotes, search, statusTab]);
 
   return (
     <div className="space-y-6">

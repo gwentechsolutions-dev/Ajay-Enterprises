@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
           take: 1,
         },
       },
-      orderBy: { deliveryDate: "desc" },
+      orderBy: [{ createdAt: "desc" }, { deliveryDate: "desc" }],
     });
 
     return NextResponse.json(

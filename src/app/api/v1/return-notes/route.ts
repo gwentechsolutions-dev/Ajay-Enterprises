@@ -64,10 +64,17 @@ export async function GET(req: NextRequest) {
         evidences: true,
         _count: { select: { evidences: true } },
       },
-      orderBy: { returnDate: "desc" },
+      orderBy: [{ createdAt: "desc" }, { returnDate: "desc" }],
     });
 
-    return NextResponse.json({ success: true, data: returnNotes });
+    return NextResponse.json(
+      { success: true, data: returnNotes },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+        },
+      }
+    );
   } catch (error: any) {
     const status = error.message?.startsWith("UNAUTHORIZED") ? 401 : error.message?.startsWith("FORBIDDEN") ? 403 : 500;
     return NextResponse.json({ success: false, error: { message: error.message } }, { status });

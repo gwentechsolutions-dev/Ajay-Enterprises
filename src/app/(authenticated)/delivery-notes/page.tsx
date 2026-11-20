@@ -889,20 +889,31 @@ export default function DeliveryNotesPage() {
     }
   };
 
-  const filteredDNs = (deliveryNotes || []).filter((dn) => {
-    if (!dn) return false;
-    const dnNum = dn.dnNumber || "";
-    const custName = dn.customer?.name || "";
-    const siteName = dn.customerSite?.siteName || "";
-    const q = (search || "").toLowerCase();
+  const filteredDNs = React.useMemo(() => {
+    return (deliveryNotes || [])
+      .filter((dn) => {
+        if (!dn) return false;
+        const dnNum = dn.dnNumber || "";
+        const custName = dn.customer?.name || "";
+        const siteName = dn.customerSite?.siteName || "";
+        const q = (search || "").toLowerCase();
 
-    const matchesSearch =
-      dnNum.toLowerCase().includes(q) ||
-      custName.toLowerCase().includes(q) ||
-      siteName.toLowerCase().includes(q);
-    const matchesStatus = statusFilter === "ALL" || dn.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+        const matchesSearch =
+          dnNum.toLowerCase().includes(q) ||
+          custName.toLowerCase().includes(q) ||
+          siteName.toLowerCase().includes(q);
+        const matchesStatus = statusFilter === "ALL" || dn.status === statusFilter;
+        return matchesSearch && matchesStatus;
+      })
+      .sort((a, b) => {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        if (timeB !== timeA) return timeB - timeA;
+        const dateA = a.deliveryDate ? new Date(a.deliveryDate).getTime() : 0;
+        const dateB = b.deliveryDate ? new Date(b.deliveryDate).getTime() : 0;
+        return dateB - dateA;
+      });
+  }, [deliveryNotes, search, statusFilter]);
 
   return (
     <div className="space-y-6">

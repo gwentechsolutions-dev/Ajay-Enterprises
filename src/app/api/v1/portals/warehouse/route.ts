@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
         customerSite: { select: { id: true, siteName: true } },
         items: { include: { materialVariant: true } },
       },
-      orderBy: { deliveryDate: "desc" },
+      orderBy: [{ createdAt: "desc" }, { deliveryDate: "desc" }],
       take: 10,
     });
 
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
         customerSite: { select: { id: true, siteName: true } },
         items: { include: { materialVariant: true } },
       },
-      orderBy: { returnDate: "desc" },
+      orderBy: [{ createdAt: "desc" }, { returnDate: "desc" }],
       take: 10,
     });
 
