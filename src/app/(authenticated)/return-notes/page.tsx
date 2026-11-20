@@ -197,6 +197,18 @@ export default function MaterialReturnsPage() {
         setIsCreateModalOpen(true);
       }
     }
+
+    // Auto-refresh return notes when data changes across portals
+    const handleCacheInvalidated = (e: any) => {
+      const prefix = e?.detail?.prefix || "";
+      if (prefix === "*" || prefix.includes("return") || prefix.includes("dashboard")) {
+        loadData(true);
+      }
+    };
+    window.addEventListener("inventra:cache-invalidated", handleCacheInvalidated);
+    return () => {
+      window.removeEventListener("inventra:cache-invalidated", handleCacheInvalidated);
+    };
   }, [loadData, canCreateReturnNote]);
 
   // Load site delivered materials when site is selected
@@ -392,6 +404,12 @@ export default function MaterialReturnsPage() {
 
       toast.success(data.message || `Return Pickup Request ${data.data?.mrnNumber} created successfully!`);
       setIsCreateModalOpen(false);
+
+      // Instant optimistic UI update (0ms) - displays new note at the top immediately
+      if (data.data) {
+        setReturnNotes((prev) => [data.data, ...prev]);
+      }
+
       invalidateClientCache("/api/v1/return-notes");
       invalidateClientCache("/api/v1/fleet/trips");
       await loadData(true);
@@ -436,6 +454,16 @@ export default function MaterialReturnsPage() {
 
       toast.success(data.message || `Trip scheduled for ${schedulingMRN.mrnNumber}!`);
       setIsScheduleModalOpen(false);
+
+      // Instant optimistic UI update (0ms)
+      setReturnNotes((prev) =>
+        prev.map((r) =>
+          r.id === schedulingMRN.id
+            ? { ...r, status: "SCHEDULED_FOR_PICKUP" }
+            : r
+        )
+      );
+
       setSchedulingMRN(null);
       invalidateClientCache("/api/v1/return-notes");
       invalidateClientCache("/api/v1/fleet/trips");
@@ -546,6 +574,16 @@ export default function MaterialReturnsPage() {
 
       toast.success(`MRN ${finalizingMRN.mrnNumber} finalized! Warehouse stock re-credited and rental return calculations applied.`);
       setIsFinalizeModalOpen(false);
+
+      // Instant optimistic UI update (0ms)
+      setReturnNotes((prev) =>
+        prev.map((r) =>
+          r.id === finalizingMRN.id
+            ? { ...r, status: "COMPLETED" }
+            : r
+        )
+      );
+
       setFinalizingMRN(null);
       invalidateClientCache("/api/v1/return-notes");
       invalidateClientCache("/api/v1/inventory/stock-balances");

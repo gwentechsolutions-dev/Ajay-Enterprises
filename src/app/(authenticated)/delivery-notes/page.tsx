@@ -101,6 +101,7 @@ export default function DeliveryNotesPage() {
   const [stockBalances, setStockBalances] = React.useState<any[]>([]);
   const [loadingBalances, setLoadingBalances] = React.useState(false);
   const [yardStocks, setYardStocks] = React.useState<Record<string, number>>({});
+  const [checkingYardStocks, setCheckingYardStocks] = React.useState(false);
 
   // New DN Form State
   const [dnForm, setDnForm] = React.useState({
@@ -216,8 +217,12 @@ export default function DeliveryNotesPage() {
 
   // Fetch stock balances for selected source yard in Create/Edit form
   React.useEffect(() => {
-    if (!canCreateDeliveryNote || !dnForm.sourceWarehouseId) return;
+    if (!canCreateDeliveryNote || !dnForm.sourceWarehouseId) {
+      setCheckingYardStocks(false);
+      return;
+    }
     let isMounted = true;
+    setCheckingYardStocks(true);
     fetchWithClientCache(`/api/v1/inventory/stock-balances?warehouseId=${dnForm.sourceWarehouseId}&locationType=WAREHOUSE`, {
       ttlMs: 30_000,
       onBackgroundUpdate: (fresh) => {
@@ -227,6 +232,7 @@ export default function DeliveryNotesPage() {
           map[b.materialVariantId] = (map[b.materialVariantId] || 0) + Number(b.availableQty);
         }
         setYardStocks(map);
+        setCheckingYardStocks(false);
       },
     })
       .then((data) => {
@@ -237,12 +243,15 @@ export default function DeliveryNotesPage() {
         }
         setYardStocks(map);
       })
-      .catch(() => { });
+      .catch(() => { })
+      .finally(() => {
+        if (isMounted) setCheckingYardStocks(false);
+      });
 
     return () => {
       isMounted = false;
     };
-  }, [dnForm.sourceWarehouseId]);
+  }, [dnForm.sourceWarehouseId, canCreateDeliveryNote]);
 
   React.useEffect(() => {
     loadData();
@@ -252,6 +261,18 @@ export default function DeliveryNotesPage() {
         setIsCreateModalOpen(true);
       }
     }
+
+    // Auto-refresh data when actions are completed anywhere in the application
+    const handleCacheInvalidated = (e: any) => {
+      const prefix = e?.detail?.prefix || "";
+      if (prefix === "*" || prefix.includes("delivery") || prefix.includes("dashboard")) {
+        loadData(true);
+      }
+    };
+    window.addEventListener("inventra:cache-invalidated", handleCacheInvalidated);
+    return () => {
+      window.removeEventListener("inventra:cache-invalidated", handleCacheInvalidated);
+    };
   }, [loadData, canCreateDeliveryNote]);
 
   // Click outside to close driver suggestions popover
@@ -390,6 +411,14 @@ export default function DeliveryNotesPage() {
       toast.success(`Delivery Note ${data.data.dnNumber} ${editingDnId ? "updated" : "created"}!`);
       setIsCreateModalOpen(false);
       setEditingDnId(null);
+
+      // Instant optimistic UI update (0ms) - displays new note at the top immediately
+      if (editingDnId) {
+        setDeliveryNotes((prev) => prev.map((d) => (d.id === editingDnId ? { ...d, ...data.data } : d)));
+      } else if (data.data) {
+        setDeliveryNotes((prev) => [data.data, ...prev]);
+      }
+
       invalidateClientCache("/api/v1/delivery-notes");
       invalidateClientCache("/api/v1/dashboard");
       await loadData(true);
@@ -548,6 +577,12 @@ export default function DeliveryNotesPage() {
 
       toast.success(`Delivery Note ${dispatchTarget.dnNumber} marked DISPATCHED! Stock deducted.`);
       setIsDispatchModalOpen(false);
+
+      // Instant optimistic UI update (0ms) - changes status immediately in table
+      setDeliveryNotes((prev) =>
+        prev.map((d) => (d.id === dispatchTarget.id ? { ...d, status: "DISPATCHED" } : d))
+      );
+
       setDispatchTarget(null);
       invalidateClientCache("/api/v1/delivery-notes");
       invalidateClientCache("/api/v1/dashboard");
@@ -687,6 +722,21 @@ export default function DeliveryNotesPage() {
 
       toast.success(`Delivery Note ${selectedDN.dnNumber} marked DELIVERED with receiver acknowledgement!`);
       setIsDeliverModalOpen(false);
+
+      // Instant optimistic UI update (0ms) - changes status immediately in table
+      setDeliveryNotes((prev) =>
+        prev.map((d) =>
+          d.id === selectedDN.id
+            ? {
+                ...d,
+                status: "DELIVERED",
+                receiverName: deliverForm.receiverName.trim(),
+                receiverPhone: deliverForm.receiverPhone,
+              }
+            : d
+        )
+      );
+
       invalidateClientCache("/api/v1/delivery-notes");
       invalidateClientCache("/api/v1/dashboard");
       await loadData(true);
@@ -1558,11 +1608,16 @@ export default function DeliveryNotesPage() {
                       </Label>
                       <SearchableCombobox
                         options={availableSizes.map((v) => {
-                          const stock = yardStocks[v.id] ?? 0;
+                          const stock = yardStocks[v.id];
+                          const isLoaded = stock !== undefined;
                           return {
                             value: v.id,
                             label: `${v.size || "Standard"} (${v.materialCode})`,
-                            badge: stock > 0 ? `${stock} in yard` : "0 in yard",
+                            badge: checkingYardStocks || !isLoaded
+                              ? "Checking stock..."
+                              : stock > 0
+                              ? `${stock} in yard`
+                              : "0 in yard",
                           };
                         })}
                         value={item.materialVariantId}
@@ -1669,16 +1724,25 @@ export default function DeliveryNotesPage() {
 
                     {item.materialVariantId && (
                       <div className="col-span-12 flex items-center justify-between text-[11px] pt-1.5 px-2 bg-slate-50 rounded border border-slate-100 mt-1">
-                        <span className="text-slate-500">
-                          Available in selected yard:{" "}
-                          <strong className={(yardStocks[item.materialVariantId] ?? 0) >= item.dispatchedQty ? "text-emerald-700 font-mono" : "text-red-600 font-mono"}>
-                            {yardStocks[item.materialVariantId] ?? 0} {variants.find((v) => v.id === item.materialVariantId)?.uom || "Nos."}
-                          </strong>
-                        </span>
-                        {(yardStocks[item.materialVariantId] ?? 0) < item.dispatchedQty && (
-                          <span className="text-amber-700 font-medium">
-                            ⚠️ Insufficient stock in this yard for requested quantity ({item.dispatchedQty})
+                        {checkingYardStocks || yardStocks[item.materialVariantId] === undefined ? (
+                          <span className="inline-flex items-center gap-1.5 text-amber-700 font-medium py-0.5">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-[#F26522]" />
+                            Checking yard stock...
                           </span>
+                        ) : (
+                          <>
+                            <span className="text-slate-500">
+                              Available in selected yard:{" "}
+                              <strong className={(yardStocks[item.materialVariantId] ?? 0) >= item.dispatchedQty ? "text-emerald-700 font-mono" : "text-red-600 font-mono"}>
+                                {yardStocks[item.materialVariantId] ?? 0} {variants.find((v) => v.id === item.materialVariantId)?.uom || "Nos."}
+                              </strong>
+                            </span>
+                            {(yardStocks[item.materialVariantId] ?? 0) < item.dispatchedQty && (
+                              <span className="text-amber-700 font-medium">
+                                ⚠️ Insufficient stock in this yard for requested quantity ({item.dispatchedQty})
+                              </span>
+                            )}
+                          </>
                         )}
                       </div>
                     )}
@@ -2544,56 +2608,68 @@ export default function DeliveryNotesPage() {
                       Material Availability in Selected Yard
                     </span>
                     {loadingBalances && (
-                      <Loader2 className="h-3 w-3 animate-spin text-slate-400" />
+                      <Loader2 className="h-3 w-3 animate-spin text-[#F26522]" />
                     )}
                   </div>
 
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                    {itemStatuses.map((s: any) => (
-                      <div key={s.id} className="bg-white p-2.5 rounded border border-slate-200 text-xs">
-                        <div className="flex justify-between items-start gap-2">
-                          <span className="font-semibold text-slate-900 break-words flex-1 min-w-0">
-                            {s.materialVariant?.name} {s.materialVariant?.size ? `(${s.materialVariant.size})` : ""}
-                          </span>
-                          <span className="font-mono text-slate-700 font-medium shrink-0 whitespace-nowrap">
-                            Req: {s.requestedQty} {s.materialVariant?.uom || "Nos."}
-                          </span>
-                        </div>
+                  {loadingBalances ? (
+                    <div className="py-6 flex flex-col items-center justify-center gap-2 text-slate-500 bg-white rounded border border-slate-200">
+                      <Loader2 className="h-5 w-5 animate-spin text-[#F26522]" />
+                      <span className="text-xs font-medium">Checking live yard inventory balances...</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                      {itemStatuses.map((s: any) => (
+                        <div key={s.id} className="bg-white p-2.5 rounded border border-slate-200 text-xs">
+                          <div className="flex justify-between items-start gap-2">
+                            <span className="font-semibold text-slate-900 break-words flex-1 min-w-0">
+                              {s.materialVariant?.name} {s.materialVariant?.size ? `(${s.materialVariant.size})` : ""}
+                            </span>
+                            <span className="font-mono text-slate-700 font-medium shrink-0 whitespace-nowrap">
+                              Req: {s.requestedQty} {s.materialVariant?.uom || "Nos."}
+                            </span>
+                          </div>
 
-                        <div className="mt-1 flex items-center justify-between text-[11px]">
-                          <span className="text-slate-500">In selected yard:</span>
-                          {s.isSufficient ? (
-                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 font-mono text-[10px] px-1.5 py-0 whitespace-nowrap">
-                              ✓ {s.availInSelected} available
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-red-100 text-red-800 border-red-200 font-mono text-[10px] px-1.5 py-0 whitespace-nowrap">
-                              ✗ {s.availInSelected} available (Deficit: {s.requestedQty - s.availInSelected})
-                            </Badge>
+                          <div className="mt-1 flex items-center justify-between text-[11px]">
+                            <span className="text-slate-500">In selected yard:</span>
+                            {s.isSufficient ? (
+                              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 font-mono text-[10px] px-1.5 py-0 whitespace-nowrap">
+                                ✓ {s.availInSelected} available
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-red-100 text-red-800 border-red-200 font-mono text-[10px] px-1.5 py-0 whitespace-nowrap">
+                                ✗ {s.availInSelected} available (Deficit: {s.requestedQty - s.availInSelected})
+                              </Badge>
+                            )}
+                          </div>
+
+                          {!s.isSufficient && s.alternatives.length > 0 && (
+                            <div className="mt-2 pt-1.5 border-t border-slate-100 text-[11px] bg-amber-50/60 p-2 rounded flex flex-wrap sm:flex-nowrap items-center justify-between gap-1.5">
+                              <span className="text-amber-800">
+                                Available in: <strong>{s.alternatives[0].warehouseName}</strong> ({s.alternatives[0].availableQty} Nos.)
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setDispatchYardId(s.alternatives[0].warehouseId)}
+                                className="text-[#0B1E36] font-bold hover:underline cursor-pointer bg-white px-2 py-0.5 rounded border border-amber-200 shadow-xs shrink-0 whitespace-nowrap"
+                              >
+                                Switch to this Yard &rarr;
+                              </button>
+                            </div>
                           )}
                         </div>
-
-                        {!s.isSufficient && s.alternatives.length > 0 && (
-                          <div className="mt-2 pt-1.5 border-t border-slate-100 text-[11px] bg-amber-50/60 p-2 rounded flex flex-wrap sm:flex-nowrap items-center justify-between gap-1.5">
-                            <span className="text-amber-800">
-                              Available in: <strong>{s.alternatives[0].warehouseName}</strong> ({s.alternatives[0].availableQty} Nos.)
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setDispatchYardId(s.alternatives[0].warehouseId)}
-                              className="text-[#0B1E36] font-bold hover:underline cursor-pointer bg-white px-2 py-0.5 rounded border border-amber-200 shadow-xs shrink-0 whitespace-nowrap"
-                            >
-                              Switch to this Yard &rarr;
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Warning / Informational Alert */}
-                {allSufficient ? (
+                {loadingBalances ? (
+                  <div className="bg-amber-50 border border-amber-200 p-2.5 rounded-lg text-amber-800 flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 text-[#F26522] animate-spin shrink-0" />
+                    <p className="text-xs font-medium">Checking live yard inventory balances across warehouses...</p>
+                  </div>
+                ) : allSufficient ? (
                   <div className="bg-emerald-50 border border-emerald-200 p-2.5 rounded-lg text-emerald-800 flex items-start gap-2">
                     <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
                     <p className="text-xs">
@@ -2622,12 +2698,12 @@ export default function DeliveryNotesPage() {
                   <Button
                     type="button"
                     onClick={handleConfirmDispatch}
-                    disabled={!allSufficient || dispatching}
+                    disabled={!allSufficient || dispatching || loadingBalances}
                     isLoading={dispatching}
                     loadingText="Dispatching..."
                     className="w-full sm:w-auto bg-[#0B1E36] hover:bg-[#071424] text-white font-semibold disabled:opacity-50 whitespace-nowrap"
                   >
-                    Confirm & Dispatch
+                    {loadingBalances ? "Checking Stock..." : "Confirm & Dispatch"}
                   </Button>
                 </DialogFooter>
               </div>

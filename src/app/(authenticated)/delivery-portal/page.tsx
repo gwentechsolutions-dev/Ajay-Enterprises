@@ -54,6 +54,7 @@ import { toast } from "sonner";
 import { queueOfflineDraft, getOfflineQueue, syncPendingDrafts } from "@/lib/offline/drafts";
 import { stampGpsWatermarkOnPhoto } from "@/lib/gps-watermark";
 import { uploadEvidenceWithWatermark } from "@/lib/evidence-uploader";
+import { invalidateClientCache } from "@/lib/client-cache";
 import { FormFieldError } from "@/components/ui/form-field-error";
 import { parseApiValidationErrors, formatValidationToast } from "@/lib/forms/validation-mapper";
 import { SearchableCombobox, ComboboxOption } from "@/components/ui/searchable-combobox";
@@ -313,7 +314,7 @@ function DeliveryPortalContent({
       if (!silent && !dataRef.current) {
         setLoading(true);
       }
-      const res = await fetch("/api/v1/portals/delivery", { cache: "no-store" });
+      const res = await fetch(`/api/v1/portals/delivery?_t=${Date.now()}`, { cache: "no-store" });
       const json = await res.json();
       if (json.success) {
         setData(json.data);
@@ -350,9 +351,19 @@ function DeliveryPortalContent({
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
 
+    // Auto-refresh when relevant data changes across portals
+    const handleCacheInvalidated = (e: any) => {
+      const prefix = e?.detail?.prefix || "";
+      if (prefix === "*" || prefix.includes("delivery") || prefix.includes("return") || prefix.includes("portals")) {
+        loadDeliveryFeed(true);
+      }
+    };
+    window.addEventListener("inventra:cache-invalidated", handleCacheInvalidated);
+
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("inventra:cache-invalidated", handleCacheInvalidated);
     };
   }, [loadDeliveryFeed, updateNetworkStatus]);
 
@@ -747,7 +758,43 @@ function DeliveryPortalContent({
 
       toast.success(t.toastDeliveryCompleted);
       setIsDeliverModalOpen(false);
-      loadDeliveryFeed();
+
+      // Optimistic instant UI update: move delivered note to completed list & update stats (0ms)
+      setData((prev: any) => {
+        if (!prev) return prev;
+        const deliveredItem = prev.activeDeliveries?.find((d: any) => d.id === selectedDN.id);
+        const updatedActive = (prev.activeDeliveries || []).filter((d: any) => d.id !== selectedDN.id);
+        const updatedCompleted = deliveredItem
+          ? [
+              {
+                ...deliveredItem,
+                status: "DELIVERED",
+                deliveredAt: new Date().toISOString(),
+                receiverName: deliveryProofForm.receiverName.trim(),
+                receiverPhone: cleanPhone,
+                photoUrl: finalPrimaryPhoto,
+              },
+              ...(prev.completedToday || []),
+            ]
+          : prev.completedToday || [];
+
+        return {
+          ...prev,
+          stats: {
+            ...prev.stats,
+            pendingDeliveries: Math.max(0, (prev.stats?.pendingDeliveries || 1) - 1),
+            completedDeliveriesToday: (prev.stats?.completedDeliveriesToday || 0) + 1,
+          },
+          activeDeliveries: updatedActive,
+          completedToday: updatedCompleted,
+        };
+      });
+
+      // Clear caches and sync fresh server state silently
+      invalidateClientCache("/api/v1/portals/delivery");
+      invalidateClientCache("/api/v1/delivery-notes");
+      invalidateClientCache("/api/v1/dashboard");
+      loadDeliveryFeed(true);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -829,7 +876,41 @@ function DeliveryPortalContent({
 
       toast.success(json.message || t.toastPickupConfirmed);
       setIsPickupModalOpen(false);
-      loadDeliveryFeed();
+
+      // Optimistic instant UI update: move picked up MRN & update counters (0ms)
+      setData((prev: any) => {
+        if (!prev) return prev;
+        const pickedUpItem = prev.activePickups?.find((p: any) => p.id === selectedMRN.id);
+        const updatedActive = (prev.activePickups || []).filter((p: any) => p.id !== selectedMRN.id);
+        const updatedCompleted = pickedUpItem
+          ? [
+              {
+                ...pickedUpItem,
+                status: "PICKED_UP",
+                pickedUpAt: new Date().toISOString(),
+                receiverName: pickupProofForm.receiverName.trim(),
+                receiverPhone: cleanPhone,
+              },
+              ...(prev.completedPickupsTodayList || prev.completedPickupsToday || []),
+            ]
+          : prev.completedPickupsTodayList || prev.completedPickupsToday || [];
+
+        return {
+          ...prev,
+          stats: {
+            ...prev.stats,
+            pendingPickups: Math.max(0, (prev.stats?.pendingPickups || 1) - 1),
+            completedPickupsToday: (prev.stats?.completedPickupsToday || 0) + 1,
+          },
+          activePickups: updatedActive,
+          completedPickupsTodayList: updatedCompleted,
+        };
+      });
+
+      invalidateClientCache("/api/v1/portals/delivery");
+      invalidateClientCache("/api/v1/return-notes");
+      invalidateClientCache("/api/v1/dashboard");
+      loadDeliveryFeed(true);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -870,7 +951,20 @@ function DeliveryPortalContent({
 
       toast.success(t.toastYardHandoverCompleted);
       setIsYardModalOpen(false);
-      loadDeliveryFeed();
+
+      // Optimistic instant UI update: remove from active pickups
+      setData((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          activePickups: (prev.activePickups || []).filter((p: any) => p.id !== selectedYardMRN.id),
+        };
+      });
+
+      invalidateClientCache("/api/v1/portals/delivery");
+      invalidateClientCache("/api/v1/return-notes");
+      invalidateClientCache("/api/v1/inventory/stock-balances");
+      loadDeliveryFeed(true);
     } catch (err: any) {
       toast.error(err.message);
     } finally {

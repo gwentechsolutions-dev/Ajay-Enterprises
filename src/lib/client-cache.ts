@@ -120,12 +120,21 @@ export function invalidateClientCache(urlPrefix?: string) {
   if (!urlPrefix) {
     memoryCache.clear();
     removeSessionStorageCache();
-    return;
-  }
-  for (const key of Array.from(memoryCache.keys())) {
-    if (key.startsWith(urlPrefix)) {
-      memoryCache.delete(key);
+  } else {
+    for (const key of Array.from(memoryCache.keys())) {
+      if (key.startsWith(urlPrefix)) {
+        memoryCache.delete(key);
+      }
     }
+    removeSessionStorageCache(urlPrefix);
   }
-  removeSessionStorageCache(urlPrefix);
+
+  // Broadcast cache invalidation across windows/tabs/components for instant live refresh
+  if (typeof window !== "undefined") {
+    try {
+      window.dispatchEvent(
+        new CustomEvent("inventra:cache-invalidated", { detail: { prefix: urlPrefix || "*" } })
+      );
+    } catch {}
+  }
 }

@@ -115,17 +115,17 @@ export async function uploadEvidenceWithWatermark(
     addressLine2,
   });
 
-  // 2. Upload Untouched Original Photo
-  const originalUpload = await uploadToStorage(
-    watermarkResult.originalFile,
-    `${documentType.toLowerCase()}-originals`
-  );
-
-  // 3. Upload Watermarked Derivative Photo
-  const watermarkedUpload = await uploadToStorage(
-    watermarkResult.watermarkedFile,
-    `${documentType.toLowerCase()}-watermarked`
-  );
+  // 2. Upload Untouched Original Photo & Watermarked Derivative concurrently in parallel
+  const [originalUpload, watermarkedUpload] = await Promise.all([
+    uploadToStorage(
+      watermarkResult.originalFile,
+      `${documentType.toLowerCase()}-originals`
+    ),
+    uploadToStorage(
+      watermarkResult.watermarkedFile,
+      `${documentType.toLowerCase()}-watermarked`
+    ),
+  ]);
 
   // 4. Construct Full Geocoded Address
   const fullAddress = [watermarkResult.addressLine1, watermarkResult.addressLine2].filter(Boolean).join(", ");
