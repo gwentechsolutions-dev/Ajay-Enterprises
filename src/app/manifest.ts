@@ -43,6 +43,13 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     shortcuts: [
       {
+        name: "Fuel Log Management",
+        short_name: "Fuel Log",
+        description: "AI fuel receipt scanning, meter capture and refill logs",
+        url: "/fleet/fuel?action=new",
+        icons: [{ src: "/icons/icon-192x192.png", sizes: "192x192" }],
+      },
+      {
         name: "Driver Delivery Portal",
         short_name: "Deliveries",
         description: "Assigned outward dispatches and customer delivery execution",

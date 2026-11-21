@@ -151,7 +151,7 @@ const QUICK_ACTIONS: QuickActionItem[] = [
     subtitle: "Log fuel refilling, toll payments, or fleet maintenance costs",
     category: "Logistics & Labour",
     keywords: ["fleet", "fuel", "diesel", "trip", "vehicle", "driver", "maintenance", "toll"],
-    href: "/fleet/fuel",
+    href: "/fleet/fuel?action=new",
     icon: Compass,
     iconBg: "bg-cyan-50 border-cyan-200",
     iconColor: "text-cyan-600",

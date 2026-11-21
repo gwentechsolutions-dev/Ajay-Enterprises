@@ -52,6 +52,8 @@ export const hi: DriverTranslationDictionary = {
   quickActionMRNDesc: "साइट से सामग्री संग्रह एवं वापसी",
   quickActionInvoice: "टैक्स चालान (Invoice) बनाएं",
   quickActionInvoiceDesc: "स्टेटमेंट से मासिक किराया चालान उत्पन्न करें",
+  quickActionFuel: "ईंधन लॉग प्रबंधन (Fuel Log)",
+  quickActionFuelDesc: "AI से रसीद, मीटर या ओडोमीटर स्कैन करके रिफिल दर्ज करें",
   quickActionUnauthorized: "कार्रवाई प्रतिबंधित: यार्ड और कार्यालय कर्मचारी ही बना सकते हैं",
   quickActionInvoiceRestricted: "प्रतिबंधित: एकाउंटेंट या मालिक की अनुमति आवश्यक",
 

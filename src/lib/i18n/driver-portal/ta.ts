@@ -52,6 +52,8 @@ export const ta: DriverTranslationDictionary = {
   quickActionMRNDesc: "தளத்திலிருந்து பொருட்களை சேகரித்தல்",
   quickActionInvoice: "வரி விலைப்பட்டியல் (Invoice)",
   quickActionInvoiceDesc: "மாத வாடகை கணக்கீட்டு பட்டியல் உருவாக்கு",
+  quickActionFuel: "எரிபொருள் பதிவு மேலாண்மை (Fuel Log)",
+  quickActionFuelDesc: "AI ஸ்கேனர் மூலம் ரசீது அல்லது மீட்டரை ஸ்கேன் செய்து பதிவு செய்க",
   quickActionUnauthorized: "அனுமதி கட்டுப்படுத்தப்பட்டுள்ளது: அலுவலகப் பணியாளர்கள் மட்டுமே செய்ய முடியும்",
   quickActionInvoiceRestricted: "கட்டுப்பாடு: கணக்காளர் அல்லது உரிமையாளர் அனுமதி தேவை",
 

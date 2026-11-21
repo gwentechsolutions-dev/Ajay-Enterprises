@@ -84,6 +84,24 @@ export default function FleetFuelPage() {
     loadTrendData();
   }, [selectedVehicleId]);
 
+  // Handle URL deep-link actions (e.g. from PWA long-press shortcut /fleet/fuel?action=new)
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("action") === "new") {
+        setShowEntryModal(true);
+        const scan = params.get("scan");
+        if (scan === "receipt" || scan === "meter") {
+          setEntryModalStep("scan_fuel");
+        }
+      }
+      const vId = params.get("vehicleId");
+      if (vId) {
+        setSelectedVehicleId(vId);
+      }
+    }
+  }, []);
+
   const handleDirectScanExtracted = (ext: ExtractedValues) => {
     // Open entry modal with prefilled data
     setShowEntryModal(true);

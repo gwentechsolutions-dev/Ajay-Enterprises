@@ -64,6 +64,8 @@ export interface DriverTranslationDictionary {
   quickActionMRNDesc: string;
   quickActionInvoice: string;
   quickActionInvoiceDesc: string;
+  quickActionFuel: string;
+  quickActionFuelDesc: string;
   quickActionUnauthorized: string;
   quickActionInvoiceRestricted: string;
 

@@ -52,6 +52,8 @@ export const en: DriverTranslationDictionary = {
   quickActionMRNDesc: "Site collection, inspection & return transport",
   quickActionInvoice: "Create Tax Invoice",
   quickActionInvoiceDesc: "Generate monthly rental invoice from statement",
+  quickActionFuel: "Fuel Log Management",
+  quickActionFuelDesc: "AI fuel receipt scanning, meter capture & refill entry",
   quickActionUnauthorized: "Action restricted: Yard & Office staff manage dispatches/returns",
   quickActionInvoiceRestricted: "Restricted: Requires Accountant or Owner permission",
 

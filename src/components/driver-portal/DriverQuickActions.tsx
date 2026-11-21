@@ -7,6 +7,7 @@ import {
   Truck,
   RotateCcw,
   ReceiptIndianRupee,
+  Fuel,
   Lock,
   ChevronRight,
   X,
@@ -26,6 +27,8 @@ interface DriverQuickActionsProps {
   canCreateDN: boolean;
   canCreateMRN: boolean;
   canCreateInvoice: boolean;
+  canLogFuel?: boolean;
+  onLogFuel?: () => void;
   className?: string;
 }
 
@@ -33,6 +36,8 @@ export function DriverQuickActions({
   canCreateDN,
   canCreateMRN,
   canCreateInvoice,
+  canLogFuel = true,
+  onLogFuel,
   className,
 }: DriverQuickActionsProps) {
   const { t } = useDriverTranslation();
@@ -275,6 +280,49 @@ export function DriverQuickActions({
                 </p>
               </div>
               {canCreateMRN && <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />}
+            </button>
+
+            {/* 3. Fuel Log Management (AI Scanner) */}
+            <button
+              type="button"
+              disabled={!canLogFuel}
+              onClick={() => {
+                if (onLogFuel) {
+                  setIsOpen(false);
+                  onLogFuel();
+                } else {
+                  handleAction("/fleet/fuel?action=new", canLogFuel);
+                }
+              }}
+              className={cn(
+                "w-full p-3.5 rounded-xl border text-left transition-all flex items-center gap-3.5",
+                canLogFuel
+                  ? "bg-white hover:bg-orange-50/60 border-slate-200 hover:border-orange-300 shadow-sm active:scale-[0.99]"
+                  : "bg-slate-100/80 border-slate-200 opacity-60 cursor-not-allowed"
+              )}
+            >
+              <div
+                className={cn(
+                  "w-11 h-11 rounded-xl flex items-center justify-center shrink-0",
+                  canLogFuel ? "bg-orange-100 text-[#F26522]" : "bg-slate-200 text-slate-400"
+                )}
+              >
+                <Fuel className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-xs text-slate-900 block truncate">
+                    {t.quickActionFuel}
+                  </span>
+                  <span className="text-[9px] bg-orange-100 text-[#EA580C] px-1.5 py-0.5 rounded font-bold">
+                    AI Scanner
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
+                  {canLogFuel ? t.quickActionFuelDesc : t.quickActionUnauthorized}
+                </p>
+              </div>
+              {canLogFuel && <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />}
             </button>
 
             {/* 3. Create Invoice */}
