@@ -28,6 +28,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { TableSkeleton } from "@/components/ui/loading-states";
 import { WhatsAppShareButton } from "@/components/ui/whatsapp-share-button";
 import { GpsCameraCaptureDialog } from "@/components/evidence/GpsCameraCaptureDialog";
+import { ModalPortal } from "@/components/ui/portal";
 
 export default function MaterialReturnNoteDetailPage() {
   const params = useParams();
@@ -479,14 +480,16 @@ export default function MaterialReturnNoteDetailPage() {
 
       {/* Photo Enlarge Modal */}
       {activePhoto && (
-        <div
-          onClick={() => setActivePhoto(null)}
-          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-xs cursor-pointer"
-        >
-          <div className="relative max-w-4xl max-h-[90vh] bg-white rounded-2xl overflow-hidden shadow-2xl p-2">
-            <img src={activePhoto} alt="Return Evidence" className="max-w-full max-h-[85vh] object-contain rounded-xl" />
+        <ModalPortal>
+          <div
+            onClick={() => setActivePhoto(null)}
+            className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm cursor-pointer overflow-y-auto"
+          >
+            <div className="relative max-w-4xl max-h-[90vh] bg-white rounded-2xl overflow-hidden shadow-2xl p-2 my-auto">
+              <img src={activePhoto} alt="Return Evidence" className="max-w-full max-h-[85vh] object-contain rounded-xl" />
+            </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </div>
   );

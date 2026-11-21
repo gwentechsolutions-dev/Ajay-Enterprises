@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ModalPortal } from "@/components/ui/portal";
 
 export interface ExtractedValues {
   date?: string;
@@ -241,8 +242,9 @@ export function AiScanModal({
   const messages = mode === "fuel" ? ROTATING_FUEL_MESSAGES : ROTATING_MAINTENANCE_MESSAGES;
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3 sm:p-4 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-slate-200">
+    <ModalPortal>
+      <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-3 sm:p-4 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-slate-200 my-auto">
         {/* Header */}
         <div className="px-6 py-4 bg-[#0B1E36] text-white flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -707,5 +709,6 @@ export function AiScanModal({
         </div>
       </div>
     </div>
+  </ModalPortal>
   );
 }

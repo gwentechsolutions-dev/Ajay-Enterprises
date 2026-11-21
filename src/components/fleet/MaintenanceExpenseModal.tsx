@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchableCombobox, ComboboxOption } from "@/components/ui/searchable-combobox";
+import { ModalPortal } from "@/components/ui/portal";
 import { AiScanModal, ExtractedValues } from "./AiScanModal";
 
 interface MaintenanceExpenseModalProps {
@@ -230,8 +231,9 @@ export function MaintenanceExpenseModal({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-3 sm:p-4 backdrop-blur-sm animate-in fade-in">
-        <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-slate-200">
+      <ModalPortal>
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-3 sm:p-4 backdrop-blur-sm animate-in fade-in overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-slate-200 my-auto">
           {/* Header */}
           <div className="px-6 py-4 bg-[#0B1E36] text-white flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -254,7 +256,7 @@ export function MaintenanceExpenseModal({
           </div>
 
           {/* Form Body */}
-          <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4 flex-1 text-xs">
+          <form onSubmit={handleSubmit} className="p-6 overflow-y-auto overflow-x-hidden space-y-4 flex-1 text-xs">
             {formError && (
               <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl font-medium">
                 {formError}
@@ -474,6 +476,8 @@ export function MaintenanceExpenseModal({
                   value={paymentMode}
                   onChange={(val) => setPaymentMode(val)}
                   allowClear={false}
+                  showSearch={false}
+                  popoverClassName="w-full min-w-full"
                 />
               </div>
 
@@ -535,6 +539,7 @@ export function MaintenanceExpenseModal({
           </div>
         </div>
       </div>
+    </ModalPortal>
 
       {/* AI Scanner Sub-Modal */}
       <AiScanModal

@@ -16,6 +16,7 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ModalPortal } from "@/components/ui/portal";
 
 export default function PilotPage() {
   const [pilots, setPilots] = React.useState<any[]>([]);
@@ -411,9 +412,10 @@ export default function PilotPage() {
 
       {/* Modal: Define Pilot */}
       {showCreate && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
-            <h3 className="text-base font-bold text-slate-900">Define New Operational Pilot</h3>
+        <ModalPortal>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60] overflow-y-auto">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 my-auto border border-slate-200">
+              <h3 className="text-base font-bold text-slate-900">Define New Operational Pilot</h3>
             <form onSubmit={handleCreatePilot} className="space-y-3">
               <div>
                 <label className="text-xs font-semibold text-slate-700">Pilot Name *</label>
@@ -468,13 +470,15 @@ export default function PilotPage() {
             </form>
           </div>
         </div>
-      )}
+      </ModalPortal>
+    )}
 
       {/* Modal: Log Exception */}
       {showExceptionModal && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
-            <h3 className="text-base font-bold text-slate-900">Log Operational Exception</h3>
+        <ModalPortal>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60] overflow-y-auto">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 my-auto border border-slate-200">
+              <h3 className="text-base font-bold text-slate-900">Log Operational Exception</h3>
             <form onSubmit={handleLogException} className="space-y-3">
               <div>
                 <label className="text-xs font-semibold text-slate-700">Category *</label>
@@ -539,13 +543,15 @@ export default function PilotPage() {
             </form>
           </div>
         </div>
-      )}
+      </ModalPortal>
+    )}
 
       {/* Modal: Conclude Pilot */}
       {showCompleteModal && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
-            <h3 className="text-base font-bold text-slate-900">Owner Pilot Completion Review</h3>
+        <ModalPortal>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60] overflow-y-auto">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 my-auto border border-slate-200">
+              <h3 className="text-base font-bold text-slate-900">Owner Pilot Completion Review</h3>
             <p className="text-xs text-slate-600">
               Provide the executive review on the pilot execution before declaring the pilot officially concluded.
             </p>
@@ -576,7 +582,8 @@ export default function PilotPage() {
             </div>
           </div>
         </div>
-      )}
-    </div>
-  );
+      </ModalPortal>
+    )}
+  </div>
+);
 }

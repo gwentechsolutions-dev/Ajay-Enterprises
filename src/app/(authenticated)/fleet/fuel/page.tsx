@@ -22,9 +22,10 @@ import { Input } from "@/components/ui/input";
 import { TableSkeleton } from "@/components/ui/loading-states";
 import { SearchableCombobox, ComboboxOption } from "@/components/ui/searchable-combobox";
 import { MileageTrendChart } from "@/components/fleet/MileageTrendChart";
-import { FuelEntryModal } from "@/components/fleet/FuelEntryModal";
+import { FuelEntryModal, FlowStep } from "@/components/fleet/FuelEntryModal";
 import { AiScanModal, ExtractedValues } from "@/components/fleet/AiScanModal";
 import { MileageDataPoint } from "@/lib/fleet/fuel-calculations";
+import { ModalPortal } from "@/components/ui/portal";
 
 export default function FleetFuelPage() {
   const [fuelLogs, setFuelLogs] = React.useState<any[]>([]);
@@ -40,6 +41,7 @@ export default function FleetFuelPage() {
 
   // Modals
   const [showEntryModal, setShowEntryModal] = React.useState<boolean>(false);
+  const [entryModalStep, setEntryModalStep] = React.useState<FlowStep>("method");
   const [showDirectScanModal, setShowDirectScanModal] = React.useState<boolean>(false);
   const [previewDocumentUrl, setPreviewDocumentUrl] = React.useState<string | null>(null);
 
@@ -170,7 +172,10 @@ export default function FleetFuelPage() {
 
           <Button
             size="sm"
-            onClick={() => setShowDirectScanModal(true)}
+            onClick={() => {
+              setEntryModalStep("method");
+              setShowEntryModal(true);
+            }}
             className="bg-[#0B1E36] hover:bg-slate-800 text-white font-bold shadow-sm"
           >
             <Sparkles className="w-4 h-4 mr-1.5 text-orange-400" />
@@ -179,7 +184,10 @@ export default function FleetFuelPage() {
 
           <Button
             size="sm"
-            onClick={() => setShowEntryModal(true)}
+            onClick={() => {
+              setEntryModalStep("method");
+              setShowEntryModal(true);
+            }}
             className="bg-[#F26522] hover:bg-[#EA580C] text-white font-bold shadow-sm"
           >
             <Plus className="w-4 h-4 mr-1.5" />
@@ -405,7 +413,7 @@ export default function FleetFuelPage() {
         </div>
       </div>
 
-      {/* Modals */}
+      {/* Quick Fuel Log Modal (UnblockNow Sequential Guided Flow) */}
       <FuelEntryModal
         isOpen={showEntryModal}
         onClose={() => setShowEntryModal(false)}
@@ -414,6 +422,8 @@ export default function FleetFuelPage() {
           loadTrendData();
         }}
         vehicles={vehicles}
+        initialStep={entryModalStep}
+        defaultVehicleId={selectedVehicleId}
       />
 
       <AiScanModal
@@ -426,44 +436,46 @@ export default function FleetFuelPage() {
 
       {/* Document Preview Modal */}
       {previewDocumentUrl && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl p-4 max-w-lg w-full space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <h3 className="font-bold text-sm text-[#0B1E36]">Receipt Attachment Preview</h3>
-              <button
-                onClick={() => setPreviewDocumentUrl(null)}
-                className="text-slate-400 hover:text-slate-600 text-xs font-bold"
-              >
-                Close
-              </button>
-            </div>
-            <div className="rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center min-h-[250px]">
-              {previewDocumentUrl.endsWith(".pdf") ? (
-                <iframe src={previewDocumentUrl} className="w-full h-80" />
-              ) : (
-                <img
-                  src={previewDocumentUrl}
-                  alt="Receipt"
-                  className="max-h-96 w-auto object-contain"
-                />
-              )}
-            </div>
-            <div className="flex justify-between items-center text-xs">
-              <a
-                href={previewDocumentUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-[#F26522] hover:underline font-bold flex items-center gap-1"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                Open original in new tab
-              </a>
-              <Button size="sm" variant="outline" onClick={() => setPreviewDocumentUrl(null)}>
-                Dismiss
-              </Button>
+        <ModalPortal>
+          <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl p-4 max-w-lg w-full space-y-3 shadow-2xl">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <h3 className="font-bold text-sm text-[#0B1E36]">Receipt Attachment Preview</h3>
+                <button
+                  onClick={() => setPreviewDocumentUrl(null)}
+                  className="text-slate-400 hover:text-slate-600 text-xs font-bold"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center min-h-[250px]">
+                {previewDocumentUrl.endsWith(".pdf") ? (
+                  <iframe src={previewDocumentUrl} className="w-full h-80" />
+                ) : (
+                  <img
+                    src={previewDocumentUrl}
+                    alt="Receipt"
+                    className="max-h-96 w-auto object-contain"
+                  />
+                )}
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <a
+                  href={previewDocumentUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[#F26522] hover:underline font-bold flex items-center gap-1"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Open original in new tab
+                </a>
+                <Button size="sm" variant="outline" onClick={() => setPreviewDocumentUrl(null)}>
+                  Dismiss
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </div>
   );

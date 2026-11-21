@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FormFieldError } from "@/components/ui/form-field-error";
+import { ModalPortal } from "@/components/ui/portal";
 import { parseApiValidationErrors, formatValidationToast } from "@/lib/forms/validation-mapper";
 
 export default function FleetVehiclesPage() {
@@ -291,9 +292,10 @@ export default function FleetVehiclesPage() {
 
       {/* Create Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-bold text-[#0B1E36]">Register New Company Vehicle</h2>
+        <ModalPortal>
+          <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto my-auto border border-slate-200">
+              <h2 className="text-lg font-bold text-[#0B1E36]">Register New Company Vehicle</h2>
             {formError && (
               <div className="p-3 bg-red-50 text-red-700 rounded-lg text-xs font-semibold">
                 {formError}
@@ -436,8 +438,9 @@ export default function FleetVehiclesPage() {
             </form>
           </div>
         </div>
-      )}
-    </div>
-  );
+      </ModalPortal>
+    )}
+  </div>
+);
 }
 

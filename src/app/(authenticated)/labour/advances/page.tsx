@@ -14,6 +14,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ModalPortal } from "@/components/ui/portal";
 
 export default function LabourAdvancesPage() {
   const [advances, setAdvances] = React.useState<any[]>([]);
@@ -253,9 +254,10 @@ export default function LabourAdvancesPage() {
 
       {/* Issue Advance Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+        <ModalPortal>
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto my-auto border border-slate-200">
+              <div className="p-4 border-b border-slate-200 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-bold text-[#0B1E36]">Issue Labour Advance</h2>
                 <p className="text-xs text-slate-500">Provide advance money to worker with general ledger posting</p>
@@ -402,8 +404,9 @@ export default function LabourAdvancesPage() {
             </form>
           </div>
         </div>
-      )}
-    </div>
-  );
+      </ModalPortal>
+    )}
+  </div>
+);
 }
 

@@ -24,6 +24,9 @@ export interface SearchableComboboxProps {
   error?: boolean;
   className?: string;
   triggerClassName?: string;
+  popoverClassName?: string;
+  align?: "left" | "right";
+  showSearch?: boolean;
   allowClear?: boolean;
   isLoading?: boolean;
   allowCustomValue?: boolean;
@@ -41,6 +44,9 @@ export function SearchableCombobox({
   error = false,
   className,
   triggerClassName,
+  popoverClassName,
+  align = "left",
+  showSearch,
   allowClear = true,
   isLoading = false,
   allowCustomValue = false,
@@ -50,6 +56,8 @@ export function SearchableCombobox({
   const [searchQuery, setSearchQuery] = React.useState("");
   const containerRef = React.useRef<HTMLDivElement>(null);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
+
+  const shouldShowSearch = showSearch !== undefined ? showSearch : options.length > 5;
 
   // Close when clicking outside
   React.useEffect(() => {
@@ -76,13 +84,13 @@ export function SearchableCombobox({
         setIsOpen(false);
         return;
       }
-      if (searchInputRef.current) {
+      if (shouldShowSearch && searchInputRef.current) {
         setTimeout(() => searchInputRef.current?.focus(), 50);
       }
     } else {
       setSearchQuery("");
     }
-  }, [isOpen, disabled]);
+  }, [isOpen, disabled, shouldShowSearch]);
 
   const selectedOption = options.find((opt) => opt.value === value);
   const isCustomValue = !selectedOption && !!value && allowCustomValue;
@@ -172,28 +180,36 @@ export function SearchableCombobox({
 
       {/* Popover Dropdown */}
       {isOpen && (
-        <div className="absolute z-50 mt-1.5 max-h-80 min-w-[280px] sm:min-w-[320px] w-full max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl animate-in fade-in-50 zoom-in-95">
+        <div
+          className={cn(
+            "absolute z-50 mt-1.5 max-h-80 w-full overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-2xl animate-in fade-in-50 zoom-in-95",
+            align === "right" ? "right-0" : "left-0",
+            popoverClassName || "min-w-full w-full"
+          )}
+        >
           {/* Search Box */}
-          <div className="flex items-center border-b border-slate-100 px-3.5 py-2.5 bg-slate-50/70">
-            <Search className="mr-2.5 h-4 w-4 shrink-0 text-slate-400" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder={searchPlaceholder}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none font-medium"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-200/50"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
+          {shouldShowSearch && (
+            <div className="flex items-center border-b border-slate-100 px-3.5 py-2.5 bg-slate-50/70">
+              <Search className="mr-2.5 h-4 w-4 shrink-0 text-slate-400" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder={searchPlaceholder}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none font-medium"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-200/50"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Options List */}
           <div className="max-h-60 overflow-y-auto p-1.5 space-y-0.5">
