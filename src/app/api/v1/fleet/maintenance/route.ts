@@ -9,6 +9,10 @@ import { logAuditEvent } from "@/lib/audit";
 import { createVehicleMaintenanceSchema } from "@/lib/schemas/fleet";
 import { validationErrorResponse } from "@/lib/api-validation";
 
+// ==============================================================================
+// INVENTRA: VEHICLE MAINTENANCE & WORKSHOP JOBS API
+// ==============================================================================
+
 export async function GET(req: NextRequest) {
   try {
     const session = await getSession();
@@ -16,9 +20,13 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const vehicleId = searchParams.get("vehicleId") || undefined;
+    const category = searchParams.get("category") || undefined;
 
     const records = await db.vehicleMaintenanceRecord.findMany({
-      where: vehicleId ? { vehicleId } : undefined,
+      where: {
+        ...(vehicleId ? { vehicleId } : {}),
+        ...(category ? { serviceCategory: category } : {}),
+      },
       include: {
         vehicle: { select: { id: true, vehicleNumber: true, make: true, model: true } },
       },
@@ -27,7 +35,11 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ success: true, data: records });
   } catch (error: any) {
-    const status = error.message?.startsWith("UNAUTHORIZED") ? 401 : error.message?.startsWith("FORBIDDEN") ? 403 : 500;
+    const status = error.message?.startsWith("UNAUTHORIZED")
+      ? 401
+      : error.message?.startsWith("FORBIDDEN")
+      ? 403
+      : 500;
     return NextResponse.json({ success: false, error: { message: error.message } }, { status });
   }
 }
@@ -49,25 +61,34 @@ export async function POST(req: NextRequest) {
     const tax = new Prisma.Decimal(input.taxAmount);
     const totalCost = parts.plus(labour).plus(tax);
     const currentOdo = new Prisma.Decimal(input.odometerReading);
+    const serviceDate = input.serviceDate ? new Date(input.serviceDate) : new Date();
 
     const recordNumber = await generateNextDocumentNumber("VMR");
 
     const record = await db.$transaction(async (tx) => {
       let journalId: string | null = null;
+
+      // Double-entry General Ledger posting to Account 5035 (Vehicle Servicing & Maintenance)
       if (input.postToAccounts && totalCost.gt(0)) {
-        const expenseAccount = (await getSystemAccount("5035", tx)) || (await getSystemAccount("5030", tx));
+        const expenseAccount =
+          (await getSystemAccount("5035", tx)) ||
+          (await getSystemAccount("5030", tx)) ||
+          (await getSystemAccount("5040", tx));
+
         const paymentAccount = input.paidFromAccountId
           ? await tx.chartOfAccount.findUnique({ where: { id: input.paidFromAccountId } })
-          : await getSystemAccount("1020", tx); // Default bank
+          : input.paymentMode === "CASH"
+          ? await getSystemAccount("1010", tx)
+          : await getSystemAccount("1020", tx);
 
         if (expenseAccount && paymentAccount) {
           const vehicle = await tx.vehicle.findUnique({ where: { id: input.vehicleId } });
           const journal = await postJournalEntry(
             {
               journalType: "PAYMENT",
-              postingDate: input.serviceDate ? new Date(input.serviceDate) : new Date(),
+              postingDate: serviceDate,
               fiscalYear: getCurrentFiscalYear(),
-              narration: `Vehicle Maintenance & Servicing for ${vehicle?.vehicleNumber || input.vehicleId} - ${input.serviceCategory}`,
+              narration: `Vehicle Maintenance & Servicing for ${vehicle?.vehicleNumber || input.vehicleId} - ${input.serviceCategory} (${input.descriptionOfWork})`,
               referenceDocumentType: "VEHICLE_MAINTENANCE",
               referenceDocumentId: recordNumber,
               referenceNumber: recordNumber,
@@ -86,19 +107,29 @@ export async function POST(req: NextRequest) {
                 },
               ],
             },
-            { id: session!.id, name: session!.name, role: session!.role, ipAddress: req.headers.get("x-forwarded-for") || undefined },
+            {
+              id: session!.id,
+              name: session!.name,
+              role: session!.role,
+              ipAddress: req.headers.get("x-forwarded-for") || undefined,
+            },
             tx
           );
           journalId = journal.id;
         }
       }
 
+      const remarksParts = [input.remarks?.trim()];
+      if (input.invoiceNumber) remarksParts.unshift(`Invoice: ${input.invoiceNumber.trim()}`);
+      if (input.aiScanned) remarksParts.push("[AI Extracted & User Verified]");
+      const combinedRemarks = remarksParts.filter(Boolean).join(" | ");
+
       const created = await tx.vehicleMaintenanceRecord.create({
         data: {
           recordNumber,
           vehicleId: input.vehicleId,
           serviceCategory: input.serviceCategory,
-          serviceDate: input.serviceDate ? new Date(input.serviceDate) : new Date(),
+          serviceDate,
           odometerReading: currentOdo,
           serviceProvider: input.serviceProvider || null,
           descriptionOfWork: input.descriptionOfWork,
@@ -109,7 +140,7 @@ export async function POST(req: NextRequest) {
           invoiceDocumentUrl: input.invoiceDocumentUrl || null,
           nextServiceDate: input.nextServiceDate ? new Date(input.nextServiceDate) : null,
           nextServiceOdometer: input.nextServiceOdometer != null ? input.nextServiceOdometer : null,
-          remarks: input.remarks || null,
+          remarks: combinedRemarks || null,
           status: "COMPLETED",
           journalEntryId: journalId,
         },
@@ -139,10 +170,21 @@ export async function POST(req: NextRequest) {
       ipAddress: req.headers.get("x-forwarded-for") || undefined,
     });
 
-    return NextResponse.json({ success: true, data: record, message: `Maintenance record ${record.recordNumber} saved.` }, { status: 201 });
+    return NextResponse.json(
+      {
+        success: true,
+        data: record,
+        message: `Maintenance record ${record.recordNumber} recorded successfully.`,
+      },
+      { status: 201 }
+    );
   } catch (error: any) {
-    const status = error.message?.startsWith("UNAUTHORIZED") ? 401 : error.message?.startsWith("FORBIDDEN") ? 403 : 500;
+    console.error("[FleetMaintenance POST Error]", error);
+    const status = error.message?.startsWith("UNAUTHORIZED")
+      ? 401
+      : error.message?.startsWith("FORBIDDEN")
+      ? 403
+      : 500;
     return NextResponse.json({ success: false, error: { message: error.message } }, { status });
   }
 }
-
