@@ -30,6 +30,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
+import { StateCombobox } from "@/components/forms/state-combobox";
 import { TableSkeleton } from "@/components/ui/loading-states";
 import { FormFieldError } from "@/components/ui/form-field-error";
 import { FormErrorSummary } from "@/components/ui/form-error-summary";
@@ -69,8 +70,8 @@ export default function CustomersPage() {
     gstStatus: "UNREGISTERED",
     gstin: "",
     billingAddress: "",
-    state: "Karnataka",
-    stateCode: "29",
+    state: "Tamil Nadu",
+    stateCode: "33",
     pinCode: "",
     businessType: "COMMERCIAL",
     creditLimit: "",
@@ -588,18 +589,19 @@ export default function CustomersPage() {
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="custState" required>State</Label>
-                <Input
+                <StateCombobox
                   id="custState"
-                  name="state"
                   value={form.state}
-                  error={!!fieldErrors.state}
-                  aria-invalid={!!fieldErrors.state}
-                  aria-describedby={fieldErrors.state ? "custState-error" : undefined}
-                  onChange={(e) => {
-                    setForm({ ...form, state: e.target.value });
+                  onChange={(st, code) => {
+                    setForm({
+                      ...form,
+                      state: st,
+                      ...(code ? { stateCode: code } : {}),
+                    });
                     clearFieldError("state");
+                    if (code) clearFieldError("stateCode");
                   }}
-                  required
+                  error={!!fieldErrors.state}
                 />
                 <FormFieldError id="custState-error" error={fieldErrors.state} />
               </div>

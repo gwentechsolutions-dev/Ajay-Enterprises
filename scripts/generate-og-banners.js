@@ -225,7 +225,7 @@ function generateSvg(banner) {
     <!-- Right Footer Security Notice -->
     <g transform="translate(800, 0)">
       <text x="240" y="0" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700" fill="${banner.accentColor}">OFFICIAL DOCUMENT PORTAL</text>
-      <text x="240" y="24" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="500" fill="#64748B">Tamper-Proof Ledger Record &#8226; Bengaluru, India</text>
+      <text x="240" y="24" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="500" fill="#64748B">Tamper-Proof Ledger Record &#8226; Chennai, India</text>
     </g>
   </g>
 </svg>

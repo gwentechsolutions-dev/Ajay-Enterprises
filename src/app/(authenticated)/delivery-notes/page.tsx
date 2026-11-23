@@ -133,8 +133,8 @@ export default function DeliveryNotesPage() {
     receiverPhone: "",
     receiverDesignation: "Site Engineer",
     photoUrl: "https://storage.inventra.app/proofs/delivery-default.jpg",
-    gpsLatitude: 12.9716,
-    gpsLongitude: 77.5946,
+    gpsLatitude: 13.0827,
+    gpsLongitude: 80.2707,
     gpsAccuracy: 5.0,
     receiverSignatureUrl: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iNDAiPjxwYXRoIGQ9Ik0xMCwyMCBRNDAsNSA5MCwyMCIgc3Ryb2tlPSJibGFjayIgZmlsbD0ibm9uZSIvPjwvc3ZnPg==",
     remarks: "Delivered in good condition and unloaded at site.",
@@ -656,8 +656,8 @@ export default function DeliveryNotesPage() {
       receiverPhone: initialPhone,
       receiverDesignation: "Site In-Charge",
       photoUrl: "",
-      gpsLatitude: 12.9716,
-      gpsLongitude: 77.5946,
+      gpsLatitude: 13.0827,
+      gpsLongitude: 80.2707,
       gpsAccuracy: 5.0,
       receiverSignatureUrl: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iNDAiPjxwYXRoIGQ9Ik0xMCwyMCBRNDAsNSA5MCwyMCIgc3Ryb2tlPSJibGFjayIgZmlsbD0ibm9uZSIvPjwvc3ZnPg==",
       remarks: "Unloaded and physically verified at site.",
@@ -756,7 +756,7 @@ export default function DeliveryNotesPage() {
   const [isUpdateVehicleModalOpen, setIsUpdateVehicleModalOpen] = React.useState(false);
   const [updateVehicleForm, setUpdateVehicleForm] = React.useState({
     newVehicleNumber: "",
-    fromPlace: "Bengaluru",
+    fromPlace: "Chennai",
     fromStateCode: 33,
     reasonCode: "3" as "1" | "2" | "3",
     reasonDescription: "Vehicle change during transit",
@@ -807,7 +807,7 @@ export default function DeliveryNotesPage() {
 
     setUpdateVehicleForm({
       newVehicleNumber: finalVehNo,
-      fromPlace: sourceYard?.city || "Bengaluru",
+      fromPlace: sourceYard?.city || "Chennai",
       fromStateCode: parseInt(sourceYard?.stateCode || "33", 10) || 33,
       reasonCode: "3",
       reasonDescription: "Vehicle change during transit",
@@ -2366,7 +2366,7 @@ export default function DeliveryNotesPage() {
                 <Input
                   value={updateVehicleForm.fromPlace}
                   onChange={(e) => setUpdateVehicleForm({ ...updateVehicleForm, fromPlace: e.target.value })}
-                  placeholder="e.g. Bengaluru"
+                  placeholder="e.g. Chennai"
                   className="text-sm mt-1"
                   required
                 />

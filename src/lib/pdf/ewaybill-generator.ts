@@ -316,7 +316,7 @@ export async function buildEWayBillPrintData(
     req.toPlace ||
     dn?.customerSite?.city ||
     stn?.destinationWarehouse?.city ||
-    "Bengaluru";
+    "Chennai";
 
   const toPincode =
     req.toPincode ||

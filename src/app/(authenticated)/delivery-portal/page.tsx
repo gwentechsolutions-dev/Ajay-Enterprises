@@ -241,8 +241,8 @@ function DeliveryPortalContent({
     receiverPhone: "",
     receiverDesignation: "Site Supervisor",
     photoUrl: "",
-    gpsLatitude: 12.9716,
-    gpsLongitude: 77.5946,
+    gpsLatitude: 13.0827,
+    gpsLongitude: 80.2707,
     gpsAccuracy: 5.0,
     gpsFetching: false,
     remarks: "Unloaded and physically handed over at site.",
@@ -279,8 +279,8 @@ function DeliveryPortalContent({
     customerSignatureUrl: "" as string | null,
     customerSignatureRefused: false,
     customerSignatureExceptionReason: "",
-    gpsLatitude: 12.9716,
-    gpsLongitude: 77.5946,
+    gpsLatitude: 13.0827,
+    gpsLongitude: 80.2707,
     gpsAccuracy: 5.0,
     gpsFetching: false,
     remarks: "Materials verified against return checklist and loaded onto vehicle.",
@@ -296,8 +296,8 @@ function DeliveryPortalContent({
     receiverDesignation: "Yard In-Charge",
     receiverPhone: "",
     remarks: "Vehicle arrived at yard. Materials ready for warehouse receiving inspection.",
-    gpsLatitude: 12.9716,
-    gpsLongitude: 77.5946,
+    gpsLatitude: 13.0827,
+    gpsLongitude: 80.2707,
   });
 
   const dataRef = React.useRef(data);
@@ -425,8 +425,8 @@ function DeliveryPortalContent({
   const handleMarkArrivalAtSite = async (mrn: any) => {
     try {
       setLoadingArrivalId(mrn.id);
-      let latitude = 12.9716;
-      let longitude = 77.5946;
+      let latitude = 13.0827;
+      let longitude = 80.2707;
       let accuracy = 5.0;
 
       if (typeof navigator !== "undefined" && navigator.geolocation) {
@@ -573,8 +573,8 @@ function DeliveryPortalContent({
       receiverPhone: initialPhone,
       receiverDesignation: "Site Supervisor",
       photoUrl: "",
-      gpsLatitude: 12.9716,
-      gpsLongitude: 77.5946,
+      gpsLatitude: 13.0827,
+      gpsLongitude: 80.2707,
       gpsAccuracy: 4.5,
       gpsFetching: false,
       remarks: "Materials verified against checklist and delivered.",
@@ -615,8 +615,8 @@ function DeliveryPortalContent({
       customerSignatureUrl: null,
       customerSignatureRefused: false,
       customerSignatureExceptionReason: "",
-      gpsLatitude: 12.9716,
-      gpsLongitude: 77.5946,
+      gpsLatitude: 13.0827,
+      gpsLongitude: 80.2707,
       gpsAccuracy: 4.5,
       gpsFetching: false,
       remarks: `Materials collected at site ${mrn.customerSite?.siteName}. Loaded onto vehicle ${mrn.vehicleNumber || ""}.`,
@@ -652,9 +652,9 @@ function DeliveryPortalContent({
       receiverName: defaultReceiverName,
       receiverDesignation: defaultDesignation,
       receiverPhone: defaultPhone,
-      remarks: `Materials from ${mrn.customerSite?.siteName} arrived at ${mrn.receivingWarehouse?.name || "Peenya Yard"} ready for physical QC inspection.`,
-      gpsLatitude: 12.9716,
-      gpsLongitude: 77.5946,
+      remarks: `Materials from ${mrn.customerSite?.siteName} arrived at ${mrn.receivingWarehouse?.name || "Ambattur Yard"} ready for physical QC inspection.`,
+      gpsLatitude: 13.0827,
+      gpsLongitude: 80.2707,
     });
     setIsYardModalOpen(true);
   };
@@ -2006,7 +2006,7 @@ function DeliveryPortalContent({
                               </div>
                               <div className="font-bold text-slate-800 flex items-center gap-1.5">
                                 <Warehouse className="w-4 h-4 text-slate-600 shrink-0" />
-                                {mrn.receivingWarehouse?.name || "Main Peenya Centering Yard"}
+                                {mrn.receivingWarehouse?.name || "Main Ambattur Centering Yard"}
                               </div>
                               {mrn.pickupInstructions && (
                                 <p className="text-[11px] text-slate-500 italic mt-1">

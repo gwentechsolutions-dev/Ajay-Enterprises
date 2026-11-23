@@ -23,6 +23,7 @@ import {
 export interface GoogleMapsLocationInputProps {
   id?: string;
   value?: string;
+  label?: string;
   latitude?: number | string | null;
   longitude?: number | string | null;
   onChange: (data: { latitude: number | null; longitude: number | null; mapsUrl: string }) => void;
@@ -36,6 +37,7 @@ export interface GoogleMapsLocationInputProps {
 export function GoogleMapsLocationInput({
   id = "siteMapsUrl",
   value = "",
+  label = "Google Maps Location Link",
   latitude,
   longitude,
   onChange,
@@ -93,6 +95,18 @@ export function GoogleMapsLocationInput({
 
     // Check allowlisted domain first
     if (!isAllowlistedGoogleMapsUrl(trimmed)) {
+      // Check if user entered direct lat, lng coordinates
+      const directCoords = extractCoordinatesFromUrlString(trimmed);
+      if (directCoords && isValidCoordinatePair(directCoords.latitude, directCoords.longitude)) {
+        onChange({
+          latitude: directCoords.latitude,
+          longitude: directCoords.longitude,
+          mapsUrl: `https://www.google.com/maps?q=${directCoords.latitude},${directCoords.longitude}`,
+        });
+        setIsReplacing(false);
+        return;
+      }
+
       setInternalError(
         "Invalid Google Maps link. Please paste a valid link (e.g. https://maps.app.goo.gl/... or https://maps.google.com/...)"
       );
@@ -152,6 +166,9 @@ export function GoogleMapsLocationInput({
     setInputUrl(val);
     if (internalError) setInternalError(null);
     onErrorClear?.();
+    if (!val.trim()) {
+      onChange({ latitude: null, longitude: null, mapsUrl: "" });
+    }
   };
 
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
@@ -182,7 +199,7 @@ export function GoogleMapsLocationInput({
         <div className="flex items-center justify-between">
           <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
             <MapPin className="h-3.5 w-3.5 text-[#F26522]" />
-            Site Location (Google Maps GPS)
+            {label} {!required && <span className="text-slate-400 font-normal">(Optional)</span>}
             {required && <span className="text-red-500">*</span>}
           </Label>
         </div>
@@ -246,7 +263,7 @@ export function GoogleMapsLocationInput({
       <div className="flex items-center justify-between">
         <Label htmlFor={id} required={required} className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
           <MapPin className="h-3.5 w-3.5 text-[#F26522]" />
-          Google Maps Location Link
+          {label} {!required && <span className="text-slate-400 font-normal">(Optional)</span>}
         </Label>
         {isReplacing && hasCoordinates && (
           <button

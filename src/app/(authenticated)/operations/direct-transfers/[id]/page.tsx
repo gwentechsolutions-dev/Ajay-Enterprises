@@ -41,6 +41,7 @@ import {
 import { SearchableCombobox, ComboboxOption } from "@/components/ui/searchable-combobox";
 import { toast } from "sonner";
 import { GpsCameraCaptureDialog } from "@/components/evidence/GpsCameraCaptureDialog";
+import { GoogleMapsLocationInput } from "@/components/forms/google-maps-location-input";
 
 export default function DirectTransferDetailPage() {
   const params = useParams();
@@ -69,8 +70,9 @@ export default function DirectTransferDetailPage() {
     sourceRepPhone: "",
     sourceRepDesignation: "Site Engineer",
     sourceRepSignatureUrl: "",
-    sourceGpsLat: "12.9716000",
-    sourceGpsLng: "77.5946000",
+    sourceGpsLat: "13.0827000",
+    sourceGpsLng: "80.2707000",
+    sourceMapsUrl: "",
     sourcePhotoUrl: "",
     odometerReading: "",
     notes: "",
@@ -89,8 +91,8 @@ export default function DirectTransferDetailPage() {
     destRepPhone: "",
     destRepDesignation: "Site In-Charge",
     destRepSignatureUrl: "",
-    destGpsLat: "12.9720000",
-    destGpsLng: "77.5950000",
+    destGpsLat: "13.0827000",
+    destGpsLng: "80.2707000",
     destPhotoUrl: "",
     discrepancyNotes: "",
     discrepancyResponsibleParty: "UNDER_INVESTIGATION",
@@ -111,8 +113,8 @@ export default function DirectTransferDetailPage() {
   // Godown Receiving Form
   const [godownForm, setGodownForm] = React.useState({
     warehouseId: "",
-    yardArrivalGpsLat: "12.9716000",
-    yardArrivalGpsLng: "77.5946000",
+    yardArrivalGpsLat: "13.0827000",
+    yardArrivalGpsLng: "80.2707000",
     yardOdometer: "",
     receiverName: "Warehouse In-Charge",
     photoUrl: "",
@@ -1293,28 +1295,28 @@ export default function DirectTransferDetailPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs font-medium">GPS Latitude</Label>
-                  <Input
-                    value={dispatchForm.sourceGpsLat}
-                    onChange={(e) =>
-                      setDispatchForm({ ...dispatchForm, sourceGpsLat: e.target.value })
-                    }
-                    className="mt-1 font-mono text-xs"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs font-medium">GPS Longitude</Label>
-                  <Input
-                    value={dispatchForm.sourceGpsLng}
-                    onChange={(e) =>
-                      setDispatchForm({ ...dispatchForm, sourceGpsLng: e.target.value })
-                    }
-                    className="mt-1 font-mono text-xs"
-                  />
-                </div>
-              </div>
+              {/* SINGLE LOCATION INPUT (REPLACES SEPARATE LAT/LNG BOXES) */}
+              <GoogleMapsLocationInput
+                id="dispatchMapsUrl"
+                label="Site Pickup Location (Google Maps Link)"
+                value={
+                  dispatchForm.sourceMapsUrl ||
+                  (dispatchForm.sourceGpsLat && dispatchForm.sourceGpsLng
+                    ? `https://www.google.com/maps?q=${dispatchForm.sourceGpsLat},${dispatchForm.sourceGpsLng}`
+                    : "")
+                }
+                latitude={dispatchForm.sourceGpsLat}
+                longitude={dispatchForm.sourceGpsLng}
+                required={false}
+                onChange={({ latitude, longitude, mapsUrl }) => {
+                  setDispatchForm((prev) => ({
+                    ...prev,
+                    sourceGpsLat: latitude !== null ? String(latitude) : "",
+                    sourceGpsLng: longitude !== null ? String(longitude) : "",
+                    sourceMapsUrl: mapsUrl,
+                  }));
+                }}
+              />
 
               {/* Items Actual Collected */}
               <div className="border border-slate-200 rounded-lg p-3 space-y-2">

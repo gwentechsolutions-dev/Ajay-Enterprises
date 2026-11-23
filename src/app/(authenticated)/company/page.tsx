@@ -24,6 +24,8 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
+import { StateCombobox } from "@/components/forms/state-combobox";
+import { CityCombobox } from "@/components/forms/city-combobox";
 import {
   Building2,
   MapPin,
@@ -118,8 +120,11 @@ export default function CompanyProfilePage() {
     defaultValues: {
       addressType: "REGISTERED",
       country: "India",
-      stateCode: "29",
-      state: "Karnataka",
+      stateCode: "33",
+      state: "Tamil Nadu",
+      city: "Chennai",
+      district: "Chennai",
+      pinCode: "600001",
       isDefaultBilling: true,
       isDefaultCorrespondence: true,
     },
@@ -893,26 +898,52 @@ export default function CompanyProfilePage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="city" required>City</Label>
-                <Input id="city" placeholder="Bengaluru" {...addressForm.register("city")} error={!!addressForm.formState.errors.city} />
+                <CityCombobox
+                  id="city"
+                  state={addressForm.watch("state") || "Tamil Nadu"}
+                  value={addressForm.watch("city") || "Chennai"}
+                  onChange={(val) => {
+                    addressForm.setValue("city", val, { shouldValidate: true });
+                    if (!addressForm.watch("district")) {
+                      addressForm.setValue("district", val, { shouldValidate: true });
+                    }
+                  }}
+                  error={!!addressForm.formState.errors.city}
+                />
+                {addressForm.formState.errors.city && <p className="text-xs text-red-600">{addressForm.formState.errors.city.message}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="district" required>District</Label>
-                <Input id="district" placeholder="Bengaluru Urban" {...addressForm.register("district")} error={!!addressForm.formState.errors.district} />
+                <Input id="district" placeholder="Chennai" {...addressForm.register("district")} error={!!addressForm.formState.errors.district} />
+                {addressForm.formState.errors.district && <p className="text-xs text-red-600">{addressForm.formState.errors.district.message}</p>}
               </div>
             </div>
 
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="state" required>State</Label>
-                <Input id="state" placeholder="Karnataka" {...addressForm.register("state")} error={!!addressForm.formState.errors.state} />
+                <StateCombobox
+                  id="state"
+                  value={addressForm.watch("state") || "Tamil Nadu"}
+                  onChange={(st, code) => {
+                    addressForm.setValue("state", st, { shouldValidate: true });
+                    if (code) {
+                      addressForm.setValue("stateCode", code, { shouldValidate: true });
+                    }
+                  }}
+                  error={!!addressForm.formState.errors.state}
+                />
+                {addressForm.formState.errors.state && <p className="text-xs text-red-600">{addressForm.formState.errors.state.message}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="stateCode" required>Code</Label>
-                <Input id="stateCode" placeholder="29" maxLength={2} className="font-mono" {...addressForm.register("stateCode")} error={!!addressForm.formState.errors.stateCode} />
+                <Label htmlFor="stateCode" required>GST Code</Label>
+                <Input id="stateCode" placeholder="33" maxLength={2} className="font-mono" {...addressForm.register("stateCode")} error={!!addressForm.formState.errors.stateCode} />
+                {addressForm.formState.errors.stateCode && <p className="text-xs text-red-600">{addressForm.formState.errors.stateCode.message}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="pinCode" required>PIN Code</Label>
-                <Input id="pinCode" placeholder="560001" maxLength={6} className="font-mono" {...addressForm.register("pinCode")} error={!!addressForm.formState.errors.pinCode} />
+                <Input id="pinCode" placeholder="600001" maxLength={6} className="font-mono" {...addressForm.register("pinCode")} error={!!addressForm.formState.errors.pinCode} />
+                {addressForm.formState.errors.pinCode && <p className="text-xs text-red-600">{addressForm.formState.errors.pinCode.message}</p>}
               </div>
             </div>
 

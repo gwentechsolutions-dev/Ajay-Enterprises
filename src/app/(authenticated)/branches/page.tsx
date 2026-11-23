@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
+import { StateCombobox } from "@/components/forms/state-combobox";
+import { CityCombobox } from "@/components/forms/city-combobox";
 import { GitBranch, Plus, Edit2, Trash2, Building2, MapPin, Phone, Mail, Warehouse } from "lucide-react";
 import { toast } from "sonner";
 import { setReactHookFormErrors, formatValidationToast, parseApiValidationErrors } from "@/lib/forms/validation-mapper";
@@ -24,6 +26,7 @@ const BRANCH_TYPES = [
 
 export default function BranchesPage() {
   const [branches, setBranches] = React.useState<any[]>([]);
+  const [staffUsers, setStaffUsers] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [modalOpen, setModalOpen] = React.useState(false);
   const [editingBranch, setEditingBranch] = React.useState<any | null>(null);
@@ -50,9 +53,9 @@ export default function BranchesPage() {
       name: "",
       branchType: "MAIN_OFFICE",
       addressLine1: "",
-      city: "",
-      state: "Karnataka",
-      pinCode: "560001",
+      city: "Chennai",
+      state: "Tamil Nadu",
+      pinCode: "600001",
       contactPerson: "",
       mobile: "",
       isActive: true,
@@ -61,13 +64,31 @@ export default function BranchesPage() {
 
   const selectedType = watch("branchType");
 
+  const contactPersonOptions = React.useMemo(() => {
+    return staffUsers.map((u) => ({
+      value: u.name,
+      label: u.name,
+      sublabel: u.mobile ? `${(u.role || "").replace(/_/g, " ")} • ${u.mobile}` : (u.role || "").replace(/_/g, " "),
+      badge: u.userCode || undefined,
+    }));
+  }, [staffUsers]);
+
   const fetchBranches = React.useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/v1/branches");
-      const data = await res.json();
+      const [res, uRes] = await Promise.all([
+        fetch("/api/v1/branches"),
+        fetch("/api/v1/users?limit=100&status=ACTIVE"),
+      ]);
+      const [data, uData] = await Promise.all([
+        res.json(),
+        uRes.ok ? uRes.json() : Promise.resolve({ success: false, data: [] }),
+      ]);
       if (data.success) {
         setBranches(data.data);
+      }
+      if (uData.success && Array.isArray(uData.data)) {
+        setStaffUsers(uData.data);
       }
     } catch {
       toast.error("Failed to load branches");
@@ -88,9 +109,9 @@ export default function BranchesPage() {
       branchType: "MAIN_OFFICE",
       addressLine1: "",
       addressLine2: "",
-      city: "",
-      state: "Karnataka",
-      pinCode: "",
+      city: "Chennai",
+      state: "Tamil Nadu",
+      pinCode: "600001",
       contactPerson: "",
       mobile: "",
       email: "",
@@ -310,7 +331,7 @@ export default function BranchesPage() {
               <Input
                 id="name"
                 maxLength={100}
-                placeholder="e.g. Bangalore Main Branch"
+                placeholder="e.g. Chennai Central Branch"
                 {...register("name")}
                 error={!!errors.name}
               />
@@ -331,17 +352,30 @@ export default function BranchesPage() {
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="city" required>City</Label>
-                <Input id="city" maxLength={50} placeholder="Bengaluru" {...register("city")} error={!!errors.city} />
+                <CityCombobox
+                  id="city"
+                  state={watch("state") || "Tamil Nadu"}
+                  value={watch("city") || "Chennai"}
+                  onChange={(val) => setValue("city", val, { shouldValidate: true })}
+                  error={!!errors.city}
+                />
+                {errors.city && <p className="text-xs text-red-600">{errors.city.message}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="state" required>State</Label>
-                <Input id="state" maxLength={50} placeholder="Karnataka" {...register("state")} error={!!errors.state} />
+                <StateCombobox
+                  id="state"
+                  value={watch("state") || "Tamil Nadu"}
+                  onChange={(val) => setValue("state", val, { shouldValidate: true })}
+                  error={!!errors.state}
+                />
+                {errors.state && <p className="text-xs text-red-600">{errors.state.message}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="pinCode" required>PIN Code</Label>
                 <Input
                   id="pinCode"
-                  placeholder="560001"
+                  placeholder="600001"
                   maxLength={6}
                   className="font-mono"
                   {...register("pinCode", {
@@ -351,19 +385,31 @@ export default function BranchesPage() {
                   })}
                   error={!!errors.pinCode}
                 />
+                {errors.pinCode && <p className="text-xs text-red-600">{errors.pinCode.message}</p>}
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="contactPerson" required>Contact Person</Label>
-                <Input
-                  id="contactPerson"
-                  maxLength={100}
-                  placeholder="Branch In-Charge"
-                  {...register("contactPerson")}
+                <SearchableCombobox
+                  options={contactPersonOptions}
+                  value={watch("contactPerson") || ""}
+                  onChange={(val) => {
+                    setValue("contactPerson", val, { shouldValidate: true });
+                    const matched = staffUsers.find((u) => u.name.toLowerCase() === val.toLowerCase());
+                    if (matched?.mobile) {
+                      const cleanMobile = matched.mobile.replace(/\D/g, "").slice(0, 10);
+                      setValue("mobile", cleanMobile, { shouldValidate: true });
+                    }
+                  }}
+                  placeholder="Select or type contact..."
+                  searchPlaceholder="Search registered staff / managers..."
+                  emptyText="No registered staff found. Type custom name above."
+                  allowCustomValue={true}
                   error={!!errors.contactPerson}
                 />
+                {errors.contactPerson && <p className="text-xs text-red-600">{errors.contactPerson.message}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="mobile" required>Mobile Number</Label>

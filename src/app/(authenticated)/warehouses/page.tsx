@@ -11,7 +11,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
-import { Warehouse as WarehouseIcon, Plus, Edit2, Trash2, MapPin, Phone, Compass, GitBranch } from "lucide-react";
+import { StateCombobox } from "@/components/forms/state-combobox";
+import { CityCombobox } from "@/components/forms/city-combobox";
+import { GoogleMapsLocationInput } from "@/components/forms/google-maps-location-input";
+import { Warehouse as WarehouseIcon, Plus, Edit2, Trash2, MapPin, Phone, Compass, GitBranch, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { setReactHookFormErrors, formatValidationToast, parseApiValidationErrors } from "@/lib/forms/validation-mapper";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
@@ -25,6 +28,7 @@ const WAREHOUSE_TYPES = [
 export default function WarehousesPage() {
   const [warehouses, setWarehouses] = React.useState<any[]>([]);
   const [branches, setBranches] = React.useState<any[]>([]);
+  const [staffUsers, setStaffUsers] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [modalOpen, setModalOpen] = React.useState(false);
   const [editingWarehouse, setEditingWarehouse] = React.useState<any | null>(null);
@@ -52,11 +56,14 @@ export default function WarehousesPage() {
       branchId: "",
       warehouseType: "MAIN_YARD",
       addressLine1: "",
-      city: "",
-      state: "Karnataka",
-      pinCode: "",
+      city: "Chennai",
+      state: "Tamil Nadu",
+      pinCode: "600058",
       contactPerson: "",
       mobile: "",
+      gpsLatitude: null,
+      gpsLongitude: null,
+      mapsUrl: "",
       isActive: true,
     },
   });
@@ -72,17 +79,32 @@ export default function WarehousesPage() {
     }));
   }, [branches]);
 
+  const yardInChargeOptions = React.useMemo(() => {
+    return staffUsers.map((u) => ({
+      value: u.name,
+      label: u.name,
+      sublabel: u.mobile ? `${(u.role || "").replace(/_/g, " ")} • ${u.mobile}` : (u.role || "").replace(/_/g, " "),
+      badge: u.userCode || undefined,
+    }));
+  }, [staffUsers]);
+
   const fetchData = React.useCallback(async () => {
     try {
       setLoading(true);
-      const [wRes, bRes] = await Promise.all([
+      const [wRes, bRes, uRes] = await Promise.all([
         fetch("/api/v1/warehouses"),
         fetch("/api/v1/branches"),
+        fetch("/api/v1/users?limit=100&status=ACTIVE"),
       ]);
-      const [wData, bData] = await Promise.all([wRes.json(), bRes.json()]);
+      const [wData, bData, uData] = await Promise.all([
+        wRes.json(),
+        bRes.json(),
+        uRes.ok ? uRes.json() : Promise.resolve({ success: false, data: [] }),
+      ]);
 
       if (wData.success) setWarehouses(wData.data);
       if (bData.success) setBranches(bData.data);
+      if (uData.success && Array.isArray(uData.data)) setStaffUsers(uData.data);
     } catch {
       toast.error("Failed to load warehouses");
     } finally {
@@ -103,13 +125,14 @@ export default function WarehousesPage() {
       warehouseType: "MAIN_YARD",
       addressLine1: "",
       addressLine2: "",
-      city: "",
-      state: "Karnataka",
-      pinCode: "",
+      city: "Chennai",
+      state: "Tamil Nadu",
+      pinCode: "600058",
       contactPerson: "",
       mobile: "",
-      gpsLatitude: undefined,
-      gpsLongitude: undefined,
+      gpsLatitude: null,
+      gpsLongitude: null,
+      mapsUrl: "",
       isActive: true,
     });
     setModalOpen(true);
@@ -117,6 +140,8 @@ export default function WarehousesPage() {
 
   const handleOpenEdit = (w: any) => {
     setEditingWarehouse(w);
+    const existingLat = w.gpsLatitude !== null && w.gpsLatitude !== undefined ? Number(w.gpsLatitude) : null;
+    const existingLng = w.gpsLongitude !== null && w.gpsLongitude !== undefined ? Number(w.gpsLongitude) : null;
     reset({
       warehouseCode: w.warehouseCode,
       name: w.name,
@@ -129,8 +154,9 @@ export default function WarehousesPage() {
       pinCode: w.pinCode,
       contactPerson: w.contactPerson,
       mobile: w.mobile,
-      gpsLatitude: w.gpsLatitude || undefined,
-      gpsLongitude: w.gpsLongitude || undefined,
+      gpsLatitude: existingLat,
+      gpsLongitude: existingLng,
+      mapsUrl: existingLat && existingLng ? `https://www.google.com/maps?q=${existingLat},${existingLng}` : "",
       isActive: w.isActive,
     });
     setModalOpen(true);
@@ -264,12 +290,20 @@ export default function WarehousesPage() {
                   <span>{w.contactPerson} ({w.mobile})</span>
                 </div>
 
-                {(w.gpsLatitude || w.gpsLongitude) && (
-                  <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono">
-                    <Compass className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                    <span>GPS: {w.gpsLatitude}, {w.gpsLongitude}</span>
+                {(w.gpsLatitude && w.gpsLongitude) ? (
+                  <div className="flex items-center gap-1.5 text-[11px] text-emerald-700">
+                    <MapPin className="h-3.5 w-3.5 text-[#F26522] shrink-0" />
+                    <a
+                      href={`https://www.google.com/maps?q=${w.gpsLatitude},${w.gpsLongitude}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium hover:underline inline-flex items-center gap-1"
+                    >
+                      <span>View on Google Maps ({Number(w.gpsLatitude).toFixed(4)}, {Number(w.gpsLongitude).toFixed(4)})</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
                   </div>
-                )}
+                ) : null}
 
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-slate-500 text-[11px]">
                   <span className="rounded bg-slate-100 px-2 py-0.5 font-medium text-slate-700">
@@ -370,17 +404,30 @@ export default function WarehousesPage() {
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="wCity" required>City</Label>
-                <Input id="wCity" maxLength={50} placeholder="Bengaluru" {...register("city")} error={!!errors.city} />
+                <CityCombobox
+                  id="wCity"
+                  state={watch("state") || "Tamil Nadu"}
+                  value={watch("city") || "Chennai"}
+                  onChange={(val) => setValue("city", val, { shouldValidate: true })}
+                  error={!!errors.city}
+                />
+                {errors.city && <p className="text-xs text-red-600">{errors.city.message}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="wState" required>State</Label>
-                <Input id="wState" maxLength={50} placeholder="Karnataka" {...register("state")} error={!!errors.state} />
+                <StateCombobox
+                  id="wState"
+                  value={watch("state") || "Tamil Nadu"}
+                  onChange={(val) => setValue("state", val, { shouldValidate: true })}
+                  error={!!errors.state}
+                />
+                {errors.state && <p className="text-xs text-red-600">{errors.state.message}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="wPin" required>PIN Code</Label>
                 <Input
                   id="wPin"
-                  placeholder="560066"
+                  placeholder="600058"
                   maxLength={6}
                   className="font-mono"
                   {...register("pinCode", {
@@ -390,19 +437,31 @@ export default function WarehousesPage() {
                   })}
                   error={!!errors.pinCode}
                 />
+                {errors.pinCode && <p className="text-xs text-red-600">{errors.pinCode.message}</p>}
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="wContact" required>Yard In-Charge</Label>
-                <Input
-                  id="wContact"
-                  maxLength={100}
-                  placeholder="Yard Supervisor"
-                  {...register("contactPerson")}
+                <SearchableCombobox
+                  options={yardInChargeOptions}
+                  value={watch("contactPerson") || ""}
+                  onChange={(val) => {
+                    setValue("contactPerson", val, { shouldValidate: true });
+                    const matched = staffUsers.find((u) => u.name.toLowerCase() === val.toLowerCase());
+                    if (matched?.mobile) {
+                      const cleanMobile = matched.mobile.replace(/\D/g, "").slice(0, 10);
+                      setValue("mobile", cleanMobile, { shouldValidate: true });
+                    }
+                  }}
+                  placeholder="Select or type in-charge..."
+                  searchPlaceholder="Search registered staff / managers..."
+                  emptyText="No registered staff found. Type custom name above."
+                  allowCustomValue={true}
                   error={!!errors.contactPerson}
                 />
+                {errors.contactPerson && <p className="text-xs text-red-600">{errors.contactPerson.message}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="wMobile" required>Mobile Number</Label>
@@ -422,28 +481,20 @@ export default function WarehousesPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="lat">GPS Latitude (Optional)</Label>
-                <Input
-                  id="lat"
-                  type="number"
-                  step="any"
-                  placeholder="12.9716"
-                  {...register("gpsLatitude", { valueAsNumber: true })}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="lng">GPS Longitude (Optional)</Label>
-                <Input
-                  id="lng"
-                  type="number"
-                  step="any"
-                  placeholder="77.5946"
-                  {...register("gpsLongitude", { valueAsNumber: true })}
-                />
-              </div>
-            </div>
+            {/* SINGLE GOOGLE MAPS LOCATION LINK (REPLACES SEPARATE LAT/LNG BOXES) */}
+            <GoogleMapsLocationInput
+              id="warehouseMapsUrl"
+              label="Storage Yard Location (Google Maps Link)"
+              value={watch("mapsUrl") || ""}
+              latitude={watch("gpsLatitude")}
+              longitude={watch("gpsLongitude")}
+              required={false}
+              onChange={({ latitude, longitude, mapsUrl }) => {
+                setValue("gpsLatitude", latitude, { shouldValidate: true });
+                setValue("gpsLongitude", longitude, { shouldValidate: true });
+                setValue("mapsUrl", mapsUrl, { shouldValidate: true });
+              }}
+            />
 
             <div className="flex items-center gap-2 pt-2">
               <input type="checkbox" id="wIsActive" {...register("isActive")} className="rounded text-primary-900" />

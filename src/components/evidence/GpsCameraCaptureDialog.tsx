@@ -69,7 +69,7 @@ export function GpsCameraCaptureDialog({
     return new Promise((resolve) => {
       if (!navigator.geolocation) {
         setGpsError("Geolocation is not supported by your browser");
-        resolve({ lat: 12.9716, lng: 77.5946, acc: 25 });
+        resolve({ lat: 13.0827, lng: 80.2707, acc: 25 });
         return;
       }
 
@@ -90,7 +90,7 @@ export function GpsCameraCaptureDialog({
               ? "GPS permission denied. Using estimated location."
               : "Unable to retrieve device GPS. Using estimated location.";
           setGpsError(msg);
-          resolve({ lat: 12.9716, lng: 77.5946, acc: 25 });
+          resolve({ lat: 13.0827, lng: 80.2707, acc: 25 });
         },
         { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
       );

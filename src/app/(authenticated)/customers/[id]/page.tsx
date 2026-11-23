@@ -42,6 +42,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
+import { StateCombobox } from "@/components/forms/state-combobox";
+import { CityCombobox } from "@/components/forms/city-combobox";
 import { PageSkeleton } from "@/components/ui/loading-states";
 import { FormFieldError } from "@/components/ui/form-field-error";
 import { FormErrorSummary } from "@/components/ui/form-error-summary";
@@ -89,8 +91,8 @@ export default function CustomerDetailPage() {
     gstin: "",
     pan: "",
     billingAddress: "",
-    state: "Karnataka",
-    stateCode: "29",
+    state: "Tamil Nadu",
+    stateCode: "33",
     pinCode: "",
     businessType: "",
     creditLimit: "",
@@ -103,11 +105,11 @@ export default function CustomerDetailPage() {
     siteCode: "",
     siteName: "",
     fullAddress: "",
-    district: "",
-    city: "",
-    state: "Karnataka",
-    stateCode: "29",
-    pinCode: "",
+    district: "Chennai",
+    city: "Chennai",
+    state: "Tamil Nadu",
+    stateCode: "33",
+    pinCode: "600001",
     gpsLatitude: "",
     gpsLongitude: "",
     mapsUrl: "",
@@ -174,11 +176,11 @@ export default function CustomerDetailPage() {
       siteCode: site.siteCode || "",
       siteName: site.siteName || "",
       fullAddress: site.fullAddress || "",
-      district: site.district || "",
-      city: site.city || "",
-      state: site.state || "Karnataka",
-      stateCode: site.stateCode || "29",
-      pinCode: site.pinCode || "",
+      district: site.district || "Chennai",
+      city: site.city || "Chennai",
+      state: site.state || "Tamil Nadu",
+      stateCode: site.stateCode || "33",
+      pinCode: site.pinCode || "600001",
       gpsLatitude:
         site.gpsLatitude !== null && site.gpsLatitude !== undefined ? String(site.gpsLatitude) : "",
       gpsLongitude:
@@ -966,23 +968,40 @@ export default function CustomerDetailPage() {
               <FormFieldError id="siteAddress-error" error={siteValidation.fieldErrors.fullAddress} />
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="siteState" required>State</Label>
+                <StateCombobox
+                  id="siteState"
+                  value={siteForm.state}
+                  onChange={(st, code) => {
+                    setSiteForm((prev) => ({
+                      ...prev,
+                      state: st,
+                      ...(code ? { stateCode: code } : {}),
+                    }));
+                    siteValidation.clearFieldError("state");
+                    if (code) siteValidation.clearFieldError("stateCode");
+                  }}
+                  error={!!siteValidation.fieldErrors.state}
+                />
+                <FormFieldError id="siteState-error" error={siteValidation.fieldErrors.state} />
+              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="siteCity" required>City</Label>
-                <Input
+                <CityCombobox
                   id="siteCity"
-                  name="city"
-                  maxLength={50}
-                  placeholder="e.g. Bengaluru"
-                  value={siteForm.city}
-                  error={!!siteValidation.fieldErrors.city}
-                  aria-invalid={!!siteValidation.fieldErrors.city}
-                  aria-describedby={siteValidation.fieldErrors.city ? "siteCity-error" : undefined}
-                  onChange={(e) => {
-                    setSiteForm({ ...siteForm, city: e.target.value });
+                  state={siteForm.state || "Tamil Nadu"}
+                  value={siteForm.city || "Chennai"}
+                  onChange={(val) => {
+                    setSiteForm((prev) => ({
+                      ...prev,
+                      city: val,
+                      ...(prev.district ? {} : { district: val }),
+                    }));
                     siteValidation.clearFieldError("city");
                   }}
-                  required
+                  error={!!siteValidation.fieldErrors.city}
                 />
                 <FormFieldError id="siteCity-error" error={siteValidation.fieldErrors.city} />
               </div>
@@ -992,7 +1011,7 @@ export default function CustomerDetailPage() {
                   id="siteDistrict"
                   name="district"
                   maxLength={50}
-                  placeholder="e.g. Bengaluru Urban"
+                  placeholder="e.g. Chennai"
                   value={siteForm.district}
                   error={!!siteValidation.fieldErrors.district}
                   aria-invalid={!!siteValidation.fieldErrors.district}
@@ -1011,7 +1030,7 @@ export default function CustomerDetailPage() {
                   id="sitePin"
                   name="pinCode"
                   maxLength={6}
-                  placeholder="6 digits"
+                  placeholder="600001"
                   value={siteForm.pinCode}
                   error={!!siteValidation.fieldErrors.pinCode}
                   aria-invalid={!!siteValidation.fieldErrors.pinCode}
@@ -1671,19 +1690,19 @@ export default function CustomerDetailPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="custEditState" required>State</Label>
-                <Input
+                <StateCombobox
                   id="custEditState"
-                  name="state"
-                  placeholder="e.g. Tamil Nadu"
                   value={customerForm.state}
-                  error={!!customerValidation.fieldErrors.state}
-                  aria-invalid={!!customerValidation.fieldErrors.state}
-                  aria-describedby={customerValidation.fieldErrors.state ? "custEditState-error" : undefined}
-                  onChange={(e) => {
-                    setCustomerForm({ ...customerForm, state: e.target.value });
+                  onChange={(st, code) => {
+                    setCustomerForm((prev) => ({
+                      ...prev,
+                      state: st,
+                      ...(code ? { stateCode: code } : {}),
+                    }));
                     customerValidation.clearFieldError("state");
+                    if (code) customerValidation.clearFieldError("stateCode");
                   }}
-                  required
+                  error={!!customerValidation.fieldErrors.state}
                 />
                 <FormFieldError id="custEditState-error" error={customerValidation.fieldErrors.state} />
               </div>

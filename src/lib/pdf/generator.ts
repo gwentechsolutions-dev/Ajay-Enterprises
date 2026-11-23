@@ -155,8 +155,8 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
   const primaryAddress = company?.addresses[0];
   const addressLine = primaryAddress
     ? `${primaryAddress.addressLine1}, ${primaryAddress.city}, ${primaryAddress.state} - ${primaryAddress.pinCode}`
-    : "Centering Material Yard, Bengaluru, Karnataka";
-  const gstin = company?.gstin || "29AABCA1234F1Z5";
+    : "Centering Material Yard, Chennai, Tamil Nadu";
+  const gstin = company?.gstin || "33AABCA1234F1Z5";
   const mobile = company?.primaryMobile || "9876543210";
   const email = company?.officialEmail || "info@ajayenterprises.com";
 

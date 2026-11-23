@@ -38,8 +38,15 @@ export const warehouseSchema = z.object({
   pinCode: IndianPinCodeSchema,
   contactPerson: z.string().min(2, "Contact person is required"),
   mobile: IndianMobileSchema,
-  gpsLatitude: z.number().min(-90).max(90).optional().nullable(),
-  gpsLongitude: z.number().min(-180).max(180).optional().nullable(),
+  gpsLatitude: z.preprocess(
+    (val) => (val === "" || val === null || val === undefined || (typeof val === "number" && Number.isNaN(val)) ? null : Number(val)),
+    z.number().min(-90).max(90).nullable().optional()
+  ),
+  gpsLongitude: z.preprocess(
+    (val) => (val === "" || val === null || val === undefined || (typeof val === "number" && Number.isNaN(val)) ? null : Number(val)),
+    z.number().min(-180).max(180).nullable().optional()
+  ),
+  mapsUrl: z.string().optional().nullable().or(z.literal("")),
   storageCapacitySqFt: z.coerce.number().min(0).optional().nullable(),
   isActive: z.boolean().default(true),
 });

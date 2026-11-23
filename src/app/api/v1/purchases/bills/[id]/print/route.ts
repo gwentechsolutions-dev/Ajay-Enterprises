@@ -45,8 +45,8 @@ export async function GET(
     const companyName = company?.legalName || "AJAY ENTERPRISES";
     const companyAddress = company?.addresses[0]
       ? `${company.addresses[0].addressLine1}, ${company.addresses[0].city}, ${company.addresses[0].state} - ${company.addresses[0].pinCode}`
-      : "Centering Material Yard, Bengaluru, Karnataka";
-    const companyGstin = company?.gstin || "29AABCA1234F1Z5";
+      : "Centering Material Yard, Chennai, Tamil Nadu";
+    const companyGstin = company?.gstin || "33AABCA1234F1Z5";
 
     const grandTotalFormatted = Number(bill.grandTotal).toLocaleString("en-IN", {
       minimumFractionDigits: 2,
