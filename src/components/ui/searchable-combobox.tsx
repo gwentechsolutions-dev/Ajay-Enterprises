@@ -25,12 +25,13 @@ export interface SearchableComboboxProps {
   className?: string;
   triggerClassName?: string;
   popoverClassName?: string;
-  align?: "left" | "right";
+  align?: "left" | "right" | "auto";
   showSearch?: boolean;
   allowClear?: boolean;
   isLoading?: boolean;
   allowCustomValue?: boolean;
   customBadge?: string;
+  showBadgeInTrigger?: boolean;
 }
 
 export function SearchableCombobox({
@@ -45,17 +46,48 @@ export function SearchableCombobox({
   className,
   triggerClassName,
   popoverClassName,
-  align = "left",
+  align = "auto",
   showSearch,
   allowClear = true,
   isLoading = false,
   allowCustomValue = false,
   customBadge = "CUSTOM",
+  showBadgeInTrigger = false,
 }: SearchableComboboxProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
+  const [effectiveAlign, setEffectiveAlign] = React.useState<"left" | "right">(
+    align === "right" ? "right" : "left"
+  );
   const containerRef = React.useRef<HTMLDivElement>(null);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Dynamic alignment calculation to prevent popovers clipping on the right edge of modals/viewports
+  React.useEffect(() => {
+    if (!isOpen || !containerRef.current) return;
+
+    if (align === "left" || align === "right") {
+      setEffectiveAlign(align);
+      return;
+    }
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const dialog =
+      containerRef.current.closest("[role='dialog']") ||
+      containerRef.current.closest(".overflow-y-auto");
+    const rightBoundary = dialog
+      ? dialog.getBoundingClientRect().right
+      : window.innerWidth;
+    const spaceRight = rightBoundary - rect.left;
+    const spaceLeft =
+      rect.right - (dialog ? dialog.getBoundingClientRect().left : 0);
+
+    if (spaceRight < 310 && spaceLeft >= 260) {
+      setEffectiveAlign("right");
+    } else {
+      setEffectiveAlign("left");
+    }
+  }, [isOpen, align]);
 
   const shouldShowSearch = showSearch !== undefined ? showSearch : options.length > 5;
 
@@ -137,24 +169,26 @@ export function SearchableCombobox({
       >
         <div className="flex items-center gap-2 truncate min-w-0 flex-1 text-left">
           {selectedOption ? (
-            <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 min-w-0 flex-1">
               <span className="font-medium text-slate-900 truncate" title={selectedOption.label}>
                 {selectedOption.label}
               </span>
-              {selectedOption.badge && (
+              {showBadgeInTrigger && selectedOption.badge && (
                 <span className="hidden sm:inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 shrink-0">
                   {selectedOption.badge}
                 </span>
               )}
             </div>
           ) : isCustomValue ? (
-            <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 min-w-0 flex-1">
               <span className="font-medium text-slate-900 truncate" title={value}>
                 {value}
               </span>
-              <span className="rounded bg-orange-100 text-[#F26522] px-1.5 py-0.5 text-[10px] font-semibold shrink-0">
-                {customBadge}
-              </span>
+              {showBadgeInTrigger && customBadge && (
+                <span className="rounded bg-orange-100 text-[#F26522] px-1.5 py-0.5 text-[10px] font-semibold shrink-0">
+                  {customBadge}
+                </span>
+              )}
             </div>
           ) : (
             <span className="text-slate-400 truncate">{placeholder}</span>
@@ -182,9 +216,9 @@ export function SearchableCombobox({
       {isOpen && (
         <div
           className={cn(
-            "absolute z-50 mt-1.5 max-h-80 w-full overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-2xl animate-in fade-in-50 zoom-in-95",
-            align === "right" ? "right-0" : "left-0",
-            popoverClassName || "min-w-full w-full"
+            "absolute z-50 mt-1.5 max-h-80 min-w-[max(100%,280px)] sm:min-w-[max(100%,320px)] max-w-[min(calc(100vw-2rem),460px)] overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-2xl animate-in fade-in-50 zoom-in-95",
+            effectiveAlign === "right" ? "right-0" : "left-0",
+            popoverClassName
           )}
         >
           {/* Search Box */}
@@ -266,14 +300,22 @@ export function SearchableCombobox({
                           opt.disabled
                             ? "cursor-not-allowed opacity-50 text-slate-400"
                             : isSelected
-                            ? "bg-[#0B1E36]/5 text-[#0B1E36] font-semibold border-l-2 border-[#0B1E36]"
+                            ? "bg-[#0B1E36]/5 text-[#0B1E36] font-semibold"
                             : "text-slate-800 hover:bg-slate-100/80 hover:text-slate-900"
                         )}
                       >
                         <div className="flex flex-col min-w-0 flex-1 pr-2">
-                          <span className="font-medium truncate" title={opt.label}>{opt.label}</span>
+                          <span
+                            className="font-medium text-slate-900 break-words leading-snug"
+                            title={opt.label}
+                          >
+                            {opt.label}
+                          </span>
                           {opt.sublabel && (
-                            <span className="text-xs text-slate-500 font-normal truncate" title={opt.sublabel}>
+                            <span
+                              className="text-xs text-slate-500 font-normal break-words leading-tight mt-0.5"
+                              title={opt.sublabel}
+                            >
                               {opt.sublabel}
                             </span>
                           )}
@@ -281,12 +323,12 @@ export function SearchableCombobox({
 
                         <div className="flex items-center gap-2 shrink-0 ml-2">
                           {opt.badge && (
-                            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 shrink-0 whitespace-nowrap">
                               {opt.badge}
                             </span>
                           )}
                           {isSelected && (
-                            <Check className="h-4 w-4 text-[#F26522] stroke-[2.5]" />
+                            <Check className="h-4 w-4 text-[#F26522] stroke-[2.5] shrink-0" />
                           )}
                         </div>
                       </div>

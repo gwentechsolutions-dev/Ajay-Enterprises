@@ -919,8 +919,8 @@ export default function CompanyProfilePage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1.5">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="state" required>State</Label>
                 <StateCombobox
                   id="state"
@@ -935,12 +935,12 @@ export default function CompanyProfilePage() {
                 />
                 {addressForm.formState.errors.state && <p className="text-xs text-red-600">{addressForm.formState.errors.state.message}</p>}
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 sm:col-span-1">
                 <Label htmlFor="stateCode" required>GST Code</Label>
                 <Input id="stateCode" placeholder="33" maxLength={2} className="font-mono" {...addressForm.register("stateCode")} error={!!addressForm.formState.errors.stateCode} />
                 {addressForm.formState.errors.stateCode && <p className="text-xs text-red-600">{addressForm.formState.errors.stateCode.message}</p>}
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 sm:col-span-1">
                 <Label htmlFor="pinCode" required>PIN Code</Label>
                 <Input id="pinCode" placeholder="600001" maxLength={6} className="font-mono" {...addressForm.register("pinCode")} error={!!addressForm.formState.errors.pinCode} />
                 {addressForm.formState.errors.pinCode && <p className="text-xs text-red-600">{addressForm.formState.errors.pinCode.message}</p>}

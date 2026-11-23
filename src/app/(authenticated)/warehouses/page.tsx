@@ -401,8 +401,8 @@ export default function WarehousesPage() {
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1.5">
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+              <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="wCity" required>City</Label>
                 <CityCombobox
                   id="wCity"
@@ -413,7 +413,7 @@ export default function WarehousesPage() {
                 />
                 {errors.city && <p className="text-xs text-red-600">{errors.city.message}</p>}
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="wState" required>State</Label>
                 <StateCombobox
                   id="wState"
@@ -423,7 +423,7 @@ export default function WarehousesPage() {
                 />
                 {errors.state && <p className="text-xs text-red-600">{errors.state.message}</p>}
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 sm:col-span-1">
                 <Label htmlFor="wPin" required>PIN Code</Label>
                 <Input
                   id="wPin"

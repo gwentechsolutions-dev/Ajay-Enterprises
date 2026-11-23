@@ -349,8 +349,8 @@ export default function BranchesPage() {
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1.5">
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+              <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="city" required>City</Label>
                 <CityCombobox
                   id="city"
@@ -361,7 +361,7 @@ export default function BranchesPage() {
                 />
                 {errors.city && <p className="text-xs text-red-600">{errors.city.message}</p>}
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="state" required>State</Label>
                 <StateCombobox
                   id="state"
@@ -371,7 +371,7 @@ export default function BranchesPage() {
                 />
                 {errors.state && <p className="text-xs text-red-600">{errors.state.message}</p>}
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 sm:col-span-1">
                 <Label htmlFor="pinCode" required>PIN Code</Label>
                 <Input
                   id="pinCode"

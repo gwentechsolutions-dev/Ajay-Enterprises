@@ -493,8 +493,8 @@ export default function SuppliersPage() {
               <FormFieldError id="supAddress-error" error={fieldErrors.billingAddress} />
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1.5">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="supState" required>State</Label>
                 <StateCombobox
                   id="supState"
@@ -512,7 +512,7 @@ export default function SuppliersPage() {
                 />
                 <FormFieldError id="supState-error" error={fieldErrors.state} />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 sm:col-span-1">
                 <Label htmlFor="supStateCode" required>State Code</Label>
                 <Input
                   id="supStateCode"
@@ -530,7 +530,7 @@ export default function SuppliersPage() {
                 />
                 <FormFieldError id="supStateCode-error" error={fieldErrors.stateCode} />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 sm:col-span-1">
                 <Label htmlFor="supPin" required>PIN Code</Label>
                 <Input
                   id="supPin"

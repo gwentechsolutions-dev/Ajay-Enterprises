@@ -968,7 +968,7 @@ export default function CustomerDetailPage() {
               <FormFieldError id="siteAddress-error" error={siteValidation.fieldErrors.fullAddress} />
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="siteState" required>State</Label>
                 <StateCombobox
@@ -1005,6 +1005,9 @@ export default function CustomerDetailPage() {
                 />
                 <FormFieldError id="siteCity-error" error={siteValidation.fieldErrors.city} />
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="siteDistrict" required>District</Label>
                 <Input
@@ -1687,8 +1690,8 @@ export default function CustomerDetailPage() {
             </div>
 
             {/* State, State Code, PIN Code */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="space-y-1.5">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="custEditState" required>State</Label>
                 <StateCombobox
                   id="custEditState"
@@ -1707,8 +1710,8 @@ export default function CustomerDetailPage() {
                 <FormFieldError id="custEditState-error" error={customerValidation.fieldErrors.state} />
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="custEditStateCode" required>State Code (2 Digits)</Label>
+              <div className="space-y-1.5 sm:col-span-1">
+                <Label htmlFor="custEditStateCode" required>State Code</Label>
                 <Input
                   id="custEditStateCode"
                   name="stateCode"
@@ -1728,7 +1731,7 @@ export default function CustomerDetailPage() {
                 <FormFieldError id="custEditStateCode-error" error={customerValidation.fieldErrors.stateCode} />
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 sm:col-span-1">
                 <Label htmlFor="custEditPin">PIN Code</Label>
                 <Input
                   id="custEditPin"

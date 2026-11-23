@@ -586,8 +586,8 @@ export default function CustomersPage() {
               <FormFieldError id="custBilling-error" error={fieldErrors.billingAddress} />
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1.5">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="custState" required>State</Label>
                 <StateCombobox
                   id="custState"
@@ -605,7 +605,7 @@ export default function CustomersPage() {
                 />
                 <FormFieldError id="custState-error" error={fieldErrors.state} />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 sm:col-span-1">
                 <Label htmlFor="custStateCode" required>State Code</Label>
                 <Input
                   id="custStateCode"
@@ -622,7 +622,7 @@ export default function CustomersPage() {
                 />
                 <FormFieldError id="custStateCode-error" error={fieldErrors.stateCode} />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 sm:col-span-1">
                 <Label htmlFor="custPin">PIN Code</Label>
                 <Input
                   id="custPin"
