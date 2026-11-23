@@ -73,6 +73,7 @@ const receiveTransferItemSchema = z.object({
   quantityDamaged: z.coerce.number().min(0).default(0),
   quantityMissing: z.coerce.number().min(0).default(0),
   quantityRejected: z.coerce.number().min(0).default(0),
+  agreedDailyRate: z.coerce.number().min(0, "Daily rate cannot be negative").optional().nullable(),
   remarks: z.string().optional().nullable(),
 });
 
@@ -330,6 +331,29 @@ describe("INVENTRA – Direct Site-to-Site Transfer (DSTN) Redesign Suite", () =
         itemC.quantityMissing +
         itemC.quantityRejected;
       assert.equal(totalC, baseDispatched);
+    });
+
+    it("should accept explicit agreed daily rate in receipt reconciliation", () => {
+      const payloadWithRate = {
+        destRepName: "Anand Murthy",
+        destRepPhone: "9845044556",
+        destRepDesignation: "Site In-Charge",
+        items: [
+          {
+            itemId: "aaaaaaaa-aaaa-7aaa-8aaa-aaaaaaaaaaaa",
+            quantityAccepted: 5,
+            quantityGodownReturned: 0,
+            quantityDamaged: 0,
+            quantityMissing: 0,
+            quantityRejected: 0,
+            agreedDailyRate: 2.5,
+          },
+        ],
+      };
+
+      const parsed = receiveDirectTransferSchema.safeParse(payloadWithRate);
+      assert.equal(parsed.success, true);
+      assert.equal(parsed.data.items[0].agreedDailyRate, 2.5);
     });
 
     it("should reject negative quantities in receipt reconciliation", () => {

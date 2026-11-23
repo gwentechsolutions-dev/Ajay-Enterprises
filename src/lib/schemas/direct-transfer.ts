@@ -61,6 +61,7 @@ export const receiveTransferItemSchema = z.object({
   quantityDamaged: z.coerce.number().min(0).default(0),
   quantityMissing: z.coerce.number().min(0).default(0),
   quantityRejected: z.coerce.number().min(0).default(0),
+  agreedDailyRate: z.coerce.number().min(0, "Daily rate cannot be negative").optional().nullable(),
   remarks: z.string().optional().nullable(),
 });
 

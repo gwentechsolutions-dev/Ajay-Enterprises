@@ -106,6 +106,7 @@ export default function DirectTransferDetailPage() {
       quantityDamaged: string;
       quantityMissing: string;
       quantityRejected: string;
+      agreedDailyRate: string;
       remarks: string;
     }>,
   });
@@ -157,6 +158,17 @@ export default function DirectTransferDetailPage() {
                 ? parseFloat(item.quantityCollected)
                 : parseFloat(item.quantityDispatched);
 
+            const destAgrItem = json.data.destinationRentalAgreement?.items?.find(
+              (ai: any) => ai.materialVariantId === item.materialVariantId
+            );
+            const initialRate = item.agreedDailyRate
+              ? item.agreedDailyRate.toString()
+              : destAgrItem?.agreedDailyRate
+              ? destAgrItem.agreedDailyRate.toString()
+              : item.materialVariant?.defaultRentalRate
+              ? item.materialVariant.defaultRentalRate.toString()
+              : "";
+
             return {
               itemId: item.id,
               materialName: item.materialVariant?.name || "Material",
@@ -170,6 +182,7 @@ export default function DirectTransferDetailPage() {
               quantityDamaged: (parseFloat(item.quantityDamaged || "0")).toString(),
               quantityMissing: (parseFloat(item.quantityMissing || "0")).toString(),
               quantityRejected: (parseFloat(item.quantityRejected || "0")).toString(),
+              agreedDailyRate: initialRate,
               remarks: item.remarks || "",
             };
           }),
@@ -456,6 +469,7 @@ export default function DirectTransferDetailPage() {
             quantityDamaged: parseFloat(i.quantityDamaged || "0"),
             quantityMissing: parseFloat(i.quantityMissing || "0"),
             quantityRejected: parseFloat(i.quantityRejected || "0"),
+            agreedDailyRate: i.agreedDailyRate ? parseFloat(i.agreedDailyRate) : undefined,
             remarks: i.remarks || undefined,
           })),
         }),
@@ -1471,7 +1485,7 @@ export default function DirectTransferDetailPage() {
                         Collected: {item.baseQty}
                       </Badge>
                     </div>
-                    <div className="grid grid-cols-5 gap-2 text-xs">
+                    <div className="grid grid-cols-6 gap-2 text-xs">
                       <div>
                         <Label className="text-[10px] font-semibold text-emerald-700">Accepted *</Label>
                         <Input
@@ -1557,6 +1571,25 @@ export default function DirectTransferDetailPage() {
                             });
                           }}
                           className="h-8 text-xs font-mono"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] font-semibold text-blue-700">Rate (₹/day)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="₹/day"
+                          value={item.agreedDailyRate}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setReceiveForm((prev) => {
+                              const copy = [...prev.items];
+                              copy[idx].agreedDailyRate = val;
+                              return { ...prev, items: copy };
+                            });
+                          }}
+                          className="h-8 text-xs font-mono text-blue-800"
                         />
                       </div>
                     </div>

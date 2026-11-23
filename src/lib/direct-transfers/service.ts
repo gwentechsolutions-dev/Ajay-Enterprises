@@ -178,54 +178,29 @@ export async function getDirectTransferById(id: string) {
         },
       },
       sourceMrn: {
-        include: {
-          items: {
-            include: {
-              materialVariant: true,
-            },
-          },
-          evidences: true,
+        select: {
+          id: true,
+          mrnNumber: true,
+          status: true,
         },
       },
       destinationDn: {
-        include: {
-          items: {
-            include: {
-              materialVariant: true,
-            },
-          },
-          evidences: true,
+        select: {
+          id: true,
+          dnNumber: true,
+          status: true,
         },
       },
       godownMrn: {
-        include: {
-          items: {
-            include: {
-              materialVariant: true,
-            },
-          },
-          evidences: true,
+        select: {
+          id: true,
+          mrnNumber: true,
+          status: true,
         },
       },
       items: {
         include: {
           materialVariant: true,
-          sourceRentalBatch: true,
-          destinationBatches: true,
-          returnAllocations: true,
-        },
-      },
-      rentalBatches: true,
-      returnAllocations: true,
-      damageAssessments: {
-        include: {
-          materialVariant: true,
-        },
-      },
-      materialRepairJobs: {
-        include: {
-          materialVariant: true,
-          warehouse: true,
         },
       },
     },
@@ -234,36 +209,6 @@ export async function getDirectTransferById(id: string) {
   if (!transfer) {
     throw new DirectTransferError(`Direct Site Transfer '${id}' not found.`, "NOT_FOUND", 404);
   }
-
-  // Fetch candidate site representatives from recent dispatches / returns
-  const [pastSiteReturns, pastSiteDeliveries] = await Promise.all([
-    db.materialReturnNote.findMany({
-      where: {
-        customerSiteId: transfer.sourceCustomerSiteId,
-        customerRepresentativeName: { not: null },
-      },
-      select: {
-        customerRepresentativeName: true,
-        customerRepresentativePhone: true,
-        customerRepresentativeDesignation: true,
-      },
-      distinct: ["customerRepresentativeName"],
-      take: 5,
-    }),
-    db.deliveryNote.findMany({
-      where: {
-        customerSiteId: transfer.sourceCustomerSiteId,
-        receiverName: { not: null },
-      },
-      select: {
-        receiverName: true,
-        receiverPhone: true,
-        receiverDesignation: true,
-      },
-      distinct: ["receiverName"],
-      take: 5,
-    }),
-  ]);
 
   const candidateMap = new Map<
     string,
@@ -321,29 +266,6 @@ export async function getDirectTransferById(id: string) {
         phone: c.mobile || "",
         designation: c.designation || "Customer Contact",
         badge: "CUSTOMER CONTACT",
-      });
-    }
-  }
-
-  // 5. Past returns & delivery receivers
-  for (const r of pastSiteReturns) {
-    if (r.customerRepresentativeName && !candidateMap.has(r.customerRepresentativeName.toLowerCase().trim())) {
-      candidateMap.set(r.customerRepresentativeName.toLowerCase().trim(), {
-        name: r.customerRepresentativeName.trim(),
-        phone: r.customerRepresentativePhone || "",
-        designation: r.customerRepresentativeDesignation || "Site Representative",
-        badge: "PAST RETURN REP",
-      });
-    }
-  }
-
-  for (const d of pastSiteDeliveries) {
-    if (d.receiverName && !candidateMap.has(d.receiverName.toLowerCase().trim())) {
-      candidateMap.set(d.receiverName.toLowerCase().trim(), {
-        name: d.receiverName.trim(),
-        phone: d.receiverPhone || "",
-        designation: d.receiverDesignation || "Site Engineer",
-        badge: "PAST RECEIVER",
       });
     }
   }
@@ -1028,27 +950,68 @@ export async function receiveDirectTransfer(
           hasDiscrepancy = true;
         }
 
-        // Check destination agreement for accepted units
-        let destDailyRate: Prisma.Decimal | null = item.agreedDailyRate
-          ? new Prisma.Decimal(item.agreedDailyRate)
-          : null;
+        // Check destination agreement or explicit rate for accepted units
+        let destDailyRate: Prisma.Decimal | null = null;
+
+        // 1. Explicit rate provided in reconciliation input
+        if (
+          rec.agreedDailyRate !== undefined &&
+          rec.agreedDailyRate !== null &&
+          Number(rec.agreedDailyRate) > 0
+        ) {
+          destDailyRate = new Prisma.Decimal(rec.agreedDailyRate);
+        }
+
+        // 2. Agreed rate already configured on transfer line item
+        if (!destDailyRate && item.agreedDailyRate && new Prisma.Decimal(item.agreedDailyRate).gt(0)) {
+          destDailyRate = new Prisma.Decimal(item.agreedDailyRate);
+        }
+
+        // 3. Rate from destination active rental agreement
+        if (!destDailyRate && destAgreement) {
+          const agrItem = destAgreement.items.find(
+            (ai) => ai.materialVariantId === item.materialVariantId
+          );
+          if (agrItem && new Prisma.Decimal(agrItem.agreedDailyRate).gt(0)) {
+            destDailyRate = new Prisma.Decimal(agrItem.agreedDailyRate);
+          }
+        }
+
+        // 4. Fallback to master material variant's default rental rate
+        if (
+          !destDailyRate &&
+          item.materialVariant?.defaultRentalRate &&
+          new Prisma.Decimal(item.materialVariant.defaultRentalRate).gt(0)
+        ) {
+          destDailyRate = new Prisma.Decimal(item.materialVariant.defaultRentalRate);
+        }
 
         if (qAccepted.gt(0)) {
-          if (!destDailyRate && destAgreement) {
-            const agrItem = destAgreement.items.find(
-              (ai) => ai.materialVariantId === item.materialVariantId
-            );
-            if (agrItem) {
-              destDailyRate = new Prisma.Decimal(agrItem.agreedDailyRate);
-            }
-          }
-
-          if (!destDailyRate) {
+          if (!destDailyRate || destDailyRate.lte(0)) {
             throw new DirectTransferError(
-              `Destination customer does not have an active rental agreement covering material variant '${item.materialVariant.name}'. An active agreement or explicit rate is required.`,
+              `Destination customer does not have an active rental agreement covering material variant '${item.materialVariant.name}'. Please enter an agreed daily rental rate (₹/day) or configure it on Customer B's rental agreement.`,
               "DESTINATION_AGREEMENT_REQUIRED",
               422
             );
+          }
+
+          // If destination customer has an active agreement and this item is not yet on it,
+          // record it onto the agreement so subsequent rental statements and invoices bill it smoothly
+          if (destAgreement) {
+            const alreadyOnAgreement = destAgreement.items.some(
+              (ai) => ai.materialVariantId === item.materialVariantId
+            );
+            if (!alreadyOnAgreement) {
+              await tx.rentalAgreementItem.create({
+                data: {
+                  rentalAgreementId: destAgreement.id,
+                  materialVariantId: item.materialVariantId,
+                  agreedDailyRate: destDailyRate,
+                  quantity: qAccepted,
+                  remarks: `Direct Transfer from ${transfer.sourceCustomerSite?.siteName || "Source Site"} (${transfer.transferNumber})`,
+                },
+              });
+            }
           }
         }
 
