@@ -48,8 +48,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const origin = `${proto}://${host}`;
 
     const [invoice, company] = await Promise.all([
-      db.invoice.findUnique({
-        where: { id },
+      db.invoice.findFirst({
+        where: {
+          OR: [{ id }, { invoiceNumber: id }],
+        },
         include: {
           customer: true,
           customerSite: true,
@@ -121,11 +123,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const grandTotalFormatted = Number(invoice.grandTotal ?? 0).toLocaleString("en-IN", {
       minimumFractionDigits: 2,
     });
-    const ogImageUrl = `${origin}/api/og?type=INVOICE&docNumber=${encodeURIComponent(
-      invoice.invoiceNumber
-    )}&party=${encodeURIComponent(invoice.customer.name)}&amount=${encodeURIComponent(
-      grandTotalFormatted
-    )}&status=${encodeURIComponent(invoice.paymentStatus || "UNPAID")}`;
+    // Static high-res 1200x630 CDN image for instant (<15ms) social & WhatsApp scraping
+    const ogImageUrl = `${origin}/images/og/og-tax-invoice.png`;
+    const slipUrl = `${origin}/slips/invoices/${invoice.id}`;
 
     const isNonGstBill = Number(invoice.totalTaxAmount) === 0;
     const docTitle = isNonGstBill ? "Bill of Supply (Non-GST)" : "Tax Invoice";
@@ -140,6 +140,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   <!-- Open Graph / WhatsApp Social Preview Metadata -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="AJAY ENTERPRISES · INVENTRA ERP">
+  <meta property="og:url" content="${slipUrl}">
   <meta property="og:title" content="${docTitle} • ${invoice.invoiceNumber}">
   <meta property="og:description" content="Official Tax Invoice for ${invoice.customer?.name || "Customer"}${invoice.customerSite?.siteName ? ` (${invoice.customerSite.siteName})` : ""} • Total: Rs. ${grandTotalFormatted} — AJAY ENTERPRISES">
   <meta property="og:image" content="${ogImageUrl}">
@@ -148,6 +149,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="Tax Invoice ${invoice.invoiceNumber} - AJAY ENTERPRISES">
+  <meta property="og:locale" content="en_IN">
+
+  <!-- WhatsApp & Social Media Crawler Signals -->
+  <link rel="image_src" href="${ogImageUrl}">
+  <meta name="robots" content="all, index, follow, max-image-preview:large">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
@@ -322,7 +328,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     return new NextResponse(html, {
       status: 200,
-      headers: { "Content-Type": "text/html; charset=utf-8" },
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "X-Robots-Tag": "all, index, follow, max-image-preview:large",
+        "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+      },
     });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: { message: error.message } }, { status: 500 });

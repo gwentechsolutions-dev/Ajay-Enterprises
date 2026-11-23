@@ -482,16 +482,44 @@ export async function buildEWayBillPrintData(
  * Generates an official, statutory Form GST EWB-01 printable document representation
  * formatted strictly in accordance with GST Rules, Rule 138, and AJAY ENTERPRISES identity.
  */
-export function generateEWayBillHTML(data: EWayBillPrintData): string {
+export function generateEWayBillHTML(data: EWayBillPrintData, origin: string = ""): string {
   const isCancelled = data.status === "CANCELLED";
   const barcodeSvg = generateBarcodeSVG(data.ewbNumber);
   const qrSvg = generateStatutoryQRSVG(data.ewbNumber);
+  const baseUrl = origin ? origin.replace(/\/$/, "") : "";
+  const ogImageUrl = baseUrl ? `${baseUrl}/images/og/og-delivery-note.png` : "/images/og/og-delivery-note.png";
+  const slipUrl = baseUrl ? `${baseUrl}/slips/ewaybills/${data.ewbNumber}` : "";
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>FORM GST EWB-01 - e-Way Bill No. ${data.ewbNumber}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FORM GST EWB-01 - e-Way Bill No. ${data.ewbNumber} | AJAY ENTERPRISES</title>
+
+  <!-- Open Graph / WhatsApp Social Preview Metadata -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="AJAY ENTERPRISES · INVENTRA ERP">
+  ${slipUrl ? `<meta property="og:url" content="${slipUrl}">` : ""}
+  <meta property="og:title" content="Statutory e-Way Bill • ${data.ewbNumber}">
+  <meta property="og:description" content="Official Form GST EWB-01 for ${data.toTradeName} • Vehicle: ${data.vehicleNumber || "Registered"} — AJAY ENTERPRISES">
+  <meta property="og:image" content="${ogImageUrl}">
+  <meta property="og:image:secure_url" content="${ogImageUrl}">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="E-Way Bill ${data.ewbNumber} - AJAY ENTERPRISES">
+  <meta property="og:locale" content="en_IN">
+
+  <!-- WhatsApp & Social Media Crawler Signals -->
+  <link rel="image_src" href="${ogImageUrl}">
+  <meta name="robots" content="all, index, follow, max-image-preview:large">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Statutory e-Way Bill • ${data.ewbNumber}">
+  <meta name="twitter:description" content="Official Form GST EWB-01 for ${data.toTradeName} — AJAY ENTERPRISES">
+  <meta name="twitter:image" content="${ogImageUrl}">
   <style>
     @page {
       size: A4 portrait;

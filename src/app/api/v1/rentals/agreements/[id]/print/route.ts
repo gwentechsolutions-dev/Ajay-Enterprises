@@ -26,7 +26,8 @@ export async function GET(
     return new Response(html, {
       headers: {
         "Content-Type": "text/html; charset=utf-8",
-        "Cache-Control": "public, max-age=60",
+        "X-Robots-Tag": "all, index, follow, max-image-preview:large",
+        "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
       },
     });
   } catch (error: any) {

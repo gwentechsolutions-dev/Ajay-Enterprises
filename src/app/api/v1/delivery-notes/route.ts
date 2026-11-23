@@ -45,8 +45,38 @@ export async function GET(req: NextRequest) {
       },
       include: {
         customer: { select: { id: true, name: true, customerCode: true, primaryMobile: true, whatsappNumber: true } },
-        customerSite: { select: { id: true, siteName: true, siteCode: true, fullAddress: true, siteContactDetails: true, siteOwnerContact: true, siteInCharge: true } },
-        sourceWarehouse: { select: { id: true, name: true, warehouseCode: true } },
+        customerSite: {
+          select: {
+            id: true,
+            siteName: true,
+            siteCode: true,
+            fullAddress: true,
+            pinCode: true,
+            city: true,
+            state: true,
+            stateCode: true,
+            district: true,
+            gpsLatitude: true,
+            gpsLongitude: true,
+            siteContactDetails: true,
+            siteOwnerContact: true,
+            siteInCharge: true,
+          },
+        },
+        sourceWarehouse: {
+          select: {
+            id: true,
+            name: true,
+            warehouseCode: true,
+            pinCode: true,
+            city: true,
+            state: true,
+            addressLine1: true,
+            addressLine2: true,
+            gpsLatitude: true,
+            gpsLongitude: true,
+          },
+        },
         contactPerson: { select: { id: true, name: true, mobile: true, designation: true } },
         rentalAgreement: { select: { id: true, agreementNumber: true, status: true, whatsAppStatus: true, version: true } },
         items: {
@@ -173,6 +203,7 @@ export async function POST(req: NextRequest) {
         items: true,
         customer: true,
         customerSite: true,
+        sourceWarehouse: true,
         rentalAgreement: { select: { id: true, agreementNumber: true, status: true, whatsAppStatus: true, version: true } },
       },
     });

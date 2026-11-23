@@ -15,8 +15,10 @@ export async function GET(
     }
 
     const { id } = await params;
-    const transfer = await db.directSiteTransferNote.findUnique({
-      where: { id },
+    const transfer = await db.directSiteTransferNote.findFirst({
+      where: {
+        OR: [{ id }, { transferNumber: id }],
+      },
       include: {
         sourceCustomer: true,
         sourceCustomerSite: true,
@@ -154,11 +156,14 @@ export async function GET(
       }),
       notes: `${linkedDocSummary ? linkedDocSummary + " • " : ""}${transfer.notes || `Official Direct Site-to-Site Custody Transfer Note under GST Rule 55 Delivery Challan standards. Material custody transferred directly from ${transfer.sourceCustomerSite.siteName} to ${transfer.destinationCustomerSite.siteName} without godown touchpoint. All equipment remains the exclusive property of AJAY ENTERPRISES.`}`,
       origin,
+      documentUrl: `${origin}/slips/direct-transfers/${transfer.id}`,
     });
 
     return new NextResponse(html, {
       headers: {
         "Content-Type": "text/html; charset=utf-8",
+        "X-Robots-Tag": "all, index, follow, max-image-preview:large",
+        "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
       },
     });
   } catch (error: any) {

@@ -42,6 +42,7 @@ export async function middleware(request: NextRequest) {
 
       const isPublicPage =
         isAuthPage ||
+        pathname.startsWith("/slips/") ||
         (pathname.startsWith("/rentals/agreements/") && pathname.includes("/acknowledge"));
 
       const isPublicApi =

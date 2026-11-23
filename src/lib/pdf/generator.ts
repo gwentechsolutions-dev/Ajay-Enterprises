@@ -44,11 +44,27 @@ export interface PDFEvidencePhoto {
   notes?: string;
 }
 
+export type PDFDocumentType =
+  | "PO"
+  | "GRN"
+  | "PR"
+  | "DN"
+  | "MRN"
+  | "STN"
+  | "HDN"
+  | "HRN"
+  | "DSTN"
+  | "INVOICE"
+  | "INV"
+  | "BILL"
+  | "AGREEMENT"
+  | "AGR";
+
 export interface PDFDocumentData {
   title: string;
   documentNumber: string;
   documentDate: Date | string;
-  documentType: "PO" | "GRN" | "PR" | "DN" | "MRN" | "STN" | "HDN" | "HRN" | "DSTN";
+  documentType: PDFDocumentType;
   partyTitle: string;
   partyName: string;
   partyAddress?: string;
@@ -116,6 +132,7 @@ export interface PDFDocumentData {
   notes?: string;
   origin?: string;
   ogImageUrl?: string;
+  documentUrl?: string;
 }
 
 /**
@@ -235,22 +252,26 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
   }
 
   const baseUrl = data.origin ? data.origin.replace(/\/$/, "") : "";
-  const ogFilename =
-    data.documentType === "DN"
-      ? "og-delivery-note.png"
-      : data.documentType === "MRN"
-      ? "og-return-note.png"
-      : data.documentType === "PO" || data.documentType === "GRN"
-      ? "og-purchase-bill.png"
-      : "og-default.png";
+  let ogFilename = "og-default.png";
+  if (data.documentType === "DN") {
+    ogFilename = "og-delivery-note.png";
+  } else if (data.documentType === "MRN") {
+    ogFilename = "og-return-note.png";
+  } else if (data.documentType === "INVOICE" || data.documentType === "INV") {
+    ogFilename = "og-tax-invoice.png";
+  } else if (data.documentType === "BILL" || data.documentType === "PO" || data.documentType === "GRN") {
+    ogFilename = "og-purchase-bill.png";
+  } else if (data.documentType === "AGREEMENT" || data.documentType === "AGR") {
+    ogFilename = "og-rental-agreement.png";
+  }
 
-  const dynamicOgUrl = baseUrl
-    ? `${baseUrl}/api/og?type=${encodeURIComponent(data.documentType)}&docNumber=${encodeURIComponent(
-        data.documentNumber
-      )}&party=${encodeURIComponent(data.partyName)}&site=${encodeURIComponent(data.secondaryPartyName || "")}`
+  // Pre-rendered high-res 1200x630 CDN image: ultra-fast edge response (<15ms) for WhatsApp/social bots
+  const staticOgUrl = baseUrl
+    ? `${baseUrl}/images/og/${ogFilename}`
     : `/images/og/${ogFilename}`;
 
-  const ogImageUrl = data.ogImageUrl || dynamicOgUrl;
+  const ogImageUrl = data.ogImageUrl || staticOgUrl;
+  const canonicalUrl = data.documentUrl || (baseUrl ? `${baseUrl}/slips/${data.documentType.toLowerCase()}s/${data.documentNumber}` : "");
 
   return `
 <!DOCTYPE html>
@@ -263,6 +284,7 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
   <!-- Open Graph / WhatsApp Social Preview Metadata -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="AJAY ENTERPRISES · INVENTRA ERP">
+  ${canonicalUrl ? `<meta property="og:url" content="${canonicalUrl}">` : ""}
   <meta property="og:title" content="${data.title} • ${data.documentNumber}">
   <meta property="og:description" content="Official ${data.title} for ${data.partyName}${data.secondaryPartyName ? ` (${data.secondaryPartyName})` : ""} — AJAY ENTERPRISES Centering Material Rental &amp; Operations">
   <meta property="og:image" content="${ogImageUrl}">
@@ -271,6 +293,11 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="${data.title} ${data.documentNumber} - AJAY ENTERPRISES">
+  <meta property="og:locale" content="en_IN">
+
+  <!-- WhatsApp & Social Media Crawler Signals -->
+  <link rel="image_src" href="${ogImageUrl}">
+  <meta name="robots" content="all, index, follow, max-image-preview:large">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">

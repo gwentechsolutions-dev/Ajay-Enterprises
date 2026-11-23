@@ -10,11 +10,19 @@ export async function GET(
 ) {
   try {
     const session = await getSession();
-    await requirePermission(session, "stock_transfers", "view");
+    if (session) {
+      await requirePermission(session, "stock_transfers", "view");
+    }
 
     const { id } = await params;
-    const stn = await db.stockTransferNote.findUnique({
-      where: { id },
+    const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "ajay-enterprises-gwen-tech.vercel.app";
+    const proto = req.headers.get("x-forwarded-proto") || "https";
+    const origin = `${proto}://${host}`;
+
+    const stn = await db.stockTransferNote.findFirst({
+      where: {
+        OR: [{ id }, { stnNumber: id }],
+      },
       include: {
         sourceWarehouse: true,
         destinationWarehouse: true,
@@ -58,11 +66,15 @@ export async function GET(
         remarks: item.remarks || (stn.status === "RECEIVED" ? `Recv: ${item.receivedQty}, Dmg: ${item.damagedQty}, Short: ${item.shortageQty}` : undefined),
       })),
       notes: stn.notes || `Internal inter-yard transfer between ${stn.sourceWarehouse.name} and ${stn.destinationWarehouse.name}. Materials remain company property.`,
+      origin,
+      documentUrl: `${origin}/slips/stock-transfers/${stn.id}`,
     });
 
     return new NextResponse(html, {
       headers: {
         "Content-Type": "text/html; charset=utf-8",
+        "X-Robots-Tag": "all, index, follow, max-image-preview:large",
+        "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
       },
     });
   } catch (error: any) {

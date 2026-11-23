@@ -16,8 +16,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const proto = req.headers.get("x-forwarded-proto") || "https";
     const origin = `${proto}://${host}`;
 
-    const dn = await db.deliveryNote.findUnique({
-      where: { id },
+    const dn = await db.deliveryNote.findFirst({
+      where: {
+        OR: [{ id }, { dnNumber: id }],
+      },
       include: {
         customer: true,
         customerSite: true,
@@ -119,10 +121,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           ? "Direct Site-to-Site Transfer delivery document issued by AJAY ENTERPRISES under GST Rule 55 Delivery Challan standards. Material custody delivered directly from source site without godown touchpoint."
           : "Materials delivered in good condition for site centering work."),
       origin,
+      documentUrl: `${origin}/slips/delivery-notes/${dn.id}`,
     });
 
     return new Response(html, {
-      headers: { "Content-Type": "text/html; charset=utf-8" },
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "X-Robots-Tag": "all, index, follow, max-image-preview:large",
+        "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+      },
     });
   } catch (error: any) {
     return new Response(`Error: ${error.message}`, { status: 500 });

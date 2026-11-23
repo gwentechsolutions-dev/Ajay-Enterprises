@@ -165,7 +165,8 @@ export function buildDocumentWhatsAppMessage(
       const vehicle = doc.vehicleNumber || "Company Fleet";
       const status = doc.status || "DISPATCHED";
       const ewb = doc.eWayBillNumber || doc.eWayBills?.[0]?.ewbNumber;
-      const printUrl = baseUrl ? `${baseUrl}/api/v1/delivery-notes/${doc.id}/print` : "";
+      const targetId = doc.id || doc.dnNumber;
+      const printUrl = baseUrl && targetId ? `${baseUrl}/slips/delivery-notes/${targetId}` : "";
 
       let msg = `*AJAY ENTERPRISES - Centering Material Delivery Note*\n\n`;
       msg += `Dear *${custName}*,\n`;
@@ -195,7 +196,8 @@ export function buildDocumentWhatsAppMessage(
       const isInspectionPending = doc.inspectionStatus === "PENDING";
       const handoverPerson = doc.customerRepresentativeName;
       const receiverPerson = doc.receiverName;
-      const printUrl = baseUrl ? `${baseUrl}/api/v1/return-notes/${doc.id}/print` : "";
+      const targetId = doc.id || doc.mrnNumber;
+      const printUrl = baseUrl && targetId ? `${baseUrl}/slips/return-notes/${targetId}` : "";
 
       let msg = `*AJAY ENTERPRISES - Material Return Note (MRN)*\n\n`;
       msg += `Dear *${custName}*,\n`;
@@ -238,7 +240,8 @@ export function buildDocumentWhatsAppMessage(
         maximumFractionDigits: 2,
       });
       const paymentStatus = doc.paymentStatus || "UNPAID";
-      const printUrl = baseUrl ? `${baseUrl}/api/v1/invoices/${doc.id}/print` : "";
+      const targetId = doc.id || doc.invoiceNumber;
+      const printUrl = baseUrl && targetId ? `${baseUrl}/slips/invoices/${targetId}` : "";
 
       let msg = `*AJAY ENTERPRISES - Tax Invoice*\n\n`;
       msg += `Dear *${custName}*,\n`;
@@ -266,7 +269,8 @@ export function buildDocumentWhatsAppMessage(
         maximumFractionDigits: 2,
       });
       const paymentStatus = doc.paymentStatus || "PENDING";
-      const printUrl = baseUrl ? `${baseUrl}/api/v1/purchases/bills/${doc.id}/print` : "";
+      const targetId = doc.id || doc.billNumber;
+      const printUrl = baseUrl && targetId ? `${baseUrl}/slips/bills/${targetId}` : "";
 
       let msg = `*AJAY ENTERPRISES - Purchase Bill Record*\n\n`;
       msg += `Dear *${suppName}*,\n`;
@@ -291,12 +295,13 @@ export function buildDocumentWhatsAppMessage(
       const itemsCount = doc.items?.length || 0;
       const status = doc.status || "GENERATED";
       const token = doc.acknowledgementToken;
+      const targetId = doc.id || doc.agreementNumber;
       const reviewUrl = baseUrl && token
-        ? `${baseUrl}/rentals/agreements/${doc.id}/acknowledge?token=${token}`
-        : baseUrl
-        ? `${baseUrl}/api/v1/rentals/agreements/${doc.id}/print`
+        ? `${baseUrl}/rentals/agreements/${targetId}/acknowledge?token=${token}`
+        : baseUrl && targetId
+        ? `${baseUrl}/slips/agreements/${targetId}`
         : "";
-      const printUrl = baseUrl ? `${baseUrl}/api/v1/rentals/agreements/${doc.id}/print` : "";
+      const printUrl = baseUrl && targetId ? `${baseUrl}/slips/agreements/${targetId}` : "";
 
       let msg = `*AJAY ENTERPRISES - Centering Material Rental Agreement*\n\n`;
       msg += `Dear *${custName}*,\n`;

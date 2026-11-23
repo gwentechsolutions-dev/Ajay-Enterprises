@@ -19,8 +19,10 @@ export async function GET(
     const origin = `${proto}://${host}`;
 
     const [bill, company] = await Promise.all([
-      db.purchaseBill.findUnique({
-        where: { id },
+      db.purchaseBill.findFirst({
+        where: {
+          OR: [{ id }, { billNumber: id }],
+        },
         include: {
           supplier: true,
           items: {
@@ -64,11 +66,9 @@ export async function GET(
       minimumFractionDigits: 2,
     });
 
-    const ogImageUrl = `${origin}/api/og?type=BILL&docNumber=${encodeURIComponent(
-      bill.billNumber
-    )}&party=${encodeURIComponent(bill.supplier.name)}&amount=${encodeURIComponent(
-      grandTotalFormatted
-    )}&status=${encodeURIComponent(bill.paymentStatus)}`;
+    // Static high-res 1200x630 CDN image for ultra-fast edge response
+    const ogImageUrl = `${origin}/images/og/og-purchase-bill.png`;
+    const slipUrl = `${origin}/slips/bills/${bill.id}`;
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -80,6 +80,7 @@ export async function GET(
   <!-- Open Graph / WhatsApp Social Preview Metadata -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="AJAY ENTERPRISES · INVENTRA ERP">
+  <meta property="og:url" content="${slipUrl}">
   <meta property="og:title" content="Purchase Bill • ${bill.billNumber}">
   <meta property="og:description" content="Official Purchase Bill Record from ${bill.supplier.name} • Total: Rs. ${grandTotalFormatted} — AJAY ENTERPRISES Accounts Payable">
   <meta property="og:image" content="${ogImageUrl}">
@@ -88,6 +89,11 @@ export async function GET(
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="Purchase Bill ${bill.billNumber} - AJAY ENTERPRISES">
+  <meta property="og:locale" content="en_IN">
+
+  <!-- WhatsApp & Social Media Crawler Signals -->
+  <link rel="image_src" href="${ogImageUrl}">
+  <meta name="robots" content="all, index, follow, max-image-preview:large">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
@@ -230,7 +236,11 @@ export async function GET(
 </html>`;
 
     return new Response(html, {
-      headers: { "Content-Type": "text/html; charset=utf-8" },
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "X-Robots-Tag": "all, index, follow, max-image-preview:large",
+        "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+      },
     });
   } catch (error: any) {
     return new Response(`Error generating bill view: ${error.message}`, { status: 500 });

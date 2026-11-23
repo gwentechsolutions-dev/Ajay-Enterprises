@@ -221,6 +221,7 @@ export async function GET(req: NextRequest) {
       status: 200,
       headers: {
         "Content-Type": "image/png",
+        "X-Robots-Tag": "all, index, follow",
         "Cache-Control": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
       },
     });
@@ -234,6 +235,7 @@ export async function GET(req: NextRequest) {
         status: 200,
         headers: {
           "Content-Type": "image/png",
+          "X-Robots-Tag": "all, index, follow",
           "Cache-Control": "public, max-age=86400",
         },
       });

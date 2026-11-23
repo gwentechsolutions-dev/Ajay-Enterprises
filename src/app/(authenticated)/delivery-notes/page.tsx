@@ -24,6 +24,7 @@ import {
   Ban,
   Camera,
   X,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +51,11 @@ import { parseApiValidationErrors, formatValidationToast } from "@/lib/forms/val
 import { toast } from "sonner";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { WhatsAppShareButton } from "@/components/ui/whatsapp-share-button";
+import {
+  calculatePincodeDistance,
+  extractPinCode,
+  findNearestPincodeFromCoords,
+} from "@/lib/pincode-distance";
 
 export default function DeliveryNotesPage() {
   const { isDeliveryPerson, canCreateDeliveryNote } = useCurrentUser();
@@ -143,10 +149,19 @@ export default function DeliveryNotesPage() {
   // E-Way Bill Form
   const [ewbForm, setEwbForm] = React.useState({
     vehicleNumber: "",
-    fromPincode: "560001",
-    toPincode: "560068",
+    fromPincode: "600058",
+    toPincode: "600017",
     distanceKm: 25,
   });
+  const [distanceMeta, setDistanceMeta] = React.useState<{
+    fromLocation?: string;
+    toLocation?: string;
+    method?: string;
+    isAutoCalculated: boolean;
+  }>({
+    isAutoCalculated: true,
+  });
+  const [isDistanceManuallyEdited, setIsDistanceManuallyEdited] = React.useState(false);
 
   const loadData = React.useCallback(async (forceRefresh = false) => {
     try {
@@ -786,7 +801,16 @@ export default function DeliveryNotesPage() {
     setShowRegenerateForm(!dn.eWayBillNumber);
     setCopiedEwb(false);
     const latestEwb = dn.eWayBills?.[0];
-    const sourceYard = warehouses.find((w: any) => w.id === dn.sourceWarehouseId);
+    const sourceYard = dn.sourceWarehouse || warehouses.find((w: any) => w.id === dn.sourceWarehouseId);
+
+    // If vehicles aren't loaded yet in state, fetch them in background
+    if (fleetVehicles.length === 0) {
+      fetchWithClientCache("/api/v1/fleet/vehicles", { ttlMs: 60_000 })
+        .then((fresh) => {
+          if (Array.isArray(fresh)) setFleetVehicles(fresh);
+        })
+        .catch(() => {});
+    }
 
     const targetVehNo = latestEwb?.vehicleNumber || dn.vehicleNumber || "";
     const cleanTarget = targetVehNo.replace(/[\s\-_]/g, "").toUpperCase();
@@ -798,12 +822,83 @@ export default function DeliveryNotesPage() {
     setIsCustomEwbVehicle(!isFleet && !!finalVehNo && fleetVehicles.length > 0);
     setIsCustomUpdateVehicle(false);
 
+    // 1. Automatically fetch the yard's source pincode
+    const sourceYardPincode =
+      sourceYard?.pinCode ||
+      sourceYard?.pincode ||
+      extractPinCode(sourceYard?.addressLine1) ||
+      extractPinCode(sourceYard?.addressLine2) ||
+      extractPinCode(sourceYard?.fullAddress) ||
+      "600058";
+
+    // 2. Automatically fetch deliver site's pincode if the site's location was attached
+    let sitePincode =
+      dn.customerSite?.pinCode ||
+      dn.customerSite?.pincode ||
+      extractPinCode(dn.customerSite?.fullAddress);
+
+    // If site location was attached via GPS coordinates without text pincode
+    if (!sitePincode) {
+      const siteLat =
+        dn.customerSite?.gpsLatitude !== null && dn.customerSite?.gpsLatitude !== undefined
+          ? Number(dn.customerSite.gpsLatitude)
+          : null;
+      const siteLng =
+        dn.customerSite?.gpsLongitude !== null && dn.customerSite?.gpsLongitude !== undefined
+          ? Number(dn.customerSite.gpsLongitude)
+          : null;
+      if (siteLat && siteLng && !isNaN(siteLat) && !isNaN(siteLng)) {
+        sitePincode = findNearestPincodeFromCoords(siteLat, siteLng) || "";
+      }
+    }
+    // Check Delivery Note's own delivery proof coordinates if available
+    if (!sitePincode && dn.gpsLatitude && dn.gpsLongitude) {
+      const dnLat = Number(dn.gpsLatitude);
+      const dnLng = Number(dn.gpsLongitude);
+      if (!isNaN(dnLat) && !isNaN(dnLng)) {
+        sitePincode = findNearestPincodeFromCoords(dnLat, dnLng) || "";
+      }
+    }
+
+    const finalFromPin = latestEwb?.fromPincode || sourceYardPincode;
+    const finalToPin = latestEwb?.toPincode || sitePincode || "";
+
+    // 3. Automatically calculate approximate distance from both pincodes/coordinates
+    const yardCoords =
+      sourceYard?.gpsLatitude && sourceYard?.gpsLongitude
+        ? { lat: Number(sourceYard.gpsLatitude), lng: Number(sourceYard.gpsLongitude) }
+        : undefined;
+
+    const siteCoords =
+      dn.customerSite?.gpsLatitude && dn.customerSite?.gpsLongitude
+        ? { lat: Number(dn.customerSite.gpsLatitude), lng: Number(dn.customerSite.gpsLongitude) }
+        : dn.gpsLatitude && dn.gpsLongitude
+        ? { lat: Number(dn.gpsLatitude), lng: Number(dn.gpsLongitude) }
+        : undefined;
+
+    const distResult = calculatePincodeDistance({
+      fromPincode: finalFromPin,
+      toPincode: finalToPin,
+      fromCoords: yardCoords,
+      toCoords: siteCoords,
+    });
+
+    const finalDistance = latestEwb?.distanceKm || distResult.distanceKm || 25;
+
     setEwbForm({
       vehicleNumber: finalVehNo,
-      fromPincode: latestEwb?.fromPincode || sourceYard?.pincode || "560058",
-      toPincode: latestEwb?.toPincode || dn.customerSite?.pincode || "560068",
-      distanceKm: latestEwb?.distanceKm || 30,
+      fromPincode: finalFromPin,
+      toPincode: finalToPin,
+      distanceKm: finalDistance,
     });
+
+    setDistanceMeta({
+      fromLocation: distResult.fromLocation,
+      toLocation: distResult.toLocation,
+      method: distResult.method,
+      isAutoCalculated: !latestEwb?.distanceKm,
+    });
+    setIsDistanceManuallyEdited(false);
 
     setUpdateVehicleForm({
       newVehicleNumber: finalVehNo,
@@ -819,6 +914,98 @@ export default function DeliveryNotesPage() {
     });
 
     setIsEwbModalOpen(true);
+  };
+
+  const handleFromPincodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const clean = e.target.value.replace(/\D/g, "").slice(0, 6);
+    setEwbForm((prev) => {
+      const updated = { ...prev, fromPincode: clean };
+      if (clean.length === 6 && prev.toPincode && prev.toPincode.length === 6) {
+        const res = calculatePincodeDistance({
+          fromPincode: clean,
+          toPincode: prev.toPincode,
+        });
+        if (res.distanceKm) {
+          updated.distanceKm = res.distanceKm;
+          setDistanceMeta({
+            fromLocation: res.fromLocation,
+            toLocation: res.toLocation,
+            method: res.method,
+            isAutoCalculated: true,
+          });
+          setIsDistanceManuallyEdited(false);
+        }
+      }
+      return updated;
+    });
+  };
+
+  const handleToPincodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const clean = e.target.value.replace(/\D/g, "").slice(0, 6);
+    setEwbForm((prev) => {
+      const updated = { ...prev, toPincode: clean };
+      if (clean.length === 6 && prev.fromPincode && prev.fromPincode.length === 6) {
+        const res = calculatePincodeDistance({
+          fromPincode: prev.fromPincode,
+          toPincode: clean,
+        });
+        if (res.distanceKm) {
+          updated.distanceKm = res.distanceKm;
+          setDistanceMeta({
+            fromLocation: res.fromLocation,
+            toLocation: res.toLocation,
+            method: res.method,
+            isAutoCalculated: true,
+          });
+          setIsDistanceManuallyEdited(false);
+        }
+      }
+      return updated;
+    });
+  };
+
+  const handleDistanceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    const parsed = parseInt(raw, 10);
+    setEwbForm((prev) => ({
+      ...prev,
+      distanceKm: isNaN(parsed) ? 1 : Math.min(4000, Math.max(1, parsed)),
+    }));
+    setIsDistanceManuallyEdited(true);
+  };
+
+  const handleRecalculateDistance = () => {
+    if (ewbForm.fromPincode?.length === 6 && ewbForm.toPincode?.length === 6) {
+      const res = calculatePincodeDistance({
+        fromPincode: ewbForm.fromPincode,
+        toPincode: ewbForm.toPincode,
+        fromCoords:
+          selectedDN?.sourceWarehouse?.gpsLatitude && selectedDN?.sourceWarehouse?.gpsLongitude
+            ? {
+                lat: Number(selectedDN.sourceWarehouse.gpsLatitude),
+                lng: Number(selectedDN.sourceWarehouse.gpsLongitude),
+              }
+            : undefined,
+        toCoords:
+          selectedDN?.customerSite?.gpsLatitude && selectedDN?.customerSite?.gpsLongitude
+            ? {
+                lat: Number(selectedDN.customerSite.gpsLatitude),
+                lng: Number(selectedDN.customerSite.gpsLongitude),
+              }
+            : undefined,
+      });
+      setEwbForm((prev) => ({ ...prev, distanceKm: res.distanceKm }));
+      setDistanceMeta({
+        fromLocation: res.fromLocation,
+        toLocation: res.toLocation,
+        method: res.method,
+        isAutoCalculated: true,
+      });
+      setIsDistanceManuallyEdited(false);
+      toast.success(`Recalculated approximate distance: ~${res.distanceKm} KM`);
+    } else {
+      toast.error("Please enter valid 6-digit source and destination PIN codes to calculate distance.");
+    }
   };
 
   const handleGenerateEWB = async (e: React.FormEvent) => {
@@ -2212,39 +2399,91 @@ export default function DeliveryNotesPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs font-semibold text-slate-700">Source Pincode (Yard) *</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold text-slate-700">Source Pincode (Yard) *</Label>
+                    {selectedDN?.sourceWarehouse?.name && (
+                      <span className="text-[10px] text-slate-400 truncate max-w-[140px]" title={selectedDN.sourceWarehouse.name}>
+                        {selectedDN.sourceWarehouse.name}
+                      </span>
+                    )}
+                  </div>
                   <Input
                     value={ewbForm.fromPincode}
-                    onChange={(e) => setEwbForm({ ...ewbForm, fromPincode: e.target.value })}
+                    onChange={handleFromPincodeChange}
                     className="font-mono text-sm mt-1"
                     maxLength={6}
+                    placeholder="e.g. 600107"
                     required
                   />
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {distanceMeta.fromLocation ? `📍 ${distanceMeta.fromLocation}` : "Dispatch Yard / Branch PIN"}
+                  </p>
                 </div>
 
                 <div>
-                  <Label className="text-xs font-semibold text-slate-700">Destination Pincode (Site) *</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold text-slate-700">Destination Pincode (Site) *</Label>
+                    {selectedDN?.customerSite?.siteName && (
+                      <span className="text-[10px] text-slate-400 truncate max-w-[140px]" title={selectedDN.customerSite.siteName}>
+                        {selectedDN.customerSite.siteName}
+                      </span>
+                    )}
+                  </div>
                   <Input
                     value={ewbForm.toPincode}
-                    onChange={(e) => setEwbForm({ ...ewbForm, toPincode: e.target.value })}
+                    onChange={handleToPincodeChange}
                     className="font-mono text-sm mt-1"
                     maxLength={6}
+                    placeholder="Enter 6-digit site PIN"
                     required
                   />
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {distanceMeta.toLocation
+                      ? `📍 ${distanceMeta.toLocation}`
+                      : selectedDN?.customerSite?.pinCode
+                      ? `From attached site: ${selectedDN.customerSite.pinCode}`
+                      : "Enter site PIN manually if not attached"}
+                  </p>
                 </div>
               </div>
 
               <div>
-                <Label className="text-xs font-semibold text-slate-700">Transport Distance (KM) *</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold text-slate-700">Transport Distance (KM) *</Label>
+                  {ewbForm.fromPincode?.length === 6 && ewbForm.toPincode?.length === 6 && (
+                    <button
+                      type="button"
+                      onClick={handleRecalculateDistance}
+                      className="text-[11px] text-[#F26522] hover:underline font-semibold flex items-center gap-1"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      Recalculate
+                    </button>
+                  )}
+                </div>
                 <Input
                   type="number"
                   min="1"
                   max="4000"
-                  value={ewbForm.distanceKm}
-                  onChange={(e) => setEwbForm({ ...ewbForm, distanceKm: parseInt(e.target.value) || 1 })}
+                  value={ewbForm.distanceKm || ""}
+                  onChange={handleDistanceChange}
                   className="font-mono text-sm mt-1"
                   required
                 />
+                <div className="flex items-center justify-between mt-1 text-[11px]">
+                  <span className="text-slate-500">
+                    {isDistanceManuallyEdited ? (
+                      <span className="text-amber-600 font-medium">✏️ Manually edited distance ({ewbForm.distanceKm} KM). You can re-enter or click Recalculate.</span>
+                    ) : distanceMeta.isAutoCalculated && ewbForm.fromPincode && ewbForm.toPincode ? (
+                      <span className="text-emerald-700 font-medium">
+                        ⚡ Approx. ~{ewbForm.distanceKm} KM road distance calculated from PINs. You can adjust manually.
+                      </span>
+                    ) : (
+                      "Approximate road transit distance in kilometers"
+                    )}
+                  </span>
+                  <span className="text-slate-400 text-[10px] shrink-0 ml-2">Max: 4000 KM</span>
+                </div>
               </div>
 
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 space-y-1">

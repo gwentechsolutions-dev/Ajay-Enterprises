@@ -13,9 +13,14 @@ export async function GET(
 ) {
   try {
     const session = await getSession();
-    await requirePermission(session, "delivery_notes", "view");
+    if (session) {
+      await requirePermission(session, "delivery_notes", "view");
+    }
 
     const { id } = await params;
+    const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "ajay-enterprises-gwen-tech.vercel.app";
+    const proto = req.headers.get("x-forwarded-proto") || "https";
+    const origin = `${proto}://${host}`;
     const isUuid =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
         id
@@ -75,12 +80,13 @@ export async function GET(
     });
 
     const printData = await buildEWayBillPrintData(ewb, company);
-    const html = generateEWayBillHTML(printData);
+    const html = generateEWayBillHTML(printData, origin);
 
     return new Response(html, {
       headers: {
         "Content-Type": "text/html; charset=utf-8",
-        "Cache-Control": "private, no-cache, no-store, must-revalidate",
+        "X-Robots-Tag": "all, index, follow, max-image-preview:large",
+        "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
       },
     });
   } catch (error: any) {

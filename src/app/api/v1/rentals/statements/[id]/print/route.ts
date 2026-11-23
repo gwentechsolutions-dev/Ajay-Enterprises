@@ -38,12 +38,20 @@ async function getAssetAsBase64(urlOrPath?: string | null): Promise<string | nul
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getSession();
-    await requirePermission(session, "billing", "view");
+    if (session) {
+      await requirePermission(session, "billing", "view");
+    }
     const { id } = await params;
 
+    const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "ajay-enterprises-gwen-tech.vercel.app";
+    const proto = req.headers.get("x-forwarded-proto") || "https";
+    const origin = `${proto}://${host}`;
+
     const [statement, company] = await Promise.all([
-      db.rentalStatement.findUnique({
-        where: { id },
+      db.rentalStatement.findFirst({
+        where: {
+          OR: [{ id }, { statementNumber: id }],
+        },
         include: {
           customer: true,
           customerSite: true,
@@ -138,11 +146,42 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       )
       .join("");
 
+    const netPayableFormatted = Number(statement.netPayableAmount || 0).toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+    });
+    const ogImageUrl = `${origin}/images/og/og-default.png`;
+    const slipUrl = `${origin}/slips/statements/${statement.id}`;
+
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Rental Statement - ${statement.statementNumber}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rental Statement - ${statement.statementNumber} | AJAY ENTERPRISES</title>
+
+  <!-- Open Graph / WhatsApp Social Preview Metadata -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="AJAY ENTERPRISES · INVENTRA ERP">
+  <meta property="og:url" content="${slipUrl}">
+  <meta property="og:title" content="Monthly Rental Statement • ${statement.statementNumber}">
+  <meta property="og:description" content="Official Monthly Rental Statement for ${statement.customer.name}${statement.customerSite ? ` (${statement.customerSite.siteName})` : ""} • Net Payable: Rs. ${netPayableFormatted} — AJAY ENTERPRISES">
+  <meta property="og:image" content="${ogImageUrl}">
+  <meta property="og:image:secure_url" content="${ogImageUrl}">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Rental Statement ${statement.statementNumber} - AJAY ENTERPRISES">
+  <meta property="og:locale" content="en_IN">
+
+  <!-- WhatsApp & Social Media Crawler Signals -->
+  <link rel="image_src" href="${ogImageUrl}">
+  <meta name="robots" content="all, index, follow, max-image-preview:large">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Rental Statement • ${statement.statementNumber}">
+  <meta name="twitter:description" content="Official Monthly Rental Statement for ${statement.customer.name} — AJAY ENTERPRISES">
+  <meta name="twitter:image" content="${ogImageUrl}">
   <style>
     @page { size: A4 portrait; margin: 10mm 12mm; }
     * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -349,7 +388,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 </html>`;
 
     return new Response(html, {
-      headers: { "Content-Type": "text/html; charset=utf-8" },
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "X-Robots-Tag": "all, index, follow, max-image-preview:large",
+        "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+      },
     });
   } catch (error: any) {
     const status = error.message.startsWith("UNAUTHORIZED") ? 401 : error.message.startsWith("FORBIDDEN") ? 403 : 500;

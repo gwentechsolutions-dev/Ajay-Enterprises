@@ -18,8 +18,10 @@ export async function GET(
     const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "ajay-enterprises-gwen-tech.vercel.app";
     const proto = req.headers.get("x-forwarded-proto") || "https";
     const origin = `${proto}://${host}`;
-    const mrn = await db.materialReturnNote.findUnique({
-      where: { id },
+    const mrn = await db.materialReturnNote.findFirst({
+      where: {
+        OR: [{ id }, { mrnNumber: id }],
+      },
       include: {
         customer: true,
         customerSite: true,
@@ -168,11 +170,14 @@ export async function GET(
           ? "Direct Site-to-Site Transfer source pickup document issued by AJAY ENTERPRISES under GST Rule 55 Delivery Challan standards. Material custody transferred directly to destination site without godown touchpoint."
           : `Physical return inspection conducted at ${mrn.receivingWarehouse.name}. Damaged and shortage items isolated in accordance with custody rules.`),
       origin,
+      documentUrl: `${origin}/slips/return-notes/${mrn.id}`,
     });
 
     return new NextResponse(html, {
       headers: {
         "Content-Type": "text/html; charset=utf-8",
+        "X-Robots-Tag": "all, index, follow, max-image-preview:large",
+        "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
       },
     });
   } catch (error: any) {

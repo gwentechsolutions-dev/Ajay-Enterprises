@@ -76,8 +76,10 @@ export async function generateAgreementHTML(
   origin: string = ""
 ): Promise<string> {
   const [agreement, company] = await Promise.all([
-    db.rentalAgreement.findUnique({
-      where: { id: agreementId },
+    db.rentalAgreement.findFirst({
+      where: {
+        OR: [{ id: agreementId }, { agreementNumber: agreementId }],
+      },
       include: {
         customer: true,
         customerSite: true,
@@ -138,13 +140,11 @@ export async function generateAgreementHTML(
     : "Bank: HDFC Bank | A/C: 50200012345678 | IFSC: HDFC0001234";
 
   const baseUrl = origin ? origin.replace(/\/$/, "") : "";
+  // Static high-res 1200x630 CDN image for ultra-fast edge response
   const ogImageUrl = baseUrl
-    ? `${baseUrl}/api/og?type=AGREEMENT&docNumber=${encodeURIComponent(
-        agreement.agreementNumber
-      )}&party=${encodeURIComponent(agreement.customer.name)}&site=${encodeURIComponent(
-        agreement.customerSite.siteName
-      )}&status=${encodeURIComponent(agreement.status)}`
+    ? `${baseUrl}/images/og/og-rental-agreement.png`
     : "/images/og/og-rental-agreement.png";
+  const slipUrl = baseUrl ? `${baseUrl}/slips/agreements/${agreement.id}` : "";
 
   const token = agreement.acknowledgementToken;
   const reviewUrl = baseUrl && token
@@ -211,6 +211,7 @@ export async function generateAgreementHTML(
   <!-- Open Graph / WhatsApp Social Preview Metadata -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="AJAY ENTERPRISES · INVENTRA ERP">
+  ${slipUrl ? `<meta property="og:url" content="${slipUrl}">` : ""}
   <meta property="og:title" content="Rental Agreement • ${agreement.agreementNumber}">
   <meta property="og:description" content="Official Material Rental Agreement for ${agreement.customer.name} (${agreement.customerSite.siteName}) — AJAY ENTERPRISES Centering Material Rental &amp; Operations">
   <meta property="og:image" content="${ogImageUrl}">
@@ -219,6 +220,11 @@ export async function generateAgreementHTML(
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="Rental Agreement ${agreement.agreementNumber} - AJAY ENTERPRISES">
+  <meta property="og:locale" content="en_IN">
+
+  <!-- WhatsApp & Social Media Crawler Signals -->
+  <link rel="image_src" href="${ogImageUrl}">
+  <meta name="robots" content="all, index, follow, max-image-preview:large">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">

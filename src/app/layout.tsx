@@ -17,7 +17,13 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "INVENTRA – Construction Centering ERP | AJAY ENTERPRISES",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL || "https://ajay-enterprises-gwen-tech.vercel.app"
+  ),
+  title: {
+    default: "INVENTRA – Construction Centering ERP | AJAY ENTERPRISES",
+    template: "%s | AJAY ENTERPRISES",
+  },
   description:
     "Enterprise Inventory, Rental, Asset, Logistics, and Accounting Management System for AJAY ENTERPRISES",
   manifest: "/manifest.webmanifest",
@@ -29,6 +35,40 @@ export const metadata: Metadata = {
   icons: {
     icon: "/icons/icon-192x192.png",
     apple: "/icons/apple-touch-icon.png",
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_IN",
+    url: "https://ajay-enterprises-gwen-tech.vercel.app",
+    siteName: "AJAY ENTERPRISES · INVENTRA ERP",
+    title: "INVENTRA – Construction Centering ERP | AJAY ENTERPRISES",
+    description:
+      "Enterprise Inventory, Rental, Asset, Logistics, and Accounting Management System for AJAY ENTERPRISES",
+    images: [
+      {
+        url: "/images/og/og-default.png",
+        width: 1200,
+        height: 630,
+        type: "image/png",
+        alt: "INVENTRA ERP – AJAY ENTERPRISES",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "INVENTRA – Construction Centering ERP | AJAY ENTERPRISES",
+    description:
+      "Enterprise Inventory, Rental, Asset, Logistics, and Accounting Management System for AJAY ENTERPRISES",
+    images: ["/images/og/og-default.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+    },
   },
   other: {
     "mobile-web-app-capable": "yes",
