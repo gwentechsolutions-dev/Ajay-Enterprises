@@ -173,10 +173,10 @@ export function GpsCameraCaptureDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg p-0 overflow-hidden border-slate-200">
-        <DialogHeader className="bg-[#0B1E36] text-white p-4">
+      <DialogContent className="max-w-lg w-[calc(100%-1rem)] sm:w-full max-h-[92vh] p-0 gap-0 flex flex-col overflow-hidden border-slate-200">
+        <DialogHeader className="bg-[#0B1E36] text-white p-4 pr-10 shrink-0 border-b-0 text-left">
           <DialogTitle className="text-sm font-bold flex items-center gap-2 text-white">
-            <Camera className="w-4 h-4 text-[#F26522]" />
+            <Camera className="w-4 h-4 text-[#F26522] shrink-0" />
             INVENTRA GPS Camera Evidence Capture
           </DialogTitle>
           <DialogDescription className="text-xs text-slate-300">
@@ -184,7 +184,7 @@ export function GpsCameraCaptureDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-3 overflow-y-auto flex-1 min-h-0">
           {/* Hidden File / Camera Input */}
           <input
             ref={fileInputRef}
@@ -244,7 +244,7 @@ export function GpsCameraCaptureDialog({
           {/* Watermarked Preview State */}
           {previewUrl && watermarkData && (
             <div className="space-y-3">
-              <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-950 aspect-[4/3] max-h-[280px] flex items-center justify-center">
+              <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-950 aspect-[4/3] max-h-[240px] flex items-center justify-center">
                 <img
                   src={previewUrl}
                   alt="GPS Camera Preview"
@@ -300,7 +300,7 @@ export function GpsCameraCaptureDialog({
         </div>
 
         {previewUrl && (
-          <DialogFooter className="bg-slate-50 p-3 border-t border-slate-200 flex justify-between gap-2 sm:justify-between">
+          <DialogFooter className="bg-slate-50 px-4 py-3 border-t border-slate-200 flex flex-row items-center justify-between gap-2 shrink-0 sm:justify-between">
             <Button
               type="button"
               variant="outline"
