@@ -443,6 +443,40 @@ export async function initializeDefaultPermissions(): Promise<void> {
   }
 }
 
+const PERMISSION_CACHE_TTL_MS = 60_000;
+let rolePermissionSnapshot: { map: Map<string, boolean>; expiresAt: number } | null = null;
+let rolePermissionLoadPromise: Promise<Map<string, boolean>> | null = null;
+
+export function invalidatePermissionCache(): void {
+  rolePermissionSnapshot = null;
+}
+
+async function getRolePermissionMap(): Promise<Map<string, boolean>> {
+  const now = Date.now();
+  if (rolePermissionSnapshot && rolePermissionSnapshot.expiresAt > now) {
+    return rolePermissionSnapshot.map;
+  }
+  if (rolePermissionLoadPromise) {
+    return rolePermissionLoadPromise;
+  }
+  rolePermissionLoadPromise = db.rolePermission
+    .findMany({
+      select: { role: true, module: true, action: true, isAllowed: true },
+    })
+    .then((rows) => {
+      const map = new Map<string, boolean>();
+      for (const r of rows) {
+        map.set(`${r.role}:${r.module}:${r.action}`, !!r.isAllowed);
+      }
+      rolePermissionSnapshot = { map, expiresAt: Date.now() + PERMISSION_CACHE_TTL_MS };
+      return map;
+    })
+    .finally(() => {
+      rolePermissionLoadPromise = null;
+    });
+  return rolePermissionLoadPromise;
+}
+
 export async function checkPermission(
   role: string,
   module: ModuleType | string,
@@ -450,17 +484,11 @@ export async function checkPermission(
 ): Promise<boolean> {
   if (role === "OWNER") return true; // Owner has universal bypass
 
-  const perm = await db.rolePermission.findUnique({
-    where: {
-      role_module_action: {
-        role,
-        module,
-        action,
-      },
-    },
-  });
-
-  if (perm) return !!perm.isAllowed;
+  const permMap = await getRolePermissionMap();
+  const directKey = `${role}:${module}:${action}`;
+  if (permMap.has(directKey)) {
+    return !!permMap.get(directKey);
+  }
 
   // Check alias if role is configured under alternative identifier
   const aliasMap: Record<string, string> = {
@@ -472,16 +500,10 @@ export async function checkPermission(
 
   const alias = aliasMap[role];
   if (alias) {
-    const aliasPerm = await db.rolePermission.findUnique({
-      where: {
-        role_module_action: {
-          role: alias,
-          module,
-          action,
-        },
-      },
-    });
-    if (aliasPerm) return !!aliasPerm.isAllowed;
+    const aliasKey = `${alias}:${module}:${action}`;
+    if (permMap.has(aliasKey)) {
+      return !!permMap.get(aliasKey);
+    }
   }
 
   // Fallback to static defaults if not yet initialized in DB

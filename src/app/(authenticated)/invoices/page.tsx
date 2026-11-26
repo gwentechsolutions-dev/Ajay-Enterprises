@@ -317,7 +317,7 @@ export default function InvoicesPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-500 uppercase">Total Invoices</span>
@@ -373,9 +373,9 @@ export default function InvoicesPage() {
               className="pl-9"
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="grid grid-cols-1 sm:flex sm:flex-wrap items-center gap-2">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[185px] bg-white">
+              <SelectTrigger className="w-full sm:w-[175px] bg-white">
                 <SelectValue placeholder="All Payment Statuses" />
               </SelectTrigger>
               <SelectContent>
@@ -388,7 +388,7 @@ export default function InvoicesPage() {
             </Select>
 
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-[170px] bg-white">
+              <SelectTrigger className="w-full sm:w-[165px] bg-white">
                 <SelectValue placeholder="All Invoice Types" />
               </SelectTrigger>
               <SelectContent>
@@ -400,7 +400,7 @@ export default function InvoicesPage() {
             </Select>
 
             <Select value={taxFilter} onValueChange={setTaxFilter}>
-              <SelectTrigger className="w-[195px] bg-white">
+              <SelectTrigger className="w-full sm:w-[185px] bg-white">
                 <SelectValue placeholder="All Tax Treatments" />
               </SelectTrigger>
               <SelectContent>
@@ -412,8 +412,76 @@ export default function InvoicesPage() {
           </div>
         </div>
 
+        {/* Mobile Invoice Cards */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {isLoading ? (
+            <div className="py-6 space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-24 rounded-xl bg-slate-100 animate-pulse" />
+              ))}
+            </div>
+          ) : filteredInvoices.length === 0 ? (
+            <div className="py-8 text-center text-xs text-slate-400">
+              No tax invoices found matching your criteria
+            </div>
+          ) : (
+            filteredInvoices.map((inv) => (
+              <div key={inv.id} className="py-3.5 space-y-2 text-xs">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="font-mono font-bold text-[#0B1E36] text-sm">{inv.invoiceNumber}</div>
+                    <div className="text-[11px] text-slate-400">
+                      {new Date(inv.invoiceDate).toLocaleDateString("en-IN")} • Due {new Date(inv.dueDate).toLocaleDateString("en-IN")}
+                    </div>
+                  </div>
+                  <span
+                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${
+                      inv.paymentStatus === "PAID"
+                        ? "bg-emerald-100 text-emerald-800"
+                        : inv.paymentStatus === "PARTIALLY_PAID"
+                        ? "bg-sky-100 text-sky-800"
+                        : "bg-amber-100 text-amber-800"
+                    }`}
+                  >
+                    {inv.paymentStatus}
+                  </span>
+                </div>
+                <div>
+                  <div className="font-semibold text-slate-800">{inv.customer?.name}</div>
+                  <div className="text-[11px] text-slate-500">{inv.customerSite?.siteName || "Consolidated / Multiple Sites"}</div>
+                </div>
+                <div className="flex items-center justify-between bg-slate-50 rounded-lg p-2">
+                  <span className="text-slate-500">{inv.invoiceType}</span>
+                  <span className="font-mono font-bold text-[#0B1E36] text-sm">
+                    ₹{Number(inv.grandTotal ?? inv.totalAmount ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <WhatsAppShareButton doc={inv} docType="INVOICE" />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(`/api/v1/invoices/${inv.id}/print`, "_blank")}
+                    className="h-8 px-2.5 text-xs"
+                  >
+                    <Printer className="w-3.5 h-3.5 mr-1" /> Print
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setActiveInvoice(inv)}
+                    className="h-8 px-2.5 text-xs text-[#0B1E36]"
+                  >
+                    View
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
         {/* Table */}
-        <div className="overflow-x-auto">
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm text-left min-w-[950px]">
             <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
               <tr>

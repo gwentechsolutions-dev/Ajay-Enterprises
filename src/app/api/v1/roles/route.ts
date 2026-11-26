@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { requirePermission, ROLES, MODULES, ACTIONS } from "@/lib/permissions";
+import { requirePermission, invalidatePermissionCache, ROLES, MODULES, ACTIONS } from "@/lib/permissions";
 import { logAuditEvent } from "@/lib/audit";
 
 export async function GET() {
@@ -66,6 +66,8 @@ export async function POST(req: NextRequest) {
         isAllowed,
       },
     });
+
+    invalidatePermissionCache();
 
     await logAuditEvent({
       userId: session?.id,

@@ -320,15 +320,16 @@ export function Topbar({ user, onMenuToggle }: TopbarProps) {
       </div>
 
       {/* Center: Global Document & Entity Search */}
-      <div className="flex items-center max-w-md w-full mx-2 sm:mx-4 min-w-0 flex-1">
+      <div className="flex items-center justify-end sm:justify-start sm:max-w-md sm:w-full mx-1 sm:mx-4 min-w-0 sm:flex-1">
         <button
           type="button"
           onClick={() => setSearchOpen(true)}
-          className="relative w-full flex items-center h-9 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100/90 px-3 text-xs text-slate-500 transition-colors shadow-2xs group cursor-pointer text-left"
+          aria-label="Search documents, customers, sites"
+          className="relative flex items-center justify-center sm:justify-start h-9 w-9 sm:w-full rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100/90 sm:px-3 text-xs text-slate-500 transition-colors shadow-2xs group cursor-pointer text-left shrink-0"
         >
-          <Search className="h-4 w-4 text-slate-400 group-hover:text-slate-600 mr-2 shrink-0" />
-          <span className="truncate">Search documents, customers, sites...</span>
-          <kbd className="hidden sm:inline-flex ml-auto items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[10px] text-slate-500 shadow-2xs">
+          <Search className="h-4 w-4 text-slate-400 group-hover:text-slate-600 sm:mr-2 shrink-0" />
+          <span className="hidden sm:inline truncate">Search documents, customers, sites...</span>
+          <kbd className="hidden md:inline-flex ml-auto items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[10px] text-slate-500 shadow-2xs">
             Ctrl + K
           </kbd>
         </button>
@@ -336,7 +337,7 @@ export function Topbar({ user, onMenuToggle }: TopbarProps) {
 
       {/* Search Modal Dialog */}
       <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
-        <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden rounded-xl border border-slate-200 shadow-2xl top-[20%] translate-y-0">
+        <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden rounded-xl border border-slate-200 shadow-2xl top-[12%] sm:top-[20%] translate-y-0">
           {/* Search Header Input */}
           <div className="flex items-center border-b border-slate-200 pl-4 pr-12 py-3 bg-white">
             <Search className="h-4 w-4 text-slate-400 mr-3 shrink-0" />
@@ -426,15 +427,20 @@ export function Topbar({ user, onMenuToggle }: TopbarProps) {
                   <Sparkles className="h-3.5 w-3.5 text-orange-500" />
                   Quick Navigation Suggestions
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {[
+                    { label: "Delivery Driver App", href: "/delivery-portal", icon: Truck },
                     { label: "Delivery Notes (DN)", href: "/delivery-notes", icon: Truck },
                     { label: "Material Returns (MRN)", href: "/return-notes", icon: RotateCcw },
+                    { label: "Vehicle Trips", href: "/fleet/trips", icon: Truck },
                     { label: "Tax Invoices", href: "/invoices", icon: ReceiptIndianRupee },
                     { label: "Customers & Sites", href: "/customers", icon: Users2 },
                     { label: "Inventory Hub", href: "/inventory", icon: Boxes },
                     { label: "Reports Hub", href: "/reports", icon: FileText },
-                  ].map((s) => {
+                  ]
+                    .filter((s) => isRouteAllowedForRole(user.role, s.href))
+                    .slice(0, 6)
+                    .map((s) => {
                     const Icon = s.icon;
                     return (
                       <button
@@ -490,7 +496,7 @@ export function Topbar({ user, onMenuToggle }: TopbarProps) {
 
           {/* Notifications Dropdown Panel */}
           {notificationsOpen && (
-            <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-xl border border-slate-200 bg-white shadow-xl animate-in fade-in-50 zoom-in-95 z-50 overflow-hidden">
+            <div className="absolute right-[-3.25rem] sm:right-0 mt-2 w-[calc(100vw-1rem)] max-w-[24rem] sm:w-96 rounded-xl border border-slate-200 bg-white shadow-xl animate-in fade-in-50 zoom-in-95 z-50 overflow-hidden">
               {/* Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/70">
                 <div className="flex items-center gap-2">

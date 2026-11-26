@@ -64,7 +64,7 @@ export function AppShell({ user, children }: AppShellProps) {
           {/* Page Main Content */}
           <main
             className={cn(
-              "flex-1 min-w-0 max-w-full p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto",
+              "flex-1 min-w-0 max-w-full p-3 sm:p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto",
               isDeliveryPortal && "max-md:p-2 max-md:pb-24 max-md:pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] max-md:max-w-none"
             )}
           >

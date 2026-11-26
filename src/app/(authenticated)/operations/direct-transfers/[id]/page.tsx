@@ -412,7 +412,7 @@ export default function DirectTransferDetailPage() {
       if (json.success) {
         toast.success("Source pickup confirmed! Source MRN completed, vehicle now en-route.");
         setIsDispatchModalOpen(false);
-        loadData();
+        void loadData();
       } else {
         toast.error(json.error?.message || "Source pickup failed");
       }
@@ -482,7 +482,7 @@ export default function DirectTransferDetailPage() {
           "Delivery completed! Destination DN updated and rental batches transitioned."
         );
         setIsReceiveModalOpen(false);
-        loadData();
+        void loadData();
       } else {
         toast.error(json.error?.message || "Delivery receipt reconciliation failed");
       }
@@ -520,7 +520,7 @@ export default function DirectTransferDetailPage() {
       if (json.success) {
         toast.success("Remaining materials received at godown! Transfer finalized.");
         setIsGodownModalOpen(false);
-        loadData();
+        void loadData();
       } else {
         toast.error(json.error?.message || "Godown receiving failed");
       }

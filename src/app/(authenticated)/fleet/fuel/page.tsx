@@ -311,8 +311,85 @@ export default function FleetFuelPage() {
           </div>
         </div>
 
+        {/* Mobile Fuel Cards */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {isLoading ? (
+            <div className="p-4 space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-24 rounded-xl bg-slate-100 animate-pulse" />
+              ))}
+            </div>
+          ) : filteredLogs.length === 0 ? (
+            <div className="text-center py-10 px-4 text-xs text-slate-400">
+              <Fuel className="w-7 h-7 mx-auto text-slate-300 mb-2" />
+              <p className="font-semibold">No fuel logs found</p>
+            </div>
+          ) : (
+            filteredLogs.map((f) => {
+              const isAi = f.remarks?.includes("AI Extracted");
+              const receiptDoc = f.receiptDocumentUrl;
+              return (
+                <div key={f.id} className="p-3.5 space-y-2 text-xs">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-1.5 font-mono font-bold text-[#0B1E36] text-sm">
+                        <span>{f.logNumber}</span>
+                        {isAi && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-[#F26522]">AI</span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        {new Date(f.fuelDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} • {f.vehicle?.vehicleNumber}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-mono font-bold text-[#0B1E36] text-sm">
+                        ₹{Number(f.totalCost).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </div>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase ${
+                          f.isFullTank ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {f.isFullTank ? "Full Tank" : "Partial"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 bg-slate-50 rounded-lg p-2 text-[11px]">
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Odometer</span>
+                      <span className="font-mono font-semibold">{Number(f.odometerReading).toLocaleString()} km</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Quantity</span>
+                      <span className="font-mono font-semibold">{Number(f.quantityLitres).toFixed(2)} L</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Mileage</span>
+                      <span className="font-mono font-bold text-emerald-600">
+                        {f.mileageKmPerLitre != null && Number(f.mileageKmPerLitre) > 0
+                          ? `${Number(f.mileageKmPerLitre).toFixed(2)} km/L`
+                          : "—"}
+                      </span>
+                    </div>
+                  </div>
+                  {receiptDoc && (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewDocumentUrl(receiptDoc)}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-[#F26522]"
+                    >
+                      <Receipt className="w-3.5 h-3.5" /> View Receipt
+                    </button>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+
         {/* Data Table */}
-        <div className="overflow-x-auto">
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-600 min-w-[950px]">
             <thead className="bg-slate-50 text-[11px] uppercase font-semibold text-slate-500 border-b border-slate-200">
               <tr>

@@ -391,7 +391,7 @@ function DeliveryPortalContent({
         setDeliveryProofForm((prev) => ({ ...prev, gpsFetching: false }));
         toast.warning(t.toastGpsSlowWarning);
       },
-      { enableHighAccuracy: true, timeout: 8000 }
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 30000 }
     );
   };
 
@@ -418,7 +418,7 @@ function DeliveryPortalContent({
         setPickupProofForm((prev) => ({ ...prev, gpsFetching: false }));
         toast.warning(t.toastGpsSlowWarning);
       },
-      { enableHighAccuracy: true, timeout: 8000 }
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 30000 }
     );
   };
 
@@ -435,8 +435,8 @@ function DeliveryPortalContent({
           const pos: any = await new Promise((resolve, reject) => {
             navigator.geolocation.getCurrentPosition(resolve, reject, {
               enableHighAccuracy: true,
-              timeout: 9000,
-              maximumAge: 0,
+              timeout: 4500,
+              maximumAge: 30000,
             });
           });
           latitude = Number(pos.coords.latitude.toFixed(6));
@@ -462,7 +462,19 @@ function DeliveryPortalContent({
       if (!res.ok) throw new Error(json.error?.message || "Failed to record site arrival");
 
       toast.success(t.toastSiteArrivalConfirmed);
-      await loadDeliveryFeed();
+      setData((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          activePickups: (prev.activePickups || []).map((p: any) =>
+            p.id === mrn.id
+              ? { ...p, status: "ARRIVED_AT_SITE", siteArrivedAt: new Date().toISOString() }
+              : p
+          ),
+        };
+      });
+      invalidateClientCache("/api/v1/portals/delivery");
+      loadDeliveryFeed(true);
     } catch (err: any) {
       toast.error(err.message);
     } finally {

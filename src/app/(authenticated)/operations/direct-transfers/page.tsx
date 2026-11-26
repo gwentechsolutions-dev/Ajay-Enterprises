@@ -110,7 +110,7 @@ export default function DirectTransfersPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         <Card className="border-slate-200">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -176,7 +176,7 @@ export default function DirectTransfersPage() {
                 className="pl-9 h-9"
               />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               {["ALL", "DRAFT", "DISPATCHED", "COMPLETED", "PARTIALLY_RECEIVED"].map((status) => (
                 <Button
                   key={status}
@@ -192,7 +192,65 @@ export default function DirectTransfersPage() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          <div className="md:hidden divide-y divide-slate-100">
+            {loading ? (
+              <div className="p-4 space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="h-24 rounded-xl bg-slate-100 animate-pulse" />
+                ))}
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="py-10 px-4 text-center text-xs text-slate-400">
+                No direct site-to-site transfers found matching criteria.
+              </div>
+            ) : (
+              filtered.map((t) => (
+                <div key={t.id} className="p-3.5 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <Link
+                        href={`/operations/direct-transfers/${t.id}`}
+                        className="font-mono font-bold text-slate-900 hover:text-[#F26522] text-sm"
+                      >
+                        {t.transferNumber}
+                      </Link>
+                      <div className="text-[11px] text-slate-400">
+                        {new Date(t.transferDate).toLocaleDateString()} • {t.items?.length || 0} variants
+                      </div>
+                    </div>
+                    {getStatusBadge(t.status)}
+                  </div>
+                  <div className="text-xs space-y-0.5 text-slate-600">
+                    <div>
+                      <span className="font-semibold text-slate-900">{t.sourceCustomer?.name}</span>{" "}
+                      <span className="text-slate-400">({t.sourceCustomerSite?.siteName})</span>
+                    </div>
+                    <div className="text-slate-500">
+                      → <span className="font-semibold text-slate-900">{t.destinationCustomer?.name}</span>{" "}
+                      <span className="text-slate-400">({t.destinationCustomerSite?.siteName})</span>
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      {t.vehicle?.vehicleNumber || "Company Vehicle"} • {t.driver?.name || "Assigned Driver"}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <Link href={`/operations/direct-transfers/${t.id}`}>
+                      <Button variant="outline" size="sm" className="h-8 px-3 text-xs">
+                        <Eye className="h-3.5 w-3.5 mr-1" /> View
+                      </Button>
+                    </Link>
+                    <Button variant="outline" size="sm" asChild className="h-8 px-3 text-xs">
+                      <a href={`/api/v1/direct-transfers/${t.id}/print`} target="_blank" rel="noopener noreferrer">
+                        <Printer className="h-3.5 w-3.5 mr-1" /> Slip
+                      </a>
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm text-left min-w-[850px]">
               <thead className="bg-slate-50 text-slate-500 text-xs font-medium border-b border-slate-200">
                 <tr>

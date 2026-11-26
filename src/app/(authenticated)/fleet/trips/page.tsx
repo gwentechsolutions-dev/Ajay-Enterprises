@@ -146,8 +146,20 @@ export default function FleetTripsPage() {
         return;
       }
       setShowCompleteModal(false);
+      setTrips((prev) =>
+        prev.map((t) =>
+          t.id === selectedTrip.id
+            ? {
+                ...t,
+                status: "COMPLETED",
+                endOdometer: completeForm.endOdometer,
+                distanceKm: Math.max(0, completeForm.endOdometer - Number(t.startOdometer || 0)),
+              }
+            : t
+        )
+      );
       setSelectedTrip(null);
-      loadData();
+      void loadData();
     } catch (err: any) {
       setFormError(err.message || "An unexpected error occurred");
     } finally {
@@ -219,9 +231,67 @@ export default function FleetTripsPage() {
         </div>
       </div>
 
-      {/* Trips Table */}
+      {/* Trips Mobile Card View + Desktop Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="md:hidden divide-y divide-slate-100">
+          {trips.length === 0 ? (
+            <div className="text-center py-10 text-xs text-slate-400">No trips logged yet.</div>
+          ) : (
+            trips.map((t) => (
+              <div key={t.id} className="p-3.5 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="font-mono font-bold text-[#0B1E36] text-sm">{t.tripNumber}</div>
+                    <div className="text-[11px] text-slate-400">
+                      {new Date(t.tripDate).toLocaleDateString("en-IN")} • {t.vehicle?.vehicleNumber} • {t.driver?.name || "Unassigned"}
+                    </div>
+                  </div>
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded font-semibold shrink-0 ${
+                      t.status === "COMPLETED"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : t.status === "IN_TRANSIT"
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-slate-100 text-slate-700"
+                    }`}
+                  >
+                    {t.status}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 bg-slate-50 rounded-lg p-2 text-[11px]">
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">Start Odo</span>
+                    <span className="font-mono font-semibold text-slate-800">{Number(t.startOdometer).toLocaleString()} km</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">End Odo</span>
+                    <span className="font-mono font-semibold text-slate-800">
+                      {t.endOdometer ? `${Number(t.endOdometer).toLocaleString()} km` : "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">Distance</span>
+                    <span className="font-mono font-bold text-[#F26522]">
+                      {t.distanceKm ? `${Number(t.distanceKm).toLocaleString()} km` : "Active"}
+                    </span>
+                  </div>
+                </div>
+                {!isDeliveryPerson && t.status === "IN_TRANSIT" && (
+                  <Button
+                    size="sm"
+                    onClick={() => openCompleteModal(t)}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                    Complete Trip
+                  </Button>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-600 min-w-[850px]">
             <thead className="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
               <tr>

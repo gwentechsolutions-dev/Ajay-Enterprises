@@ -412,7 +412,7 @@ export default function MaterialReturnsPage() {
 
       invalidateClientCache("/api/v1/return-notes");
       invalidateClientCache("/api/v1/fleet/trips");
-      await loadData(true);
+      void loadData(true);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -467,7 +467,7 @@ export default function MaterialReturnsPage() {
       setSchedulingMRN(null);
       invalidateClientCache("/api/v1/return-notes");
       invalidateClientCache("/api/v1/fleet/trips");
-      await loadData(true);
+      void loadData(true);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -537,9 +537,12 @@ export default function MaterialReturnsPage() {
 
       toast.success(`MRN ${inspectingMRN.mrnNumber} physical QC inspection verified!`);
       setIsInspectionModalOpen(false);
+      setReturnNotes((prev) =>
+        prev.map((r) => (r.id === inspectingMRN.id ? { ...r, status: "INSPECTION_COMPLETED" } : r))
+      );
       setInspectingMRN(null);
       invalidateClientCache("/api/v1/return-notes");
-      await loadData(true);
+      void loadData(true);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -579,7 +582,7 @@ export default function MaterialReturnsPage() {
       setReturnNotes((prev) =>
         prev.map((r) =>
           r.id === finalizingMRN.id
-            ? { ...r, status: "COMPLETED" }
+            ? { ...r, status: "POSTED" }
             : r
         )
       );
@@ -587,7 +590,7 @@ export default function MaterialReturnsPage() {
       setFinalizingMRN(null);
       invalidateClientCache("/api/v1/return-notes");
       invalidateClientCache("/api/v1/inventory/stock-balances");
-      await loadData(true);
+      void loadData(true);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -658,7 +661,7 @@ export default function MaterialReturnsPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         <Card className="border-slate-200 shadow-xs">
           <CardHeader className="pb-1">
             <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -765,9 +768,117 @@ export default function MaterialReturnsPage() {
         </div>
       </div>
 
-      {/* Main Table */}
+      {/* Mobile Card List + Desktop Table */}
       <Card className="border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="md:hidden divide-y divide-slate-200 bg-white">
+          {loading ? (
+            <div className="p-4 space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-28 rounded-xl bg-slate-100 animate-pulse" />
+              ))}
+            </div>
+          ) : filteredMRNs.length === 0 ? (
+            <div className="text-center py-10 px-4 text-xs text-slate-400">
+              No material return notes matching criteria.
+            </div>
+          ) : (
+            filteredMRNs.map((mrn) => {
+              const status = mrn.status;
+              const totalExpected = (mrn.items || []).reduce(
+                (s: number, it: any) => s + Number(it.expectedQty || it.returnedQty || 0),
+                0
+              );
+              const totalAccepted = (mrn.items || []).reduce(
+                (s: number, it: any) => s + Number(it.acceptedQty || 0),
+                0
+              );
+
+              return (
+                <div key={mrn.id} className="p-3.5 space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="font-mono font-bold text-slate-900 text-sm">{mrn.mrnNumber}</div>
+                      <div className="text-[11px] text-slate-400">
+                        {new Date(mrn.returnDate).toLocaleDateString("en-IN")} •{" "}
+                        {status === "POSTED" || status === "FINALIZED" ? (
+                          <span className="font-mono font-bold text-emerald-700">{totalAccepted} Nos.</span>
+                        ) : (
+                          <span className="font-mono text-slate-700">{totalExpected} Nos.</span>
+                        )}
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] shrink-0">
+                      {status.replace(/_/g, " ")}
+                    </Badge>
+                  </div>
+
+                  <div className="text-xs space-y-0.5">
+                    <div className="font-bold text-slate-900">{mrn.customer?.name}</div>
+                    <div className="text-slate-500">{mrn.customerSite?.siteName}</div>
+                    <div className="text-[11px] text-slate-500">
+                      Yard: <span className="font-medium text-slate-700">{mrn.receivingWarehouse?.name || "Main Centering Yard"}</span>
+                    </div>
+                    {mrn.vehicleTrip ? (
+                      <div className="text-[11px] font-mono text-slate-700">
+                        {mrn.vehicleTrip.vehicle?.vehicleNumber || mrn.vehicleNumber} •{" "}
+                        <span className="text-blue-700 font-bold">{mrn.vehicleTrip.tripNumber}</span>
+                        {mrn.vehicleTrip.driver?.name ? ` • ${mrn.vehicleTrip.driver.name}` : ""}
+                      </div>
+                    ) : mrn.vehicleNumber ? (
+                      <div className="text-[11px] font-mono text-slate-600">{mrn.vehicleNumber}</div>
+                    ) : (
+                      <div className="text-[11px] text-amber-700 italic">Trip not scheduled</div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    {status === "PICKUP_REQUESTED" && canCreateReturnNote && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openScheduleTripModal(mrn)}
+                        className="text-xs h-8 px-2.5 bg-blue-50 text-blue-900 border-blue-300 font-semibold"
+                      >
+                        <Truck className="h-3.5 w-3.5 mr-1 text-blue-700" />
+                        Assign Trip
+                      </Button>
+                    )}
+                    {(status === "AWAITING_INSPECTION" || status === "INSPECTION_COMPLETED") && canCreateReturnNote && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openInspectionModal(mrn)}
+                        className="text-xs h-8 px-2.5 bg-amber-50 text-amber-900 border-amber-300 font-semibold"
+                      >
+                        <ClipboardCheck className="h-3.5 w-3.5 mr-1 text-amber-700" />
+                        QC Inspect
+                      </Button>
+                    )}
+                    {status === "INSPECTION_COMPLETED" && canCreateReturnNote && (
+                      <Button
+                        size="sm"
+                        onClick={() => openFinalizeModal(mrn)}
+                        className="text-xs h-8 px-2.5 bg-emerald-600 text-white hover:bg-emerald-700 font-bold"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                        Finalize MRN
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" asChild className="text-xs h-8 px-2.5">
+                      <a href={`/api/v1/return-notes/${mrn.id}/print`} target="_blank" rel="noopener noreferrer">
+                        <Printer className="h-3.5 w-3.5 mr-1" />
+                        Slip
+                      </a>
+                    </Button>
+                    <WhatsAppShareButton doc={mrn} docType="MRN" />
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-600 min-w-[900px]">
             <thead className="bg-slate-50 text-[11px] uppercase font-semibold text-slate-700 border-b border-slate-200">
               <tr>

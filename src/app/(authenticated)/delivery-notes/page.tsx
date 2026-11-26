@@ -436,7 +436,7 @@ export default function DeliveryNotesPage() {
 
       invalidateClientCache("/api/v1/delivery-notes");
       invalidateClientCache("/api/v1/dashboard");
-      await loadData(true);
+      void loadData(true);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -539,7 +539,7 @@ export default function DeliveryNotesPage() {
       toast.success(`Draft Delivery Note ${dn.dnNumber} discarded.`);
       invalidateClientCache("/api/v1/delivery-notes");
       invalidateClientCache("/api/v1/dashboard");
-      await loadData(true);
+      void loadData(true);
     } catch (err: any) {
       toast.error(err.message);
       // Revert optimistic removal on server failure
@@ -601,7 +601,7 @@ export default function DeliveryNotesPage() {
       setDispatchTarget(null);
       invalidateClientCache("/api/v1/delivery-notes");
       invalidateClientCache("/api/v1/dashboard");
-      await loadData(true);
+      void loadData(true);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -754,7 +754,7 @@ export default function DeliveryNotesPage() {
 
       invalidateClientCache("/api/v1/delivery-notes");
       invalidateClientCache("/api/v1/dashboard");
-      await loadData(true);
+      void loadData(true);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -1177,7 +1177,7 @@ export default function DeliveryNotesPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         <Card className="border-slate-200 shadow-xs">
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -1270,9 +1270,133 @@ export default function DeliveryNotesPage() {
         </CardContent>
       </Card>
 
-      {/* Delivery Notes Table */}
+      {/* Delivery Notes Mobile Card View + Desktop Table */}
       <Card className="border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="md:hidden divide-y divide-slate-200 bg-white">
+          {loading ? (
+            <div className="p-4 space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-28 rounded-xl bg-slate-100 animate-pulse" />
+              ))}
+            </div>
+          ) : filteredDNs.length === 0 ? (
+            <div className="text-center py-10 px-4 text-xs text-slate-400">
+              No delivery notes found matching your criteria.
+            </div>
+          ) : (
+            filteredDNs.map((dn) => (
+              <div key={dn.id} className="p-3.5 space-y-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-mono font-bold text-slate-900 text-sm">{dn.dnNumber}</div>
+                    <div className="text-[11px] text-slate-400">
+                      {new Date(dn.deliveryDate || dn.createdAt).toLocaleDateString("en-IN")} • {dn.sourceWarehouse?.name}
+                    </div>
+                  </div>
+                  <Badge
+                    variant="secondary"
+                    className={
+                      dn.status === "DELIVERED"
+                        ? "bg-emerald-100 text-emerald-800 shrink-0 text-[10px]"
+                        : dn.status === "DISPATCHED"
+                          ? "bg-sky-100 text-sky-800 shrink-0 text-[10px]"
+                          : "bg-amber-100 text-amber-800 shrink-0 text-[10px]"
+                    }
+                  >
+                    {dn.status}
+                  </Badge>
+                </div>
+
+                <div className="text-xs space-y-0.5">
+                  <div className="font-semibold text-slate-900">{dn.customer?.name}</div>
+                  <div className="text-slate-500">{dn.customerSite?.siteName}</div>
+                </div>
+
+                {(dn.eWayBillNumber || (dn.transportCharges && Number(dn.transportCharges) > 0)) && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {dn.eWayBillNumber && (
+                      <button
+                        type="button"
+                        onClick={() => openEwbModal(dn)}
+                        className="inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200"
+                      >
+                        <FileDigit className="h-3 w-3 text-blue-600" />
+                        EWB: {dn.eWayBillNumber}
+                      </button>
+                    )}
+                    {dn.transportCharges && Number(dn.transportCharges) > 0 && (
+                      <span
+                        className={`inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full border ${
+                          dn.isTransportBilled
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : "bg-amber-50 text-amber-700 border-amber-200"
+                        }`}
+                      >
+                        <Truck className="h-3 w-3" />
+                        ₹{Number(dn.transportCharges).toLocaleString("en-IN")} {dn.isTransportBilled ? "(Billed)" : "(Unbilled)"}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <Button size="sm" variant="outline" asChild className="text-xs h-8 px-2.5">
+                    <a href={`/api/v1/delivery-notes/${dn.id}/print`} target="_blank" rel="noopener noreferrer">
+                      <Printer className="h-3.5 w-3.5 mr-1" />
+                      Print
+                    </a>
+                  </Button>
+                  <WhatsAppShareButton doc={dn} docType="DN" />
+                  <Button
+                    size="sm"
+                    variant={dn.eWayBillNumber ? "secondary" : "outline"}
+                    onClick={() => openEwbModal(dn)}
+                    className={`text-xs h-8 px-2.5 ${dn.eWayBillNumber ? "bg-blue-50 text-blue-700 border border-blue-200" : ""}`}
+                  >
+                    <FileDigit className="h-3.5 w-3.5 mr-1" />
+                    {dn.eWayBillNumber ? "EWB" : "E-Way Bill"}
+                  </Button>
+                  {dn.status === "DRAFT" && !isDeliveryPerson && (
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => handleOpenEdit(dn)} className="text-xs h-8 px-2.5">
+                        <Pencil className="h-3.5 w-3.5 mr-1" />
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => handleOpenDispatch(dn)}
+                        className="bg-[#0B1E36] hover:bg-[#071424] text-white text-xs h-8 px-3"
+                      >
+                        <Send className="h-3.5 w-3.5 mr-1" />
+                        Dispatch
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDiscardDraft(dn)}
+                        className="text-xs h-8 px-2 text-red-500 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </>
+                  )}
+                  {dn.status === "DISPATCHED" && (
+                    <Button
+                      size="sm"
+                      onClick={() => openDeliverModal(dn)}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 px-3"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                      Deliver
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-600 min-w-[1050px]">
             <thead className="bg-slate-50 text-xs uppercase font-semibold text-slate-700 border-b border-slate-200">
               <tr>
