@@ -183,7 +183,7 @@ function DeliveryPortalContent({
             return parsed;
           }
         }
-      } catch {}
+      } catch { }
     }
     return null;
   });
@@ -197,7 +197,7 @@ function DeliveryPortalContent({
             return false;
           }
         }
-      } catch {}
+      } catch { }
     }
     return true;
   });
@@ -320,7 +320,7 @@ function DeliveryPortalContent({
         setData(json.data);
         try {
           sessionStorage.setItem("inventra_delivery_portal_cache", JSON.stringify(json.data));
-        } catch {}
+        } catch { }
         if (json.data.preferredLanguage) {
           onServerLanguageLoadedRef.current?.(json.data.preferredLanguage as DriverLanguage);
         }
@@ -594,7 +594,7 @@ function DeliveryPortalContent({
     const items = (mrn.items || []).map((it: any) => {
       const exp = Number(it.expectedQty || it.returnedQty || 0);
       return {
-        materialVariantId: it.materialVariantId,
+        materialVariantId: it.materialVariantId || it.materialVariant?.id || "",
         materialName: it.materialVariant?.name || "Centering Material",
         materialCode: it.materialVariant?.materialCode || "",
         size: it.materialVariant?.size || "-",
@@ -766,16 +766,16 @@ function DeliveryPortalContent({
         const updatedActive = (prev.activeDeliveries || []).filter((d: any) => d.id !== selectedDN.id);
         const updatedCompleted = deliveredItem
           ? [
-              {
-                ...deliveredItem,
-                status: "DELIVERED",
-                deliveredAt: new Date().toISOString(),
-                receiverName: deliveryProofForm.receiverName.trim(),
-                receiverPhone: cleanPhone,
-                photoUrl: finalPrimaryPhoto,
-              },
-              ...(prev.completedToday || []),
-            ]
+            {
+              ...deliveredItem,
+              status: "DELIVERED",
+              deliveredAt: new Date().toISOString(),
+              receiverName: deliveryProofForm.receiverName.trim(),
+              receiverPhone: cleanPhone,
+              photoUrl: finalPrimaryPhoto,
+            },
+            ...(prev.completedToday || []),
+          ]
           : prev.completedToday || [];
 
         return {
@@ -884,15 +884,15 @@ function DeliveryPortalContent({
         const updatedActive = (prev.activePickups || []).filter((p: any) => p.id !== selectedMRN.id);
         const updatedCompleted = pickedUpItem
           ? [
-              {
-                ...pickedUpItem,
-                status: "PICKED_UP",
-                pickedUpAt: new Date().toISOString(),
-                receiverName: pickupProofForm.receiverName.trim(),
-                receiverPhone: cleanPhone,
-              },
-              ...(prev.completedPickupsTodayList || prev.completedPickupsToday || []),
-            ]
+            {
+              ...pickedUpItem,
+              status: "PICKED_UP",
+              pickedUpAt: new Date().toISOString(),
+              receiverName: pickupProofForm.receiverName.trim(),
+              receiverPhone: cleanPhone,
+            },
+            ...(prev.completedPickupsTodayList || prev.completedPickupsToday || []),
+          ]
           : prev.completedPickupsTodayList || prev.completedPickupsToday || [];
 
         return {
@@ -1632,8 +1632,7 @@ function DeliveryPortalContent({
                                     size="sm"
                                     onClick={() =>
                                       router.push(
-                                        `/operations/direct-transfers/${dstn.id}?action=${
-                                          isPickup ? "pickup" : isDelivery ? "deliver" : "godown"
+                                        `/operations/direct-transfers/${dstn.id}?action=${isPickup ? "pickup" : isDelivery ? "deliver" : "godown"
                                         }`
                                       )
                                     }
@@ -2131,8 +2130,8 @@ function DeliveryPortalContent({
                                 trip.status === "COMPLETED"
                                   ? "bg-emerald-100 text-emerald-800 border-emerald-200"
                                   : trip.status === "IN_TRANSIT"
-                                  ? "bg-amber-100 text-amber-800 border-amber-200"
-                                  : "bg-blue-100 text-blue-800 border-blue-200"
+                                    ? "bg-amber-100 text-amber-800 border-amber-200"
+                                    : "bg-blue-100 text-blue-800 border-blue-200"
                               )}
                             >
                               {trip.status}
@@ -2588,8 +2587,8 @@ function DeliveryPortalContent({
                       {uploadingDeliveryPhoto
                         ? "Watermarking & Uploading..."
                         : deliveryUploadedUrls.length > 0
-                        ? `Add More Photos (${deliveryUploadedUrls.length}/10)`
-                        : t.btnTakeEvidencePhoto}
+                          ? `Add More Photos (${deliveryUploadedUrls.length}/10)`
+                          : t.btnTakeEvidencePhoto}
                     </span>
                     <span className="text-[11px] text-slate-500">
                       {t.captureSitePhotoDesc} (Max 10 photos)
@@ -2637,41 +2636,43 @@ function DeliveryPortalContent({
 
       {/* DRIVER RETURN PICKUP & CUSTOMER HANDOVER MODAL (STAGES 5, 6, 7, 8) */}
       <Dialog open={isPickupModalOpen} onOpenChange={setIsPickupModalOpen}>
-        <DialogContent className="max-w-md max-h-[92vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <RotateCcw className="h-5 w-5 text-amber-600" />
-              {t.pickupModalTitle} – {selectedMRN?.mrnNumber}
+        <DialogContent className="w-[calc(100%-1rem)] sm:w-full max-w-lg max-h-[92vh] overflow-y-auto grid-cols-1">
+          <DialogHeader className="text-left pr-6 min-w-0">
+            <DialogTitle className="text-base sm:text-lg font-bold text-slate-900 flex items-start gap-2 leading-snug min-w-0">
+              <RotateCcw className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+              <span className="min-w-0 break-words">
+                {t.pickupModalTitle} – {selectedMRN?.mrnNumber}
+              </span>
             </DialogTitle>
-            <DialogDescription className="text-xs">
+            <DialogDescription className="text-xs leading-relaxed break-words">
               {t.pickupModalDesc}
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleConfirmMaterialPickup} className="space-y-4 pt-1">
+          <form onSubmit={handleConfirmMaterialPickup} className="space-y-4 pt-1 min-w-0">
             {/* SECTION 1: MATERIAL COUNT & VISUAL INSPECTION (STAGE 5) */}
-            <div className="bg-amber-50/50 p-3 rounded-xl border border-amber-200/80 space-y-3">
+            <div className="bg-amber-50/50 p-3 rounded-xl border border-amber-200/80 space-y-3 min-w-0">
               <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold text-amber-950 uppercase tracking-wide">
+                <Label className="text-xs font-bold text-amber-950 uppercase tracking-wide leading-snug break-words">
                   {t.pickupMaterialsChecklist}
                 </Label>
               </div>
 
               {pickupItems.map((item, idx) => (
-                <div key={item.materialVariantId} className="bg-white p-3 rounded-lg border border-slate-200 space-y-2 text-xs">
-                  <div className="flex items-center justify-between">
-                    <div>
+                <div key={item.materialVariantId} className="bg-white p-3 rounded-lg border border-slate-200 space-y-2 text-xs min-w-0">
+                  <div className="flex flex-wrap items-start justify-between gap-1.5">
+                    <div className="min-w-0 flex-1 break-words">
                       <span className="font-bold text-slate-900">{item.materialName}</span>
                       <span className="text-slate-500 text-[11px] ml-1">({item.size || "Standard"})</span>
                     </div>
-                    <Badge variant="outline" className="text-[10px] font-mono bg-slate-50">
+                    <Badge variant="outline" className="text-[10px] font-mono bg-slate-50 whitespace-normal text-left max-w-full leading-tight shrink">
                       {t.expectedQty}: {item.expectedQty} {t.uomNos}
                     </Badge>
                   </div>
 
-                  <div className="grid grid-cols-4 gap-1.5">
-                    <div>
-                      <Label className="text-[10px] text-slate-600 font-semibold block mb-0.5">{t.actualCollectedQty} *</Label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-1.5 items-end">
+                    <div className="min-w-0">
+                      <Label className="text-[10px] text-slate-600 font-semibold block mb-0.5 leading-tight break-words">{t.actualCollectedQty} *</Label>
                       <Input
                         type="number"
                         min={0}
@@ -2696,8 +2697,8 @@ function DeliveryPortalContent({
                       />
                     </div>
 
-                    <div>
-                      <Label className="text-[10px] text-emerald-700 font-semibold block mb-0.5">{t.goodQty}</Label>
+                    <div className="min-w-0">
+                      <Label className="text-[10px] text-emerald-700 font-semibold block mb-0.5 leading-tight break-words">{t.goodQty}</Label>
                       <Input
                         type="number"
                         min={0}
@@ -2720,8 +2721,8 @@ function DeliveryPortalContent({
                       />
                     </div>
 
-                    <div>
-                      <Label className="text-[10px] text-amber-700 font-semibold block mb-0.5">{t.damagedQty}</Label>
+                    <div className="min-w-0">
+                      <Label className="text-[10px] text-amber-700 font-semibold block mb-0.5 leading-tight break-words">{t.damagedQty}</Label>
                       <Input
                         type="number"
                         min={0}
@@ -2743,8 +2744,8 @@ function DeliveryPortalContent({
                       />
                     </div>
 
-                    <div>
-                      <Label className="text-[10px] text-red-700 font-semibold block mb-0.5">{t.missingQty}</Label>
+                    <div className="min-w-0">
+                      <Label className="text-[10px] text-red-700 font-semibold block mb-0.5 leading-tight break-words">{t.missingQty}</Label>
                       <Input
                         type="number"
                         min={0}
@@ -2783,12 +2784,12 @@ function DeliveryPortalContent({
             </div>
 
             {/* SECTION 2: MOBILE CAMERA & PHOTOS WITH GPS WATERMARK (STAGE 6) */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+            <div className="space-y-2 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <Label className="text-xs font-bold text-slate-800 uppercase tracking-wide min-w-0 leading-snug break-words">
                   {t.uploadReturnEvidencePhoto}
                 </Label>
-                <span className="text-[10px] font-semibold text-slate-500">
+                <span className="text-[10px] font-semibold text-slate-500 shrink-0 whitespace-nowrap pt-0.5">
                   {pickupUploadedUrls.length}/10 photos
                 </span>
               </div>
@@ -2830,13 +2831,13 @@ function DeliveryPortalContent({
                   disabled={uploadingPickupPhoto}
                   className="w-full border-2 border-dashed border-amber-400 hover:border-amber-600 bg-amber-50/60 hover:bg-amber-50 rounded-xl p-3 text-center cursor-pointer transition flex items-center justify-center gap-2"
                 >
-                  <Camera className="w-5 h-5 text-amber-700" />
-                  <span className="text-xs font-bold text-slate-800">
+                  <Camera className="w-5 h-5 text-amber-700 shrink-0" />
+                  <span className="text-xs font-bold text-slate-800 break-words">
                     {uploadingPickupPhoto
                       ? "Watermarking & Uploading..."
                       : pickupUploadedUrls.length > 0
-                      ? `Add More Photos (${pickupUploadedUrls.length}/10)`
-                      : t.btnTakeEvidencePhoto}
+                        ? `Add More Photos (${pickupUploadedUrls.length}/10)`
+                        : t.btnTakeEvidencePhoto}
                   </span>
                 </button>
               ) : (
@@ -2848,8 +2849,8 @@ function DeliveryPortalContent({
             </div>
 
             {/* SECTION 3: CUSTOMER REPRESENTATIVE HANDOVER ACKNOWLEDGEMENT (STAGE 7) */}
-            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-3">
-              <Label className="text-xs font-bold text-slate-900 uppercase tracking-wide block">
+            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-3 min-w-0">
+              <Label className="text-xs font-bold text-slate-900 uppercase tracking-wide block leading-snug break-words">
                 {t.customerHandoverAcknowledgement}
               </Label>
 
@@ -2875,9 +2876,9 @@ function DeliveryPortalContent({
                 <FormFieldError error={pickupErrors.receiverName} />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-xs font-semibold">{t.customerRepDesignation}</Label>
+              <div className="grid grid-cols-2 gap-2 items-end">
+                <div className="min-w-0">
+                  <Label className="text-xs font-semibold leading-tight break-words block mb-0.5">{t.customerRepDesignation}</Label>
                   <Input
                     value={pickupProofForm.receiverDesignation}
                     onChange={(e) => setPickupProofForm({ ...pickupProofForm, receiverDesignation: e.target.value })}
@@ -2885,8 +2886,8 @@ function DeliveryPortalContent({
                   />
                 </div>
 
-                <div>
-                  <Label className="text-xs font-semibold" required>{t.customerRepPhone} *</Label>
+                <div className="min-w-0">
+                  <Label className="text-xs font-semibold leading-tight break-words block mb-0.5" required>{t.customerRepPhone} *</Label>
                   <Input
                     type="tel"
                     value={pickupProofForm.receiverPhone}
@@ -2932,7 +2933,7 @@ function DeliveryPortalContent({
                     <button
                       type="button"
                       onClick={() => setPickupProofForm((prev) => ({ ...prev, customerSignatureRefused: true }))}
-                      className="text-[11px] text-red-600 font-semibold hover:underline"
+                      className="text-[11px] text-red-600 font-semibold hover:underline text-right break-words max-w-full"
                     >
                       {t.customerAgreedDamageLabel}
                     </button>
@@ -2983,7 +2984,7 @@ function DeliveryPortalContent({
               />
             </div>
 
-            <DialogFooter className="pt-2">
+            <DialogFooter className="pt-2 gap-2">
               <Button type="button" variant="outline" onClick={() => setIsPickupModalOpen(false)}>
                 {t.btnCancel}
               </Button>
@@ -2992,7 +2993,7 @@ function DeliveryPortalContent({
                 loading={submittingPickup}
                 loadingText={t.btnConfirmingMaterialPickup}
                 disabled={submittingPickup || uploadingPickupPhoto}
-                className="bg-[#F26522] hover:bg-[#EA580C] text-white font-bold"
+                className="bg-[#F26522] hover:bg-[#EA580C] text-white font-bold whitespace-normal h-auto min-h-10 py-2 text-center leading-snug"
               >
                 {t.btnConfirmMaterialPickup}
               </Button>

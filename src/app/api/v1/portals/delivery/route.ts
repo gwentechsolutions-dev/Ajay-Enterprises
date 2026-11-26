@@ -226,10 +226,17 @@ export async function GET(req: NextRequest) {
           items: {
             select: {
               id: true,
+              materialVariantId: true,
               returnedQty: true,
+              expectedQty: true,
               acceptedQty: true,
               damagedQty: true,
               missingQty: true,
+              driverCollectedQty: true,
+              driverGoodQty: true,
+              driverDamagedQty: true,
+              driverMissingQty: true,
+              driverRemarks: true,
               condition: true,
               remarks: true,
               materialVariant: { select: { id: true, name: true, size: true, uom: true, materialCode: true } },
