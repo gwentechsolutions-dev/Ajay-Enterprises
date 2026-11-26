@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchableCombobox, ComboboxOption } from "@/components/ui/searchable-combobox";
 import { ModalPortal } from "@/components/ui/portal";
+import { OdometerInputWithScan } from "./OdometerInputWithScan";
 
 export type FlowStep = "method" | "scan_fuel" | "scan_odometer" | "review" | "saved";
 
@@ -233,19 +234,20 @@ export function FuelEntryModal({
         throw new Error(json.error?.message || "Failed to scan image.");
       }
 
-      const { fields, file: uploadedFile, warnings } = json.data;
+      const { fields, file: uploadedFile, fileUrl, odometerFileUrl, receiptFileUrl, warnings } = json.data;
       if (warnings && warnings.length > 0) {
         setFormWarnings((prev) => [...prev, ...warnings]);
       }
 
       setAiScanned(true);
 
+      const resolvedUrl = odometerFileUrl || fileUrl || receiptFileUrl || uploadedFile?.url;
       if (type === "odometer") {
         if (fields.odometerKm != null) {
           setOdometerReading(Number(fields.odometerKm));
         }
-        if (uploadedFile?.url) {
-          setOdometerDocumentUrl(uploadedFile.url);
+        if (resolvedUrl) {
+          setOdometerDocumentUrl(resolvedUrl);
         }
         setIsScanning(false);
         // Step 3 -> Step 4: Immediately and automatically move to Review!
@@ -903,14 +905,18 @@ export function FuelEntryModal({
                     </span>
                   )}
                 </div>
-                <Input
-                  type="number"
+                <OdometerInputWithScan
                   step="1"
                   placeholder="e.g. 48250"
                   value={odometerReading}
-                  onChange={(e) => setOdometerReading(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                  vehicleId={vehicleId || undefined}
+                  onChange={(val) => setOdometerReading(val === "" ? "" : parseFloat(val))}
+                  onScanSuccess={({ odometerKm, fileUrl }) => {
+                    setOdometerReading(odometerKm);
+                    if (fileUrl) setOdometerDocumentUrl(fileUrl);
+                    setAiScanned(true);
+                  }}
                   required
-                  className="w-full"
                 />
 
                 {showOdoWarning && (

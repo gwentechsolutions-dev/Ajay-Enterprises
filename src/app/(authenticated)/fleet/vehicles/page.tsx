@@ -27,6 +27,7 @@ import {
 import { FormFieldError } from "@/components/ui/form-field-error";
 import { ModalPortal } from "@/components/ui/portal";
 import { parseApiValidationErrors, formatValidationToast } from "@/lib/forms/validation-mapper";
+import { OdometerInputWithScan } from "@/components/fleet/OdometerInputWithScan";
 
 export default function FleetVehiclesPage() {
   const [vehicles, setVehicles] = React.useState<any[]>([]);
@@ -387,12 +388,12 @@ export default function FleetVehiclesPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-700">Current Odometer (km)</label>
-                  <Input
-                    type="number"
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Current Odometer (km)</label>
+                  <OdometerInputWithScan
                     value={formData.currentOdometer}
-                    onChange={(e) => setFormData({ ...formData, currentOdometer: Number(e.target.value) })}
-                    className="mt-1 font-mono"
+                    onChange={(val) =>
+                      setFormData({ ...formData, currentOdometer: val === "" ? 0 : Number(val) })
+                    }
                   />
                 </div>
               </div>

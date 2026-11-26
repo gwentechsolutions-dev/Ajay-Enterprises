@@ -42,6 +42,7 @@ import { SearchableCombobox, ComboboxOption } from "@/components/ui/searchable-c
 import { toast } from "sonner";
 import { GpsCameraCaptureDialog } from "@/components/evidence/GpsCameraCaptureDialog";
 import { GoogleMapsLocationInput } from "@/components/forms/google-maps-location-input";
+import { OdometerInputWithScan } from "@/components/fleet/OdometerInputWithScan";
 
 export default function DirectTransferDetailPage() {
   const params = useParams();
@@ -1680,12 +1681,12 @@ export default function DirectTransferDetailPage() {
 
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">Final Trip Odometer Reading</Label>
-                <Input
-                  type="number"
+                <OdometerInputWithScan
                   value={godownForm.yardOdometer}
-                  onChange={(e) => setGodownForm({ ...godownForm, yardOdometer: e.target.value })}
+                  vehicleId={transfer?.vehicleId || undefined}
+                  onChange={(val) => setGodownForm({ ...godownForm, yardOdometer: val })}
                   placeholder="e.g. 45210"
-                  className="h-8 text-xs"
+                  inputClassName="h-8 text-xs"
                 />
               </div>
 

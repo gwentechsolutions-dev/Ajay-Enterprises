@@ -815,16 +815,19 @@ export default function MaterialReturnsPage() {
                         <div className="text-slate-500">{mrn.customerSite?.siteName}</div>
                       </td>
 
-                      <td className="px-4 py-3 text-xs">
+                      <td className="px-4 py-3 text-xs whitespace-nowrap">
                         {mrn.vehicleTrip ? (
-                          <div>
+                          <div className="space-y-0.5">
                             <div className="font-mono font-semibold text-slate-900">
                               {mrn.vehicleTrip.vehicle?.vehicleNumber || mrn.vehicleNumber}
                             </div>
-                            <div className="text-[11px] text-slate-500 flex items-center gap-1">
+                            <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
                               <span className="font-mono font-bold text-blue-700">{mrn.vehicleTrip.tripNumber}</span>
                               {mrn.vehicleTrip.driver?.name && (
-                                <span>&bull; {mrn.vehicleTrip.driver.name}</span>
+                                <>
+                                  <span className="text-slate-300">&bull;</span>
+                                  <span className="text-slate-600 font-medium">{mrn.vehicleTrip.driver.name}</span>
+                                </>
                               )}
                             </div>
                           </div>

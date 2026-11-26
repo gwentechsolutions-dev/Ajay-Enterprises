@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCurrentUser } from "@/lib/auth-context";
 import { ModalPortal } from "@/components/ui/portal";
+import { OdometerInputWithScan } from "@/components/fleet/OdometerInputWithScan";
 
 export default function FleetTripsPage() {
   const { isDeliveryPerson, canCreateTrip } = useCurrentUser();
@@ -343,13 +344,14 @@ export default function FleetTripsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-700">Start Odometer (km) *</label>
-                  <Input
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Start Odometer (km) *</label>
+                  <OdometerInputWithScan
                     required
-                    type="number"
                     value={createForm.startOdometer}
-                    onChange={(e) => setCreateForm({ ...createForm, startOdometer: Number(e.target.value) })}
-                    className="mt-1 font-mono"
+                    vehicleId={createForm.vehicleId || undefined}
+                    onChange={(val) =>
+                      setCreateForm({ ...createForm, startOdometer: val === "" ? 0 : Number(val) })
+                    }
                   />
                 </div>
               </div>
@@ -419,14 +421,15 @@ export default function FleetTripsPage() {
             )}
             <form onSubmit={handleComplete} className="space-y-4 text-sm">
               <div>
-                <label className="text-xs font-semibold text-slate-700">End Odometer (km) *</label>
-                <Input
+                <label className="text-xs font-semibold text-slate-700 block mb-1">End Odometer (km) *</label>
+                <OdometerInputWithScan
                   required
-                  type="number"
                   min={Number(selectedTrip.startOdometer)}
                   value={completeForm.endOdometer}
-                  onChange={(e) => setCompleteForm({ ...completeForm, endOdometer: Number(e.target.value) })}
-                  className="mt-1 font-mono font-bold"
+                  vehicleId={selectedTrip.vehicleId || selectedTrip.vehicle?.id || undefined}
+                  onChange={(val) =>
+                    setCompleteForm({ ...completeForm, endOdometer: val === "" ? 0 : Number(val) })
+                  }
                 />
                 <span className="text-[11px] text-slate-400">
                   Calculated distance: {Math.max(0, completeForm.endOdometer - Number(selectedTrip.startOdometer))} km

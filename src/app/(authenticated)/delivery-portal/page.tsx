@@ -58,6 +58,7 @@ import { invalidateClientCache } from "@/lib/client-cache";
 import { FormFieldError } from "@/components/ui/form-field-error";
 import { parseApiValidationErrors, formatValidationToast } from "@/lib/forms/validation-mapper";
 import { SearchableCombobox, ComboboxOption } from "@/components/ui/searchable-combobox";
+import { OdometerInputWithScan } from "@/components/fleet/OdometerInputWithScan";
 import { cn } from "@/lib/utils";
 import { DriverLanguageProvider, useDriverTranslation, DriverLanguage } from "@/lib/i18n/driver-portal";
 import { DriverLanguageSelector } from "@/components/driver-portal/DriverLanguageSelector";
@@ -3027,13 +3028,18 @@ function DeliveryPortalContent({
             </div>
 
             <div>
-              <Label className="text-xs font-semibold" required>{t.finalOdometerReading} *</Label>
-              <Input
-                type="number"
-                min={0}
+              <Label className="text-xs font-semibold block mb-1" required>{t.finalOdometerReading}</Label>
+              <OdometerInputWithScan
                 value={yardArrivalForm.yardOdometer}
-                onChange={(e) => setYardArrivalForm({ ...yardArrivalForm, yardOdometer: Number(e.target.value) })}
-                className="font-mono text-sm font-bold"
+                min={0}
+                vehicleId={selectedYardMRN?.vehicleTrip?.vehicleId || selectedYardMRN?.vehicleTrip?.vehicle?.id}
+                onChange={(val) =>
+                  setYardArrivalForm({
+                    ...yardArrivalForm,
+                    yardOdometer: val === "" ? 0 : Number(val),
+                  })
+                }
+                inputClassName="text-sm"
                 required
               />
               <p className="text-[10px] text-slate-400 mt-0.5">
@@ -3044,7 +3050,7 @@ function DeliveryPortalContent({
             <div>
               <div className="flex items-center justify-between mb-1">
                 <Label className="text-xs font-semibold" required>
-                  {t.yardReceivingEmployee} *
+                  {t.yardReceivingEmployee}
                 </Label>
                 <span className="text-[10px] text-slate-400 font-medium">
                   {t.autoPopulateNotice}

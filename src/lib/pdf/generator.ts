@@ -327,8 +327,10 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
 
     /* MRN Inspection Table Specific Styles */
     .mrn-table { width: 100%; border-collapse: collapse; margin-top: 8px; margin-bottom: 14px; font-size: 7.5pt; table-layout: fixed; box-sizing: border-box; }
-    .mrn-table th { background-color: #0B1E36; color: #ffffff; padding: 5px 3px; font-size: 7pt; text-transform: uppercase; letter-spacing: 0.2px; text-align: left; vertical-align: middle; }
-    .mrn-table td { padding: 5px 3px; border-bottom: 1px solid #e2e8f0; font-size: 7.5pt; vertical-align: middle; word-break: break-word; overflow-wrap: break-word; }
+    .mrn-table th { background-color: #0B1E36; color: #ffffff; padding: 6px 5px; font-size: 6.5pt; text-transform: uppercase; letter-spacing: 0.1px; text-align: left; vertical-align: middle; }
+    .mrn-table th.text-right { text-align: right; }
+    .mrn-table th.text-center { text-align: center; }
+    .mrn-table td { padding: 5px 5px; border-bottom: 1px solid #e2e8f0; font-size: 7.5pt; vertical-align: middle; word-break: break-word; overflow-wrap: break-word; }
     .mrn-table tr:nth-child(even) { background-color: #f8fafc; }
     .totals-table { width: 40%; margin-left: auto; border-collapse: collapse; font-size: 10pt; margin-bottom: 16px; }
     .totals-table td { padding: 4px 8px; }
@@ -433,16 +435,16 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
     data.documentType === "MRN"
       ? `
     <!-- MRN Inspection & Discrepancy Header Badge -->
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; margin-bottom: 6px;">
-      <span style="font-weight: 800; color: #0B1E36; font-size: 10pt; text-transform: uppercase; letter-spacing: 0.3px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 14px; margin-bottom: 6px;">
+      <span style="font-weight: 800; color: #0B1E36; font-size: 9.5pt; text-transform: uppercase; letter-spacing: 0.3px; line-height: 1.25;">
         Returned Materials &amp; Physical Inspection Breakdown
       </span>
       ${
         data.inspectionDetails?.status === "PENDING"
-          ? `<span style="background: #fffbeb; color: #b45309; border: 1.5px solid #fcd34d; font-size: 8pt; font-weight: 800; padding: 3px 10px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.3px;">
+          ? `<span style="background: #fffbeb; color: #b45309; border: 1.5px solid #fcd34d; font-size: 7.5pt; font-weight: 800; padding: 4px 10px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px;">
               ⏳ Inspection Pending · Awaiting Yard Verification
             </span>`
-          : `<span style="background: #f0fdf4; color: #166534; border: 1.5px solid #86efac; font-size: 8pt; font-weight: 800; padding: 3px 10px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.3px;">
+          : `<span style="background: #f0fdf4; color: #166534; border: 1.5px solid #86efac; font-size: 7.5pt; font-weight: 800; padding: 4px 10px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px;">
               ✓ Inspection Completed &amp; Verified
             </span>`
       }
@@ -452,17 +454,17 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
     <table class="item-table mrn-table">
       <thead>
         <tr>
-          <th class="text-center text-nowrap" style="width: 3.5%;">#</th>
-          <th class="text-nowrap" style="width: 14%;">Code</th>
-          <th style="width: 19%;">Material Description</th>
-          <th class="text-nowrap" style="width: 8.5%;">Size</th>
-          <th class="text-right text-nowrap" style="width: 7%;" title="Declared for return by customer site">Declared</th>
-          <th class="text-right text-nowrap" style="width: 7%;" title="Physically received at yard">Received</th>
-          <th class="text-right text-nowrap" style="width: 7%;" title="Accepted in good condition">Accepted</th>
-          <th class="text-right text-nowrap" style="width: 7%;" title="Received damaged">Damaged</th>
-          <th class="text-right text-nowrap" style="width: 7%;" title="Shortage / Missing">Missing</th>
+          <th class="text-center text-nowrap" style="width: 3%;">#</th>
+          <th class="text-nowrap" style="width: 13%;">Code</th>
+          <th style="width: 17%;">Material Description</th>
+          <th class="text-nowrap" style="width: 9%;">Size</th>
+          <th class="text-right text-nowrap" style="width: 8.5%;" title="Declared for return by customer site">Declared</th>
+          <th class="text-right text-nowrap" style="width: 8.5%;" title="Physically received at yard">Received</th>
+          <th class="text-right text-nowrap" style="width: 8.5%;" title="Accepted in good condition">Accepted</th>
+          <th class="text-right text-nowrap" style="width: 8.5%;" title="Received damaged">Damaged</th>
+          <th class="text-right text-nowrap" style="width: 8%;" title="Shortage / Missing">Missing</th>
           <th class="text-center text-nowrap" style="width: 5%;">UOM</th>
-          <th style="width: 15%;" title="Physical Inspection Remarks & Condition">Remarks</th>
+          <th style="width: 11%;" title="Physical Inspection Remarks & Condition">Remarks</th>
         </tr>
       </thead>
       <tbody>
@@ -483,9 +485,9 @@ export async function generateDocumentHTML(data: PDFDocumentData): Promise<strin
             return `
           <tr>
             <td class="text-center text-nowrap" style="color: #64748b; font-size: 7.5pt;">${it.sn}</td>
-            <td class="text-nowrap" style="font-family: monospace; font-weight: 600; font-size: 7.5pt; letter-spacing: -0.2px;">${it.code}</td>
+            <td style="font-family: monospace; font-weight: 600; font-size: 7pt; letter-spacing: -0.2px; word-break: break-all;">${it.code}</td>
             <td style="font-size: 7.5pt; line-height: 1.25; word-break: break-word;"><strong>${it.name}</strong></td>
-            <td class="text-nowrap" style="font-size: 7.5pt; color: #334155;">${it.size || "-"}</td>
+            <td style="font-size: 7.5pt; color: #334155; line-height: 1.25; word-break: break-word;">${it.size || "-"}</td>
             <td class="text-right text-nowrap" style="font-weight: 600;">${declared.toFixed(isQtyFormatted)}</td>
             <td class="text-right text-nowrap" style="font-weight: 600; color: #0f172a;">${received.toFixed(isQtyFormatted)}</td>
             <td class="text-right text-nowrap" style="font-weight: 700; color: #166534;">${accepted.toFixed(isQtyFormatted)}</td>

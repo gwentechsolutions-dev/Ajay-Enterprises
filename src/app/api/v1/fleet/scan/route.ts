@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { requirePermission } from "@/lib/permissions";
+import { checkPermission, requirePermission } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { savePrivateFile, ALLOWED_MIME_TYPES } from "@/lib/storage";
 import {
@@ -21,7 +21,9 @@ import {
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
-    await requirePermission(session, "fleet", "create");
+    if (!session) {
+      throw new Error("UNAUTHORIZED: Authentication required");
+    }
 
     const formData = await req.formData();
 
@@ -32,6 +34,24 @@ export async function POST(req: NextRequest) {
         { success: false, error: { message: `Invalid scanType '${scanType}'. Allowed: ${SCAN_TYPES.join(", ")}` } },
         { status: 400 }
       );
+    }
+
+    if (scanType === "odometer") {
+      const checks = await Promise.all([
+        checkPermission(session.role, "fleet", "create"),
+        checkPermission(session.role, "delivery_portal", "edit"),
+        checkPermission(session.role, "material_returns", "edit"),
+        checkPermission(session.role, "material_returns", "create"),
+        checkPermission(session.role, "delivery_notes", "edit"),
+        checkPermission(session.role, "delivery_notes", "create"),
+        checkPermission(session.role, "direct_transfers", "edit"),
+        checkPermission(session.role, "material_maintenance", "create"),
+      ]);
+      if (!checks.some(Boolean)) {
+        throw new Error(`FORBIDDEN: Role ${session.role} is not permitted to scan odometer readings`);
+      }
+    } else {
+      await requirePermission(session, "fleet", "create");
     }
 
     const categoryRaw = formData.get("category") as string;

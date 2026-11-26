@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { SearchableCombobox, ComboboxOption } from "@/components/ui/searchable-combobox";
 import { ModalPortal } from "@/components/ui/portal";
 import { AiScanModal, ExtractedValues } from "./AiScanModal";
+import { OdometerInputWithScan } from "./OdometerInputWithScan";
 
 interface MaintenanceExpenseModalProps {
   isOpen: boolean;
@@ -330,11 +331,11 @@ export function MaintenanceExpenseModal({
                 <label className="font-bold text-slate-700 block mb-1">
                   {entryType === "JOB" ? "Service Odometer (km) *" : "Current Odometer (km)"}
                 </label>
-                <Input
-                  type="number"
+                <OdometerInputWithScan
                   placeholder="e.g. 52400"
                   value={odometerReading}
-                  onChange={(e) => setOdometerReading(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                  vehicleId={vehicleId || undefined}
+                  onChange={(val) => setOdometerReading(val === "" ? "" : parseFloat(val))}
                   required={entryType === "JOB"}
                 />
               </div>
