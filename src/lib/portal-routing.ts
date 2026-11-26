@@ -185,3 +185,62 @@ export function isNavItemAllowedForRole(role?: string | null, href?: string): bo
 
   return false;
 }
+
+/**
+ * Checks whether a given role is permitted to access an authenticated page route.
+ * Covers sidebar navigation routes plus operational detail routes and self-service
+ * routes (like /change-password) while strictly blocking unauthorized tabs.
+ */
+export function isRouteAllowedForRole(role?: string | null, pathname?: string | null): boolean {
+  if (!role || !pathname) return false;
+  const cleanPath = pathname.split("?")[0] || "/";
+  const upper = role.toUpperCase();
+
+  // Self-service password change is available to every authenticated user
+  if (cleanPath === "/change-password" || cleanPath.startsWith("/change-password/")) {
+    return true;
+  }
+
+  // Executive / Super Admin / Administrator: Universal access
+  if (["OWNER", "ADMINISTRATOR", "ADMIN"].includes(upper)) {
+    return true;
+  }
+
+  // Auditor / Accountant: prefix-based blocklist for admin & field portals
+  if (["AUDITOR", "READ_ONLY", "ACCOUNTANT"].includes(upper)) {
+    const blockedPrefixes = [
+      "/users",
+      "/roles",
+      "/document-settings",
+      "/cutover",
+      "/demo-data",
+      "/warehouse-portal",
+      "/delivery-portal",
+    ];
+    return !blockedPrefixes.some(
+      (prefix) => cleanPath === prefix || cleanPath.startsWith(prefix + "/")
+    );
+  }
+
+  // Operational & field roles: check nav allowlist + role-specific operational detail routes
+  if (isNavItemAllowedForRole(role, cleanPath)) {
+    return true;
+  }
+
+  // Delivery personnel & managers handle direct site-to-site transfer handovers launched from Delivery Portal
+  if (
+    ["DELIVERY_PERSONNEL", "DELIVERY_DRIVER", "DELIVERY_MANAGER", "WAREHOUSE_STAFF", "WAREHOUSE_OPERATOR"].includes(
+      upper
+    ) &&
+    (cleanPath === "/operations/direct-transfers" || cleanPath.startsWith("/operations/direct-transfers/"))
+  ) {
+    return true;
+  }
+
+  // Training guide is permitted for operational roles
+  if (cleanPath === "/training" || cleanPath.startsWith("/training/")) {
+    return true;
+  }
+
+  return false;
+}

@@ -33,7 +33,13 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const result = await reverseGeocodeGps(lat, lng);
+    const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+    const proto = req.headers.get("x-forwarded-proto") || "https";
+    const requestReferer =
+      req.headers.get("origin") ||
+      (host ? `${proto}://${host}/` : undefined);
+
+    const result = await reverseGeocodeGps(lat, lng, requestReferer);
     return NextResponse.json({ success: true, data: result });
   } catch (error: any) {
     return NextResponse.json(

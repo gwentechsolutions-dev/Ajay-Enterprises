@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { isRouteAllowedForRole } from "@/lib/portal-routing";
 
 const SYSTEM_PAGES = [
   { title: "Dashboard", subtitle: "Executive overview & KPIs", href: "/dashboard", category: "Navigation", badge: "Overview" },
@@ -32,19 +33,27 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const q = (searchParams.get("q") || "").trim();
 
+    const allowedPages = SYSTEM_PAGES.filter((p) => isRouteAllowedForRole(session.role, p.href));
+
     if (!q || q.length < 2) {
       return NextResponse.json({
         success: true,
         data: {
           results: [],
-          suggestions: SYSTEM_PAGES.slice(0, 6),
+          suggestions: allowedPages.slice(0, 6),
         },
       });
     }
 
     const term = q;
+    const canViewDN = isRouteAllowedForRole(session.role, "/delivery-notes");
+    const canViewMRN = isRouteAllowedForRole(session.role, "/return-notes");
+    const canViewInvoices = isRouteAllowedForRole(session.role, "/invoices");
+    const canViewAgreements = isRouteAllowedForRole(session.role, "/rentals/agreements");
+    const canViewCustomers = isRouteAllowedForRole(session.role, "/customers");
+    const canViewMaterials = isRouteAllowedForRole(session.role, "/materials");
 
-    // Search in parallel across core business entities
+    // Search in parallel across permitted business entities
     const [
       deliveryNotes,
       returnNotes,
@@ -54,150 +63,164 @@ export async function GET(req: NextRequest) {
       sites,
       materials,
     ] = await Promise.all([
-      db.deliveryNote.findMany({
-        where: {
-          OR: [
-            { dnNumber: { contains: term, mode: "insensitive" } },
-            { eWayBillNumber: { contains: term, mode: "insensitive" } },
-            { customer: { name: { contains: term, mode: "insensitive" } } },
-            { customerSite: { siteName: { contains: term, mode: "insensitive" } } },
-            { vehicleNumber: { contains: term, mode: "insensitive" } },
-          ],
-        },
-        select: {
-          id: true,
-          dnNumber: true,
-          eWayBillNumber: true,
-          status: true,
-          deliveryDate: true,
-          customer: { select: { name: true } },
-          customerSite: { select: { siteName: true } },
-        },
-        take: 4,
-        orderBy: { deliveryDate: "desc" },
-      }),
+      canViewDN
+        ? db.deliveryNote.findMany({
+            where: {
+              OR: [
+                { dnNumber: { contains: term, mode: "insensitive" } },
+                { eWayBillNumber: { contains: term, mode: "insensitive" } },
+                { customer: { name: { contains: term, mode: "insensitive" } } },
+                { customerSite: { siteName: { contains: term, mode: "insensitive" } } },
+                { vehicleNumber: { contains: term, mode: "insensitive" } },
+              ],
+            },
+            select: {
+              id: true,
+              dnNumber: true,
+              eWayBillNumber: true,
+              status: true,
+              deliveryDate: true,
+              customer: { select: { name: true } },
+              customerSite: { select: { siteName: true } },
+            },
+            take: 4,
+            orderBy: { deliveryDate: "desc" },
+          })
+        : Promise.resolve([]),
 
-      db.materialReturnNote.findMany({
-        where: {
-          OR: [
-            { mrnNumber: { contains: term, mode: "insensitive" } },
-            { customer: { name: { contains: term, mode: "insensitive" } } },
-            { customerSite: { siteName: { contains: term, mode: "insensitive" } } },
-          ],
-        },
-        select: {
-          id: true,
-          mrnNumber: true,
-          status: true,
-          returnDate: true,
-          customer: { select: { name: true } },
-          customerSite: { select: { siteName: true } },
-        },
-        take: 4,
-        orderBy: { returnDate: "desc" },
-      }),
+      canViewMRN
+        ? db.materialReturnNote.findMany({
+            where: {
+              OR: [
+                { mrnNumber: { contains: term, mode: "insensitive" } },
+                { customer: { name: { contains: term, mode: "insensitive" } } },
+                { customerSite: { siteName: { contains: term, mode: "insensitive" } } },
+              ],
+            },
+            select: {
+              id: true,
+              mrnNumber: true,
+              status: true,
+              returnDate: true,
+              customer: { select: { name: true } },
+              customerSite: { select: { siteName: true } },
+            },
+            take: 4,
+            orderBy: { returnDate: "desc" },
+          })
+        : Promise.resolve([]),
 
-      db.invoice.findMany({
-        where: {
-          OR: [
-            { invoiceNumber: { contains: term, mode: "insensitive" } },
-            { customer: { name: { contains: term, mode: "insensitive" } } },
-            { customerGstin: { contains: term, mode: "insensitive" } },
-          ],
-        },
-        select: {
-          id: true,
-          invoiceNumber: true,
-          status: true,
-          grandTotal: true,
-          invoiceDate: true,
-          customer: { select: { name: true } },
-        },
-        take: 4,
-        orderBy: { invoiceDate: "desc" },
-      }),
+      canViewInvoices
+        ? db.invoice.findMany({
+            where: {
+              OR: [
+                { invoiceNumber: { contains: term, mode: "insensitive" } },
+                { customer: { name: { contains: term, mode: "insensitive" } } },
+                { customerGstin: { contains: term, mode: "insensitive" } },
+              ],
+            },
+            select: {
+              id: true,
+              invoiceNumber: true,
+              status: true,
+              grandTotal: true,
+              invoiceDate: true,
+              customer: { select: { name: true } },
+            },
+            take: 4,
+            orderBy: { invoiceDate: "desc" },
+          })
+        : Promise.resolve([]),
 
-      db.rentalAgreement.findMany({
-        where: {
-          OR: [
-            { agreementNumber: { contains: term, mode: "insensitive" } },
-            { customer: { name: { contains: term, mode: "insensitive" } } },
-            { customerSite: { siteName: { contains: term, mode: "insensitive" } } },
-          ],
-        },
-        select: {
-          id: true,
-          agreementNumber: true,
-          status: true,
-          customer: { select: { name: true } },
-          customerSite: { select: { siteName: true } },
-        },
-        take: 4,
-        orderBy: { createdAt: "desc" },
-      }),
+      canViewAgreements
+        ? db.rentalAgreement.findMany({
+            where: {
+              OR: [
+                { agreementNumber: { contains: term, mode: "insensitive" } },
+                { customer: { name: { contains: term, mode: "insensitive" } } },
+                { customerSite: { siteName: { contains: term, mode: "insensitive" } } },
+              ],
+            },
+            select: {
+              id: true,
+              agreementNumber: true,
+              status: true,
+              customer: { select: { name: true } },
+              customerSite: { select: { siteName: true } },
+            },
+            take: 4,
+            orderBy: { createdAt: "desc" },
+          })
+        : Promise.resolve([]),
 
-      db.customer.findMany({
-        where: {
-          OR: [
-            { name: { contains: term, mode: "insensitive" } },
-            { customerCode: { contains: term, mode: "insensitive" } },
-            { primaryMobile: { contains: term, mode: "insensitive" } },
-            { gstin: { contains: term, mode: "insensitive" } },
-          ],
-        },
-        select: {
-          id: true,
-          name: true,
-          customerCode: true,
-          primaryMobile: true,
-          state: true,
-          sites: { select: { id: true } },
-        },
-        take: 4,
-        orderBy: { name: "asc" },
-      }),
+      canViewCustomers
+        ? db.customer.findMany({
+            where: {
+              OR: [
+                { name: { contains: term, mode: "insensitive" } },
+                { customerCode: { contains: term, mode: "insensitive" } },
+                { primaryMobile: { contains: term, mode: "insensitive" } },
+                { gstin: { contains: term, mode: "insensitive" } },
+              ],
+            },
+            select: {
+              id: true,
+              name: true,
+              customerCode: true,
+              primaryMobile: true,
+              state: true,
+              sites: { select: { id: true } },
+            },
+            take: 4,
+            orderBy: { name: "asc" },
+          })
+        : Promise.resolve([]),
 
-      db.customerSite.findMany({
-        where: {
-          OR: [
-            { siteName: { contains: term, mode: "insensitive" } },
-            { siteCode: { contains: term, mode: "insensitive" } },
-            { city: { contains: term, mode: "insensitive" } },
-          ],
-        },
-        select: {
-          id: true,
-          siteName: true,
-          siteCode: true,
-          city: true,
-          customerId: true,
-          customer: { select: { name: true } },
-        },
-        take: 4,
-      }),
+      canViewCustomers
+        ? db.customerSite.findMany({
+            where: {
+              OR: [
+                { siteName: { contains: term, mode: "insensitive" } },
+                { siteCode: { contains: term, mode: "insensitive" } },
+                { city: { contains: term, mode: "insensitive" } },
+              ],
+            },
+            select: {
+              id: true,
+              siteName: true,
+              siteCode: true,
+              city: true,
+              customerId: true,
+              customer: { select: { name: true } },
+            },
+            take: 4,
+          })
+        : Promise.resolve([]),
 
-      db.materialVariant.findMany({
-        where: {
-          OR: [
-            { name: { contains: term, mode: "insensitive" } },
-            { materialCode: { contains: term, mode: "insensitive" } },
-            { size: { contains: term, mode: "insensitive" } },
-          ],
-        },
-        select: {
-          id: true,
-          name: true,
-          materialCode: true,
-          size: true,
-          uom: true,
-          defaultRentalRate: true,
-        },
-        take: 4,
-      }),
+      canViewMaterials
+        ? db.materialVariant.findMany({
+            where: {
+              OR: [
+                { name: { contains: term, mode: "insensitive" } },
+                { materialCode: { contains: term, mode: "insensitive" } },
+                { size: { contains: term, mode: "insensitive" } },
+              ],
+            },
+            select: {
+              id: true,
+              name: true,
+              materialCode: true,
+              size: true,
+              uom: true,
+              defaultRentalRate: true,
+            },
+            take: 4,
+          })
+        : Promise.resolve([]),
     ]);
 
     // Matching navigation pages
-    const matchingPages = SYSTEM_PAGES.filter(
+    const matchingPages = allowedPages.filter(
       (p) =>
         p.title.toLowerCase().includes(term.toLowerCase()) ||
         p.subtitle.toLowerCase().includes(term.toLowerCase())

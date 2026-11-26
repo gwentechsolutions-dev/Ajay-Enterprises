@@ -255,13 +255,15 @@ export async function optimizeImageForEvidence(
 }
 
 /**
- * Loads an image from a URL with a timeout.
+ * Loads an image from a URL or data URL with a timeout.
  */
-function loadImageWithTimeout(url: string, timeoutMs: number = 2800): Promise<HTMLImageElement | null> {
+function loadImageFromSrc(src: string, timeoutMs: number = 4000, useCors: boolean = false): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     let resolved = false;
     const img = new Image();
-    img.crossOrigin = "anonymous";
+    if (useCors && !src.startsWith("data:") && !src.startsWith("blob:")) {
+      img.crossOrigin = "anonymous";
+    }
 
     const timer = setTimeout(() => {
       if (!resolved) {
@@ -286,8 +288,76 @@ function loadImageWithTimeout(url: string, timeoutMs: number = 2800): Promise<HT
       }
     };
 
-    img.src = url;
+    img.src = src;
   });
+}
+
+/**
+ * Fetches static map thumbnail safely with full cookie auth, 8.5s timeout,
+ * and fallback status awareness so slow mobile/serverless responses don't prematurely fail.
+ */
+async function fetchStaticMapImage(
+  mapUrl: string,
+  timeoutMs: number = 8500
+): Promise<{
+  image: HTMLImageElement | null;
+  isConfigured: boolean;
+  isFallback: boolean;
+  offline: boolean;
+}> {
+  if (mapUrl.startsWith("data:") || mapUrl.startsWith("blob:")) {
+    const img = await loadImageFromSrc(mapUrl, timeoutMs, false);
+    return { image: img, isConfigured: true, isFallback: false, offline: false };
+  }
+
+  const jsonUrl = mapUrl.includes("?") ? `${mapUrl}&format=json` : `${mapUrl}?format=json`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(jsonUrl, {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+
+    if (!res.ok) {
+      return { image: null, isConfigured: true, isFallback: true, offline: false };
+    }
+
+    const json = await res.json();
+    const data = json?.data;
+    if (!data?.dataUrl) {
+      return {
+        image: null,
+        isConfigured: data?.isConfigured ?? true,
+        isFallback: true,
+        offline: false,
+      };
+    }
+
+    if (data.isFallback && data.errorMessage) {
+      console.warn("[GPS Watermark] Static map fell back on server:", data.errorMessage);
+    }
+
+    const img = await loadImageFromSrc(data.dataUrl, 3000, false);
+    return {
+      image: img,
+      isConfigured: Boolean(data.isConfigured),
+      isFallback: Boolean(data.isFallback),
+      offline: false,
+    };
+  } catch (err: any) {
+    clearTimeout(timer);
+    const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+    return {
+      image: null,
+      isConfigured: true,
+      isFallback: true,
+      offline: isOffline || err?.name !== "AbortError",
+    };
+  }
 }
 
 /**
@@ -328,9 +398,10 @@ async function resolveLocationData(
     options.staticMapUrl ||
     `/api/v1/maps/static-map?lat=${encodeURIComponent(latitude)}&lng=${encodeURIComponent(longitude)}&zoom=17&width=320&height=240`;
 
-  const mapPromise = loadImageWithTimeout(mapUrl, 2800);
+  const mapPromise = fetchStaticMapImage(mapUrl, 8500);
 
-  const [geoResult, mapImage] = await Promise.all([geocodingPromise, mapPromise]);
+  const [geoResult, mapResult] = await Promise.all([geocodingPromise, mapPromise]);
+  const mapImage = mapResult.image;
 
   if (geoResult && "preProvided" in geoResult && geoResult.preProvided) {
     geocodingStatus = "SUCCESS";
@@ -367,10 +438,17 @@ async function resolveLocationData(
     }
   }
 
-  if (mapImage) {
+  if (mapImage && !mapResult.isFallback) {
     miniMapStatus = geocodingStatus === "PENDING_KEY" ? "PENDING_KEY" : "SUCCESS";
+  } else if (mapImage && mapResult.isFallback) {
+    // Still render the server-provided fallback SVG map if available, unless key is pending
+    miniMapStatus = !mapResult.isConfigured || geocodingStatus === "PENDING_KEY" ? "PENDING_KEY" : "SUCCESS";
+  } else if (mapResult.offline) {
+    miniMapStatus = "OFFLINE";
+  } else if (!mapResult.isConfigured || geocodingStatus === "PENDING_KEY") {
+    miniMapStatus = "PENDING_KEY";
   } else {
-    miniMapStatus = geocodingStatus === "PENDING_KEY" ? "PENDING_KEY" : "FAILED";
+    miniMapStatus = "FAILED";
   }
 
   return { line1, line2, geocodingStatus, miniMapStatus, mapImage };

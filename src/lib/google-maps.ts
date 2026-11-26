@@ -40,6 +40,7 @@ export interface StaticMapOptions {
   width?: number; // default 300
   height?: number; // default 240
   scale?: number; // default 2
+  referer?: string;
 }
 
 /**
@@ -148,7 +149,8 @@ export function formatLocationLines(
  */
 export async function reverseGeocodeGps(
   latitude: number,
-  longitude: number
+  longitude: number,
+  requestReferer?: string
 ): Promise<ReverseGeocodeResult> {
   // Validate coordinates
   if (
@@ -193,6 +195,7 @@ export async function reverseGeocodeGps(
   const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`;
 
   const appUrl =
+    requestReferer ||
     process.env.NEXT_PUBLIC_APP_URL ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://ajay-enterprises-gwen-tech.vercel.app");
   const referer = appUrl.endsWith("/") ? appUrl : `${appUrl}/`;
@@ -346,7 +349,7 @@ export function generateFallbackMapSvg(
 export async function fetchStaticMapThumbnail(
   options: StaticMapOptions
 ): Promise<{ buffer: Buffer; contentType: string; isConfigured: boolean; isFallback: boolean; errorMessage?: string }> {
-  const { latitude, longitude, zoom = 17, width = 300, height = 240, scale = 2 } = options;
+  const { latitude, longitude, zoom = 17, width = 300, height = 240, scale = 2, referer: customReferer } = options;
 
   // If Google Maps API key is not configured, generate fallback SVG
   if (!isGoogleMapsConfigured()) {
@@ -364,13 +367,14 @@ export async function fetchStaticMapThumbnail(
   const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${latitude},${longitude}&zoom=${zoom}&size=${width}x${height}&scale=${scale}&maptype=roadmap&markers=color:0xF26522%7C${latitude},${longitude}&key=${apiKey}`;
 
   const appUrl =
+    customReferer ||
     process.env.NEXT_PUBLIC_APP_URL ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://ajay-enterprises-gwen-tech.vercel.app");
   const referer = appUrl.endsWith("/") ? appUrl : `${appUrl}/`;
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 7000);
+    const timeoutId = setTimeout(() => controller.abort(), 6500);
 
     let res = await fetch(staticMapUrl, {
       method: "GET",
@@ -380,22 +384,26 @@ export async function fetchStaticMapThumbnail(
       },
       signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     // If 403, retry without Referer in case key has no domain restriction
     if (!res.ok && res.status === 403) {
+      const retryController = new AbortController();
+      const retryTimeoutId = setTimeout(() => retryController.abort(), 5000);
       try {
         const retryRes = await fetch(staticMapUrl, {
           method: "GET",
           headers: { Accept: "image/png,image/*" },
-          signal: controller.signal,
+          signal: retryController.signal,
         });
         if (retryRes.ok) {
           res = retryRes;
         }
-      } catch {}
+      } catch {
+      } finally {
+        clearTimeout(retryTimeoutId);
+      }
     }
-
-    clearTimeout(timeoutId);
 
     if (!res.ok) {
       let errorBody = "";

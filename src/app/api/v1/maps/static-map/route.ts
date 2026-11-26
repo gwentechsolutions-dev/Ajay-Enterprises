@@ -38,33 +38,47 @@ export async function GET(req: NextRequest) {
     const height = Math.max(80, Math.min(640, parseInt(searchParams.get("height") || "240", 10)));
     const format = searchParams.get("format");
 
+    const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+    const proto = req.headers.get("x-forwarded-proto") || "https";
+    const requestReferer =
+      req.headers.get("origin") ||
+      (host ? `${proto}://${host}/` : undefined);
+
     const { buffer, contentType, isConfigured, isFallback, errorMessage } = await fetchStaticMapThumbnail({
       latitude: lat,
       longitude: lng,
       zoom,
       width,
       height,
+      referer: requestReferer,
     });
 
     if (format === "base64" || format === "json") {
       const dataUrl = `data:${contentType};base64,${buffer.toString("base64")}`;
-      return NextResponse.json({
-        success: true,
-        data: {
-          dataUrl,
-          isConfigured,
-          isFallback,
-          contentType,
-          errorMessage,
+      return NextResponse.json(
+        {
+          success: true,
+          data: {
+            dataUrl,
+            isConfigured,
+            isFallback,
+            contentType,
+            errorMessage,
+          },
         },
-      });
+        {
+          headers: {
+            "Cache-Control": isFallback ? "private, no-store" : "private, max-age=3600",
+          },
+        }
+      );
     }
 
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         "Content-Type": contentType,
-        "Cache-Control": "private, max-age=3600",
+        "Cache-Control": isFallback ? "private, no-store" : "private, max-age=3600",
         "X-Inventra-Map-Configured": isConfigured ? "true" : "false",
         "X-Inventra-Map-Fallback": isFallback ? "true" : "false",
       },

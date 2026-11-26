@@ -37,6 +37,7 @@ import {
   DialogContent,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { getDefaultPortalForRole, isExecutiveRole, isRouteAllowedForRole } from "@/lib/portal-routing";
 
 interface TopbarProps {
   user: SessionUser;
@@ -116,8 +117,12 @@ export function Topbar({ user, onMenuToggle }: TopbarProps) {
     });
   }, []);
 
+  const visibleNotifications = React.useMemo(() => {
+    return notifications.filter((n) => isRouteAllowedForRole(user.role, n.href));
+  }, [notifications, user.role]);
+
   const markAllAsRead = React.useCallback(() => {
-    const allIds = new Set(notifications.map((n) => n.id));
+    const allIds = new Set(visibleNotifications.map((n) => n.id));
     setReadIds((prev) => {
       const next = new Set([...Array.from(prev), ...Array.from(allIds)]);
       try {
@@ -128,11 +133,11 @@ export function Topbar({ user, onMenuToggle }: TopbarProps) {
       return next;
     });
     toast.success("All notifications marked as read");
-  }, [notifications]);
+  }, [visibleNotifications]);
 
   const unreadCount = React.useMemo(() => {
-    return notifications.filter((n) => !readIds.has(n.id)).length;
-  }, [notifications, readIds]);
+    return visibleNotifications.filter((n) => !readIds.has(n.id)).length;
+  }, [visibleNotifications, readIds]);
 
   // Search Palette State & Client-Side Cache
   const [searchOpen, setSearchOpen] = React.useState(false);
@@ -512,21 +517,21 @@ export function Topbar({ user, onMenuToggle }: TopbarProps) {
 
               {/* Notification List */}
               <div className="max-h-[380px] overflow-y-auto divide-y divide-slate-100">
-                {loadingNotifications && notifications.length === 0 ? (
+                {loadingNotifications && visibleNotifications.length === 0 ? (
                   <div className="p-8 text-center">
                     <Loader2 className="h-5 w-5 animate-spin text-slate-400 mx-auto mb-2" />
                     <p className="text-xs text-slate-500">Checking for alerts...</p>
                   </div>
-                ) : notifications.length === 0 ? (
+                ) : visibleNotifications.length === 0 ? (
                   <div className="p-8 text-center">
                     <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto mb-2 opacity-80" />
                     <p className="text-xs font-semibold text-slate-800">All caught up!</p>
                     <p className="text-[11px] text-slate-400 mt-0.5">
-                      No active business alerts or pending dispatches.
+                      No active alerts for your workspace.
                     </p>
                   </div>
                 ) : (
-                  notifications.map((item) => {
+                  visibleNotifications.map((item) => {
                     const isUnread = !readIds.has(item.id);
                     return (
                       <div
@@ -534,7 +539,10 @@ export function Topbar({ user, onMenuToggle }: TopbarProps) {
                         onClick={() => {
                           markAsRead(item.id);
                           setNotificationsOpen(false);
-                          router.push(item.href);
+                          const targetHref = isRouteAllowedForRole(user.role, item.href)
+                            ? item.href
+                            : getDefaultPortalForRole(user.role);
+                          router.push(targetHref);
                         }}
                         className={`p-3 text-left transition-colors flex items-start gap-3 hover:bg-slate-50 cursor-pointer ${
                           isUnread ? "bg-orange-50/30" : ""
@@ -586,11 +594,21 @@ export function Topbar({ user, onMenuToggle }: TopbarProps) {
               {/* Footer */}
               <div className="border-t border-slate-100 bg-slate-50 px-3.5 py-2 flex items-center justify-between text-[11px]">
                 <Link
-                  href="/dashboard"
+                  href={isExecutiveRole(user.role) ? "/dashboard" : getDefaultPortalForRole(user.role)}
                   onClick={() => setNotificationsOpen(false)}
                   className="text-[#0B1E36] font-semibold hover:underline flex items-center gap-1"
                 >
-                  <span>Executive Dashboard</span>
+                  <span>
+                    {isExecutiveRole(user.role)
+                      ? "Executive Dashboard"
+                      : getDefaultPortalForRole(user.role) === "/delivery-portal"
+                      ? "Delivery Driver App"
+                      : getDefaultPortalForRole(user.role) === "/warehouse-portal"
+                      ? "Warehouse Portal"
+                      : getDefaultPortalForRole(user.role) === "/labour/attendance"
+                      ? "Daily Attendance"
+                      : "My Workspace"}
+                  </span>
                   <ArrowRight className="h-3 w-3" />
                 </Link>
                 <button
@@ -655,14 +673,16 @@ export function Topbar({ user, onMenuToggle }: TopbarProps) {
                   <span>Change Password</span>
                 </Link>
 
-                <Link
-                  href="/company"
-                  onClick={() => setProfileOpen(false)}
-                  className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-xs text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-                >
-                  <Building className="h-3.5 w-3.5 text-slate-400" />
-                  <span>Company Profile</span>
-                </Link>
+                {isRouteAllowedForRole(user.role, "/company") && (
+                  <Link
+                    href="/company"
+                    onClick={() => setProfileOpen(false)}
+                    className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-xs text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                  >
+                    <Building className="h-3.5 w-3.5 text-slate-400" />
+                    <span>Company Profile</span>
+                  </Link>
+                )}
 
                 <div className="border-t border-slate-100 my-1" />
 

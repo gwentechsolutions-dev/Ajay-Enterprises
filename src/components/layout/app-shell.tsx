@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { DemoModeBanner } from "./demo-mode-banner";
@@ -9,6 +9,7 @@ import { SessionUser } from "@/lib/auth";
 import { Toaster } from "sonner";
 import { cn } from "@/lib/utils";
 import { AuthProvider } from "@/lib/auth-context";
+import { getDefaultPortalForRole, isRouteAllowedForRole } from "@/lib/portal-routing";
 
 interface AppShellProps {
   user: SessionUser;
@@ -19,7 +20,15 @@ export function AppShell({ user, children }: AppShellProps) {
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const pathname = usePathname();
+  const router = useRouter();
   const isDeliveryPortal = pathname === "/delivery-portal";
+  const isRouteAllowed = isRouteAllowedForRole(user.role, pathname);
+
+  React.useEffect(() => {
+    if (!isRouteAllowed) {
+      router.replace(getDefaultPortalForRole(user.role));
+    }
+  }, [isRouteAllowed, user.role, router]);
 
   return (
     <AuthProvider user={user}>
@@ -59,7 +68,13 @@ export function AppShell({ user, children }: AppShellProps) {
               isDeliveryPortal && "max-md:p-2 max-md:pb-24 max-md:pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] max-md:max-w-none"
             )}
           >
-            {children}
+            {isRouteAllowed ? (
+              children
+            ) : (
+              <div className="flex items-center justify-center min-h-[40vh] text-sm text-slate-500">
+                Redirecting to your authorized workspace...
+              </div>
+            )}
           </main>
         </div>
       </div>
